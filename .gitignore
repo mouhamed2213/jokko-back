@@ -68,3 +68,5 @@ pids/
 
 # Misc
 *.tgz
+ecosystem.config.js
+ecosystem.config.cjs
