@@ -27,16 +27,27 @@ const app = express();
 
  
 app.use(express.json());
+const allowedOrigins = [
+  'https://jokko-business.com',
+  'https://www.jokko-business.com',
+  'http://localhost:4200',
+  'http://localhost:5173'
+];
+
 app.use(
   cors({
-     origin: [
-    'https://jokko-business.com',
-    'https://www.jokko-business.com',
-    'http://localhost:4200' // Pour vos tests en dev local
-  ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: (origin, callback) => {
+      // Autoriser les requêtes sans origine (ex: Postman ou requêtes serveur à serveur)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Bloqué par CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
-  }),
+  })
 );
 app.use(
   morgan(env.mode === "production" ? "combined" : "dev", {
