@@ -20,7 +20,7 @@
     "deploy:local": "npx dotenv-cli -e .env.production.local -- npx prisma migrate deploy",
     "db:status": "npx dotenv-cli -e .env.production.local -- npx prisma migrate status",
     "RUN ON PRODUCTION": "PRODUCTION SCRIPT",
-    "prod:build": "cross-env NODE_ENV=production tsc &&  npx prisma migrate deploy"
+    "prod:build": "npx dotenv-cli -e .env.production.local tsc &&  npx prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
