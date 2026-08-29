@@ -25,7 +25,7 @@ const fileFormat = combine(
 );
 
 export const logger = createLogger({
-  level: env.log.logLevel,
+  level: env.log.LogLevel,
   transports: [
     // Console — développement
     new transports.Console({

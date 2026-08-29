@@ -29,6 +29,9 @@ export const env = {
     password: data.MAIL_PASSWORD,
     from: data.MAIL_FROM,
   },
+  log: {
+    LogLevel: data.LOG_LEVEL,
+  },
   frontendUrl: data.FRONTEND_URL,
   mode: data.NODE_ENV || "development",
 };
