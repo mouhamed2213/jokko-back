@@ -88,6 +88,7 @@ export const createProduct = async (
   try {
     const shopId = req.user!.shopId;
     const shopOwnerId = req.user!.ownerId;
+    const productData = req.body;
     const {
       name,
       description,
@@ -95,6 +96,7 @@ export const createProduct = async (
       categoryId,
       purchasePrice,
       salePrice,
+      quantity,
       alertThreshold,
       imageUrl: directImageUrl, // URL de secours si pas de fichier envoyé
       semiWholesalePrice,
@@ -103,6 +105,7 @@ export const createProduct = async (
       wholesaleMinQty,
     } = req.body;
 
+    // return console.log("req.body", req.body);
     if (!name || purchasePrice == null || salePrice == null) {
       return res.status(400).json({
         message: "Nom, prix d'achat et prix de vente sont obligatoires",
@@ -137,6 +140,7 @@ export const createProduct = async (
       categoryId,
       purchasePrice,
       salePrice,
+      quantity,
       Number(alertThreshold) ,
       imageUrl, 
       semiWholesalePrice,
@@ -144,7 +148,7 @@ export const createProduct = async (
       wholesalePrice,
       wholesaleMinQty,
     );
-
+    console.log("Body", req.body);
     return res
       .status(201)
       .json({ message: "Produit créé avec succès", product });
@@ -171,6 +175,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       categoryId,
       purchasePrice,
       salePrice,
+      quantity,
       alertThreshold,
       imageUrl,
       semiWholesalePrice,
@@ -227,6 +232,9 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
             : existing.purchasePrice,
         salePrice:
           salePrice !== undefined ? Number(salePrice) : existing.salePrice,
+
+
+          quantity: quantity !== undefined ? Number(quantity) : existing.quantity,
         alertThreshold:
           alertThreshold !== undefined
             ? Number(alertThreshold)
