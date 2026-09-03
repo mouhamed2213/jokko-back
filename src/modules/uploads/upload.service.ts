@@ -23,9 +23,6 @@ export const UploadService = {
       bucket  = PRODUCT_BUCKET
     }
 
-
-    console.log(bucket)
-
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, file.buffer, {
@@ -33,7 +30,8 @@ export const UploadService = {
         upsert: true,
       });
     if (error) {
-      throw new AppError(`Échec de l'opload du fichier ${error.message}`);
+      logger.warn("Supabase Storage Upload Error:", error);
+      throw new AppError(`Échec de l'opload du fichier`);
     }
     return data;
   },
@@ -42,7 +40,7 @@ export const UploadService = {
   deleteFile: async (bucket: string, path: string) => {
     const { data, error } = await supabase.storage.from(bucket).remove([path]);
     if (error) {
-      logger.warn("Supabase Storage Delete Error:", error.message);
+      logger.warn("Supabase Storage Delete Error:", error);
       throw new AppError(`Impossible de supprimer l'image `);
     }
 

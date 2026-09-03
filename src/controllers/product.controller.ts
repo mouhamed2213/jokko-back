@@ -148,7 +148,6 @@ export const createProduct = async (
       wholesalePrice,
       wholesaleMinQty,
     );
-    console.log("Body", req.body);
     return res
       .status(201)
       .json({ message: "Produit créé avec succès", product });
