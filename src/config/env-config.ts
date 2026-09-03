@@ -1,14 +1,14 @@
 import dotenv from "dotenv";
 
 // Charge le fichier .env s'il existe (en local)
-// Sur VPS, si .env n'existe pas, il utilise directement process.env
+// Sur VPS, On utilise pm2 
 dotenv.config();
 
 const data = process.env;
 
 export const env = {
   server: data.SERVER || "http://localhost",
-  port: Number(data.PORT) || 5000,
+  port: Number(data.PORT) || 3000,
   logLevel: data.LOG_LEVEL || "info",
   db: {
     url: data.DATABASE_URL!,
