@@ -33,7 +33,8 @@ export const login = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(401).json({ message: "Identifiants invalides" });
+      logger.warn(`❌ Tentative de connexion échouée — ${email} (utilisateur non trouvé)`);
+      return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 
     const shopOwner = await prisma.shopOwner.findFirst({
@@ -58,7 +59,7 @@ export const login = async (req: Request, res: Response) => {
       logger.warn(
         `❌ Tentative de connexion échouée — ${email} (mauvais mot de passe)`,
       );
-      return res.status(401).json({ message: "Identifiants invalides" });
+      return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 
     const token = jwt.sign(
