@@ -14,9 +14,9 @@ export const seedDb = async () => {
         name: "Free",
         price: 0,
         maxUsers: 1,
-        maxProducts: 50,
+        maxProducts: 20,
         maxCustomers: null,
-        maxSalesPerMonth: 100,
+        maxSalesPerMonth: 10,
         maxStores: null,
       },
       {
@@ -24,7 +24,7 @@ export const seedDb = async () => {
         name: "Basic",
         price: 6500,
         maxUsers: 3,
-        maxProducts: 600,
+        maxProducts: null,
         maxCustomers: null,
         maxSalesPerMonth: null,
         maxStores: null,
@@ -133,15 +133,22 @@ export const seedDb = async () => {
     // ==================================================
 
     const mappings: Record<string, string[]> = {
-      FREE: [],
+    FREE: [
+  "EXPORT_PDF",
+  "EXPORT_EXCEL",
+  "LOW_STOCK_ALERT",
+  "TOP_PRODUCTS",
+  "STOCK_VALUE",
+],
 
-      BASIC: [
-        "EXPORT_PDF",
-        "EXPORT_EXCEL",
-        "LOW_STOCK_ALERT",
-        "TOP_PRODUCTS",
-        "STOCK_VALUE",
-      ],
+BASIC: [
+  "EXPORT_PDF",
+  "EXPORT_EXCEL",
+  "LOW_STOCK_ALERT",
+  "TOP_PRODUCTS",
+  "STOCK_VALUE",
+],
+
 
       PRO: [
         "EXPORT_PDF",
@@ -169,26 +176,30 @@ export const seedDb = async () => {
       ],
     };
 
-    for (const [planCode, featureCodes] of Object.entries(mappings)) {
-      const planId = planMap[planCode];
+   for (const [planCode, featureCodes] of Object.entries(mappings)) {
+  const planId = planMap[planCode];
 
-      // Delete existing mappings
-      await prisma.planFeature.deleteMany({
-        where: {
-          planId,
-        },
-      });
+  // Dédupliquer les codes
+  const uniqueFeatureCodes = [...new Set(featureCodes)];
 
-      // Create fresh mappings
-      if (featureCodes.length > 0) {
-        await prisma.planFeature.createMany({
-          data: featureCodes.map((code) => ({
-            planId,
-            featureId: featureMap[code],
-          })),
-        });
-      }
-    }
+  // Delete existing mappings
+  await prisma.planFeature.deleteMany({
+    where: { planId },
+  });
+
+  // Create fresh mappings
+  if (uniqueFeatureCodes.length > 0) {
+    await prisma.planFeature.createMany({
+      data: uniqueFeatureCodes.map((code) => ({
+        planId,
+        featureId: featureMap[code],
+      })),
+        skipDuplicates: true,
+
+    });
+  }
+}
+
 
     logger.info("✅ Database seeded successfully");
   } catch (error) {
