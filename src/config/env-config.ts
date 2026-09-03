@@ -16,6 +16,8 @@ export const env = {
   },
   secret: {
     jwt: data.JWT_SECRET!,
+    ADMIN_EMAIL: data.ADMIN_EMAIL!,
+    ADMIN_PASSWORD: data.ADMIN_PASSWORD!,
   },
   storage: {
     superbaseUrl: data.SUPABASE_URL!,

@@ -2,11 +2,12 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/prisma.js";
 import { logger } from "../config/logger.js";
+import { env } from "../config/env-config.js";
 
 export async function seedAdmin() {
   try {
-    const email = "superadmin@jokkobusiness.com";
-    const password = "superadmin123"; // Changer après la première connexion !
+    const email = env.secret.ADMIN_EMAIL;
+    const password = env.secret.ADMIN_PASSWORD
 
     const existing = await prisma.superAdmin.findUnique({ where: { email } });
 
