@@ -139,6 +139,7 @@ export const seedDb = async () => {
   "LOW_STOCK_ALERT",
   "TOP_PRODUCTS",
   "STOCK_VALUE",
+  `OUT_OF_STOCK_ALERT`
 ],
 
 BASIC: [
@@ -147,6 +148,7 @@ BASIC: [
   "LOW_STOCK_ALERT",
   "TOP_PRODUCTS",
   "STOCK_VALUE",
+  `OUT_OF_STOCK_ALERT`
 ],
 
 
@@ -159,7 +161,9 @@ BASIC: [
         "SUPPLIER_MANAGEMENT",
         "ADVANCED_REPORTS",
         "ACCOUNTING",
-        "MULTI_STORE"
+        "MULTI_STORE",
+  `OUT_OF_STOCK_ALERT`
+
       ],
 
       PREMIUM: [
@@ -173,6 +177,8 @@ BASIC: [
         // "ACCOUNTING",
         "MULTI_STORE",
         // "API_ACCESS",
+  `OUT_OF_STOCK_ALERT`
+
       ],
     };
 
