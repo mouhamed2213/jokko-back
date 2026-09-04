@@ -179,6 +179,7 @@ BASIC: [
         // "API_ACCESS",
   `OUT_OF_STOCK_ALERT`
 
+
       ],
     };
 
