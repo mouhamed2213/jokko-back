@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
+import { getFullStorageUrl } from "../utils/file-upload.js";
 
 // Helper encaissement caisse
 async function recordCashIn(shopId: number, amount: number, label: string, reference: string, paymentMethod = "CASH") {
@@ -71,6 +72,17 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
+
+    // Get product images for each invoice item
+    const  invoicesWithImages = invoices.map(invoice => {
+      const itemsWithImages = invoice.items.map(item => {
+        const imgUrl = item.product?.imageUrl || null;
+        const url = getFullStorageUrl("products", imgUrl as string)
+        return { ...item, productImageUrl: url }
+      })
+      return { ...invoice, items: itemsWithImages }
+    })
+
     // Stats globales
     const stats = await prisma.sale.aggregate({
       where: { shopId },
@@ -79,7 +91,7 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
     });
 
     return res.status(200).json({
-      data: invoices,
+      data: invoicesWithImages,
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
       stats: {
         totalInvoices: stats._count,
