@@ -88,7 +88,6 @@ export const createProduct = async (
   try {
     const shopId = req.user!.shopId;
     const shopOwnerId = req.user!.ownerId;
-    const productData = req.body;
     const {
       name,
       description,
@@ -103,6 +102,10 @@ export const createProduct = async (
       semiWholesaleMinQty,
       wholesalePrice,
       wholesaleMinQty,
+      supplierId,
+      unitCost,
+      paidAmount,
+      createDebt,
     } = req.body;
 
     // return console.log("req.body", req.body);
@@ -131,23 +134,28 @@ export const createProduct = async (
     }
 
     // 2. Création du produit avec le bon imageUrl
-    const product = await ProductService.createProduct(
+    const product = await ProductService.createProduct({
       shopOwnerId,
       shopId,
+      userId: req.user!.userId,
       name,
       description,
       reference,
       categoryId,
-      purchasePrice,
-      salePrice,
-      quantity,
-      Number(alertThreshold) ,
-      imageUrl, 
-      semiWholesalePrice,
-      semiWholesaleMinQty,
-      wholesalePrice,
-      wholesaleMinQty,
-    );
+      purchasePrice: Number(purchasePrice),
+      salePrice: Number(salePrice),
+      quantity: Number(quantity) || 0,
+      alertThreshold: Number(alertThreshold),
+      imageUrl,
+      semiWholesalePrice: Number(semiWholesalePrice) || undefined,
+      semiWholesaleMinQty: Number(semiWholesaleMinQty) || undefined,
+      wholesalePrice: Number(wholesalePrice) || undefined,
+      wholesaleMinQty: Number(wholesaleMinQty) || undefined,
+      supplierId: Number(supplierId) || undefined,
+      unitCost: Number(unitCost) || undefined,
+      paidAmount: Number(paidAmount) || 0,
+      createDebt: createDebt === true || createDebt === "true",
+    });
     return res
       .status(201)
       .json({ message: "Produit créé avec succès", product });
@@ -433,4 +441,3 @@ export const uploadProductImage = (req: AuthRequest, res: Response) => {
     filename: file.filename,
   });
 };
-
