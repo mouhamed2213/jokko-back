@@ -67,15 +67,16 @@ export const login = async (req: Request, res: Response) => {
         ownerId: shopOwner.userId, //  it for having th context of the owner , and use it to check if shops belons to a user
         userId: user.id, // user who is connected
         shopId: user.shopId,
-        plan: user.shop.subscriptions[0].plan.code === "FREE",
+        plan: user.shop.subscriptions[0].plan.code,
         role: user.role,
       },
       env.secret.jwt ,
       { expiresIn: "3d" },
     );
 
+
     logger.info(
-      `✅ Connexion réussie — ${user.email} (${user.role}) — Boutique: ${user.shop.name}`,
+      `✅ Connexion réussie — ${user.email} (${user.role}) — Boutique: ${user.shop.name} — Plan: ${user.shop.subscriptions[0].plan.code}`,
     );
 
     return res.status(200).json({
