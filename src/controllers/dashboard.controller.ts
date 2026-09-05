@@ -5,8 +5,6 @@ import { AuthRequest } from "../middlewares/auth.middleware.js";
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
-    const shopPlan = req.user?.planType;
-
     // const now = new Date();
     // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -63,15 +61,25 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     ]);
 
     // --- CALCULS DES PRODUITS ---
-    const lowStockProducts = shopPlan !== "FREE" ? allProducts.filter(p => p.quantity > 0 && p.quantity <= p.alertThreshold).length : 0;
-    const outOfStockProducts = shopPlan !== "FREE" ? allProducts.filter(p => p.quantity === 0).length : 0;
-    const stockValue = shopPlan !== "FREE" ? allProducts.reduce((total, p) => total + p.quantity * p.purchasePrice, 0) : 0;
+    const lowStockProducts = allProducts.filter(
+      (p) => p.quantity > 0 && p.quantity <= p.alertThreshold,
+    ).length;
+    const outOfStockProducts = allProducts.filter(
+      (p) => p.quantity === 0,
+    ).length;
+    const stockValue = allProducts.reduce(
+      (total, p) => total + p.quantity * p.purchasePrice,
+      0,
+    );
 
     // --- CALCULS DES VENTES ---
     const totalSalesAmount = salesData.reduce((sum, s) => sum + s.totalAmount, 0); // CA Global Historique
     const totalPaidAmount = salesData.reduce((sum, s) => sum + s.paidAmount, 0);
     const totalClientDebt = unpaidSales.reduce((sum, s) => sum + s.remaining, 0);
-    const totalSupplierDebt = shopPlan !== "FREE" ? supplierDebts.reduce((sum, d) => sum + d.remaining, 0) : 0;
+    const totalSupplierDebt = supplierDebts.reduce(
+      (sum, d) => sum + d.remaining,
+      0,
+    );
 
     // --- AJOUT : Valeur finale du CA du mois en cours ---
     const currentMonthSalesAmount = currentMonthSalesSum._sum.totalAmount || 0;
@@ -105,16 +113,16 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       totalClientDebt,
       recentSalesAmount,
       totalClients,
-      totalSuppliers: shopPlan !== "FREE" ? totalSuppliers : 0,
+      totalSuppliers,
       totalSupplierDebt,
       cashOpen: cashRegister?.status === "OPEN",
       currentBalance,
-      topProducts: shopPlan !== "FREE" ? topProducts.map((p) => ({
+      topProducts: topProducts.map((p) => ({
         productId: p.productId,
         productName: p.productName,
         totalQuantity: p._sum.quantity,
         totalAmount: p._sum.totalAmount,
-      })) : [],
+      })),
     });
   } catch (error) {
     console.error(error);

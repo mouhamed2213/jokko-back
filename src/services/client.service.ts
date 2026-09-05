@@ -34,16 +34,14 @@ export const ClientService = {
       throw new NotFoundError("Boutique introuvable");
     }
 
-    if (shop?.plan.code == "FREE") {
-      const maxCustomers = shop.limits.customers ?? 50;
-
+    if (shop.limits.customers !== null) {
       const customerCount = await prisma.client.count({
         where: { shopId },
       });
 
-      if (customerCount >= maxCustomers) {
+      if (customerCount >= shop.limits.customers) {
         throw new ForbiddenError(
-          "Vous avez atteint la limite maximale de 50 clients pour le plan gratuit. Passez au Plan Basic pour un carnet illimité.",
+          `Vous avez atteint la limite de ${shop.limits.customers} clients autorisée par votre abonnement.`,
         );
       }
     }

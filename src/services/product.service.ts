@@ -72,7 +72,11 @@ export const ProductService = {
     }
 
     const qty = Number(quantity) || 0;
-    const cost = unitCost ? Number(unitCost) : null;
+    const cost = supplierId
+      ? Number(unitCost || purchasePrice)
+      : unitCost
+        ? Number(unitCost)
+        : null;
     const paid = Number(paidAmount) || 0;
 
     return prisma.$transaction(async (tx) => {
@@ -89,6 +93,9 @@ export const ProductService = {
         throw new BadRequestError(
           "Un fournisseur et un coût unitaire sont obligatoires pour créer une dette",
         );
+      }
+      if (paid < 0) {
+        throw new BadRequestError("L'acompte ne peut pas être négatif");
       }
 
       const product = await tx.product.create({
@@ -122,6 +129,11 @@ export const ProductService = {
       }
 
       const totalCost = cost ? cost * qty : null;
+      if (createDebt && totalCost !== null && paid > totalCost) {
+        throw new BadRequestError(
+          "L'acompte ne peut pas dépasser le montant total de l'approvisionnement",
+        );
+      }
       const updatedProduct = await tx.product.update({
         where: { id: product.id },
         data: { quantity: qty },

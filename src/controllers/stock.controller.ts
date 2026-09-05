@@ -42,9 +42,24 @@ export const addStockEntry = async (req: AuthRequest, res: Response) => {
     }
 
     const qty = Number(quantity);
-    const cost = unitCost ? Number(unitCost) : null;
+    const cost = supplierId
+      ? Number(unitCost || product.purchasePrice)
+      : unitCost
+        ? Number(unitCost)
+        : null;
     const totalCost = cost ? cost * qty : null;
     const paid = paidAmount ? Number(paidAmount) : 0;
+    if (paid < 0) {
+      return res.status(400).json({ message: "L'acompte ne peut pas être négatif" });
+    }
+    if (createDebt && (!cost || cost <= 0)) {
+      return res.status(400).json({ message: "Le coût unitaire doit être supérieur à zéro" });
+    }
+    if (createDebt && totalCost !== null && paid > totalCost) {
+      return res.status(400).json({
+        message: "L'acompte ne peut pas dépasser le montant total de l'approvisionnement",
+      });
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Mettre à jour le stock

@@ -18,6 +18,7 @@ export const seedDb = async () => {
         maxCustomers: null,
         maxSalesPerMonth: 10,
         maxStores: null,
+        maxSuppliers: 2,
       },
       {
         code: "BASIC",
@@ -28,6 +29,7 @@ export const seedDb = async () => {
         maxCustomers: null,
         maxSalesPerMonth: null,
         maxStores: null,
+        maxSuppliers: 5,
       },
       {
         code: "PRO",
@@ -38,6 +40,7 @@ export const seedDb = async () => {
         maxCustomers: null,
         maxSalesPerMonth: null,
         maxStores: 2,
+        maxSuppliers: null,
       },
       {
         code: "PREMIUM",
@@ -48,6 +51,7 @@ export const seedDb = async () => {
         maxCustomers: null,
         maxSalesPerMonth: null,
         maxStores: 5,
+        maxSuppliers: null,
       },
     ];
 

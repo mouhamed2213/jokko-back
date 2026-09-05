@@ -114,6 +114,19 @@ export const createProduct = async (
         message: "Nom, prix d'achat et prix de vente sont obligatoires",
       });
     }
+    const parsedPaidAmount = Number(paidAmount) || 0;
+    if (parsedPaidAmount < 0) {
+      return res.status(400).json({ message: "L'acompte ne peut pas être négatif" });
+    }
+    if (
+      (createDebt === true || createDebt === "true") &&
+      Number(unitCost || purchasePrice) > 0 &&
+      parsedPaidAmount > Number(unitCost || purchasePrice) * (Number(quantity) || 0)
+    ) {
+      return res.status(400).json({
+        message: "L'acompte ne peut pas dépasser le montant total de l'approvisionnement",
+      });
+    }
 
     let imageUrl = directImageUrl || null;
 
@@ -153,7 +166,7 @@ export const createProduct = async (
       wholesaleMinQty: Number(wholesaleMinQty) || undefined,
       supplierId: Number(supplierId) || undefined,
       unitCost: Number(unitCost) || undefined,
-      paidAmount: Number(paidAmount) || 0,
+      paidAmount: parsedPaidAmount,
       createDebt: createDebt === true || createDebt === "true",
     });
     return res

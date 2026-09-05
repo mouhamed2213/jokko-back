@@ -4,12 +4,11 @@ import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { BadRequestError, ForbiddenError } from "../utils/errors.js";
 import { SubscriptionService } from "../services/subscription.service.js";
 
-const getSupplierPlan = async (req: AuthRequest) => {
-  const subscription = await SubscriptionService.currentSubscription(
+const getSupplierSubscription = async (req: AuthRequest) => {
+  return SubscriptionService.currentSubscription(
     req.user!.shopId,
     req.user!.ownerId,
   );
-  return subscription.plan.code;
 };
 
 // ── GET /suppliers ────────────────────────────────────────────
@@ -22,6 +21,8 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
       typeof req.query.agingBucket === "string"
         ? req.query.agingBucket
         : undefined;
+    const search =
+      typeof req.query.search === "string" ? req.query.search.trim() : "";
     const now = Date.now();
     const day = 86_400_000;
     const agingRanges: Record<string, { gte?: Date; lt?: Date }> = {
@@ -46,6 +47,15 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
     };
     const supplierWhere = {
       shopId,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { phone: { contains: search, mode: "insensitive" as const } },
+              { email: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
       ...(agingRange ? { supplierDebts: { some: debtWhere } } : {}),
     };
     const [total, suppliers] = await Promise.all([
@@ -95,6 +105,8 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
     const id = Number(req.params.id);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
 
     const supplier = await prisma.supplier.findFirst({
       where: { id, shopId },
@@ -104,15 +116,21 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: "desc" },
         },
         stockMovements: {
+          where: { type: "ENTRY" },
           include: { product: true },
           orderBy: { createdAt: "desc" },
-          take: 20,
+          skip: (page - 1) * limit,
+          take: limit,
         },
       },
     });
 
     if (!supplier)
       return res.status(404).json({ message: "Fournisseur introuvable" });
+
+    const movementTotal = await prisma.stockMovement.count({
+      where: { supplierId: id, shopId, type: "ENTRY" },
+    });
 
     return res.status(200).json({
       ...supplier,
@@ -127,6 +145,12 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
         (sum, d) => sum + d.totalAmount,
         0,
       ),
+      stockMovementsPagination: {
+        page,
+        limit,
+        total: movementTotal,
+        totalPages: Math.ceil(movementTotal / limit),
+      },
     });
   } catch (error) {
     return res
@@ -140,14 +164,13 @@ export const createSupplier = async (req: AuthRequest, res: Response, next : Nex
   try {
     const { name, phone, email, address } = req.body;
     const shopId = req.user!.shopId;
-    const shopPlan = await getSupplierPlan(req);
+    const subscription = await getSupplierSubscription(req);
 
     if (!name) {
       throw new BadRequestError("Le nom est obligatoire");
     }
 
-    const supplierLimit =
-      shopPlan === "FREE" ? 2 : shopPlan === "BASIC" ? 5 : null;
+    const supplierLimit = subscription.limits.suppliers;
     const supplierCount = await prisma.supplier.count({ where: { shopId } });
 
     if (supplierLimit !== null && supplierCount >= supplierLimit) {
@@ -178,15 +201,15 @@ export const createSupplier = async (req: AuthRequest, res: Response, next : Nex
 export const getSupplierQuota = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
-    const plan = await getSupplierPlan(req);
-    const limit = plan === "FREE" ? 2 : plan === "BASIC" ? 5 : null;
+    const subscription = await getSupplierSubscription(req);
+    const limit = subscription.limits.suppliers;
     const count = await prisma.supplier.count({ where: { shopId } });
 
     return res.status(200).json({
       count,
       limit,
       remaining: limit === null ? null : Math.max(limit - count, 0),
-      plan,
+      plan: subscription.plan.code,
     });
   } catch (error) {
     return res

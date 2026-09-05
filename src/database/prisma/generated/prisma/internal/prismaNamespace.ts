@@ -2246,6 +2246,7 @@ export const PlanScalarFieldEnum = {
   maxCustomers: 'maxCustomers',
   maxUsers: 'maxUsers',
   maxStores: 'maxStores',
+  maxSuppliers: 'maxSuppliers',
   createdAt: 'createdAt'
 } as const
 

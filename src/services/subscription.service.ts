@@ -61,6 +61,7 @@ export const SubscriptionService = {
         customers: subscription.plan.maxCustomers,
         users: subscription.plan.maxUsers,
         stores: subscription.plan.maxStores,
+         suppliers: subscription.plan.maxSuppliers,
       },
 
       features: subscription.plan.planFeature.map((pf) => pf.feature.code),

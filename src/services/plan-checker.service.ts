@@ -19,6 +19,7 @@ export type SubscriptionDTO = {
     customers: number | null;
     users: number | null;
     stores: number | null;
+    suppliers: number | null;
   };
 
   features: FeatureCode[];

@@ -102,6 +102,7 @@ model Plan {
   maxCustomers     Int?
   maxUsers         Int?
   maxStores        Int?
+  maxSuppliers     Int?
   createdAt        DateTime       @default(now())
   subscriptions    Subscription[]
   planFeature      PlanFeature[]

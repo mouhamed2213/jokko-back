@@ -34,6 +34,7 @@ export type PlanAvgAggregateOutputType = {
   maxCustomers: number | null
   maxUsers: number | null
   maxStores: number | null
+  maxSuppliers: number | null
 }
 
 export type PlanSumAggregateOutputType = {
@@ -44,6 +45,7 @@ export type PlanSumAggregateOutputType = {
   maxCustomers: number | null
   maxUsers: number | null
   maxStores: number | null
+  maxSuppliers: number | null
 }
 
 export type PlanMinAggregateOutputType = {
@@ -57,6 +59,7 @@ export type PlanMinAggregateOutputType = {
   maxCustomers: number | null
   maxUsers: number | null
   maxStores: number | null
+  maxSuppliers: number | null
   createdAt: Date | null
 }
 
@@ -71,6 +74,7 @@ export type PlanMaxAggregateOutputType = {
   maxCustomers: number | null
   maxUsers: number | null
   maxStores: number | null
+  maxSuppliers: number | null
   createdAt: Date | null
 }
 
@@ -85,6 +89,7 @@ export type PlanCountAggregateOutputType = {
   maxCustomers: number
   maxUsers: number
   maxStores: number
+  maxSuppliers: number
   createdAt: number
   _all: number
 }
@@ -98,6 +103,7 @@ export type PlanAvgAggregateInputType = {
   maxCustomers?: true
   maxUsers?: true
   maxStores?: true
+  maxSuppliers?: true
 }
 
 export type PlanSumAggregateInputType = {
@@ -108,6 +114,7 @@ export type PlanSumAggregateInputType = {
   maxCustomers?: true
   maxUsers?: true
   maxStores?: true
+  maxSuppliers?: true
 }
 
 export type PlanMinAggregateInputType = {
@@ -121,6 +128,7 @@ export type PlanMinAggregateInputType = {
   maxCustomers?: true
   maxUsers?: true
   maxStores?: true
+  maxSuppliers?: true
   createdAt?: true
 }
 
@@ -135,6 +143,7 @@ export type PlanMaxAggregateInputType = {
   maxCustomers?: true
   maxUsers?: true
   maxStores?: true
+  maxSuppliers?: true
   createdAt?: true
 }
 
@@ -149,6 +158,7 @@ export type PlanCountAggregateInputType = {
   maxCustomers?: true
   maxUsers?: true
   maxStores?: true
+  maxSuppliers?: true
   createdAt?: true
   _all?: true
 }
@@ -250,6 +260,7 @@ export type PlanGroupByOutputType = {
   maxCustomers: number | null
   maxUsers: number | null
   maxStores: number | null
+  maxSuppliers: number | null
   createdAt: Date
   _count: PlanCountAggregateOutputType | null
   _avg: PlanAvgAggregateOutputType | null
@@ -287,6 +298,7 @@ export type PlanWhereInput = {
   maxCustomers?: Prisma.IntNullableFilter<"Plan"> | number | null
   maxUsers?: Prisma.IntNullableFilter<"Plan"> | number | null
   maxStores?: Prisma.IntNullableFilter<"Plan"> | number | null
+  maxSuppliers?: Prisma.IntNullableFilter<"Plan"> | number | null
   createdAt?: Prisma.DateTimeFilter<"Plan"> | Date | string
   subscriptions?: Prisma.SubscriptionListRelationFilter
   planFeature?: Prisma.PlanFeatureListRelationFilter
@@ -304,6 +316,7 @@ export type PlanOrderByWithRelationInput = {
   maxCustomers?: Prisma.SortOrderInput | Prisma.SortOrder
   maxUsers?: Prisma.SortOrderInput | Prisma.SortOrder
   maxStores?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   subscriptions?: Prisma.SubscriptionOrderByRelationAggregateInput
   planFeature?: Prisma.PlanFeatureOrderByRelationAggregateInput
@@ -324,6 +337,7 @@ export type PlanWhereUniqueInput = Prisma.AtLeast<{
   maxCustomers?: Prisma.IntNullableFilter<"Plan"> | number | null
   maxUsers?: Prisma.IntNullableFilter<"Plan"> | number | null
   maxStores?: Prisma.IntNullableFilter<"Plan"> | number | null
+  maxSuppliers?: Prisma.IntNullableFilter<"Plan"> | number | null
   createdAt?: Prisma.DateTimeFilter<"Plan"> | Date | string
   subscriptions?: Prisma.SubscriptionListRelationFilter
   planFeature?: Prisma.PlanFeatureListRelationFilter
@@ -341,6 +355,7 @@ export type PlanOrderByWithAggregationInput = {
   maxCustomers?: Prisma.SortOrderInput | Prisma.SortOrder
   maxUsers?: Prisma.SortOrderInput | Prisma.SortOrder
   maxStores?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.PlanCountOrderByAggregateInput
   _avg?: Prisma.PlanAvgOrderByAggregateInput
@@ -363,6 +378,7 @@ export type PlanScalarWhereWithAggregatesInput = {
   maxCustomers?: Prisma.IntNullableWithAggregatesFilter<"Plan"> | number | null
   maxUsers?: Prisma.IntNullableWithAggregatesFilter<"Plan"> | number | null
   maxStores?: Prisma.IntNullableWithAggregatesFilter<"Plan"> | number | null
+  maxSuppliers?: Prisma.IntNullableWithAggregatesFilter<"Plan"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Plan"> | Date | string
 }
 
@@ -376,6 +392,7 @@ export type PlanCreateInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutPlanInput
   planFeature?: Prisma.PlanFeatureCreateNestedManyWithoutPlanInput
@@ -393,6 +410,7 @@ export type PlanUncheckedCreateInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutPlanInput
   planFeature?: Prisma.PlanFeatureUncheckedCreateNestedManyWithoutPlanInput
@@ -409,6 +427,7 @@ export type PlanUpdateInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUpdateManyWithoutPlanNestedInput
   planFeature?: Prisma.PlanFeatureUpdateManyWithoutPlanNestedInput
@@ -426,6 +445,7 @@ export type PlanUncheckedUpdateInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutPlanNestedInput
   planFeature?: Prisma.PlanFeatureUncheckedUpdateManyWithoutPlanNestedInput
@@ -443,6 +463,7 @@ export type PlanCreateManyInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
 }
 
@@ -456,6 +477,7 @@ export type PlanUpdateManyMutationInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -470,6 +492,7 @@ export type PlanUncheckedUpdateManyInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -489,6 +512,7 @@ export type PlanCountOrderByAggregateInput = {
   maxCustomers?: Prisma.SortOrder
   maxUsers?: Prisma.SortOrder
   maxStores?: Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -500,6 +524,7 @@ export type PlanAvgOrderByAggregateInput = {
   maxCustomers?: Prisma.SortOrder
   maxUsers?: Prisma.SortOrder
   maxStores?: Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrder
 }
 
 export type PlanMaxOrderByAggregateInput = {
@@ -513,6 +538,7 @@ export type PlanMaxOrderByAggregateInput = {
   maxCustomers?: Prisma.SortOrder
   maxUsers?: Prisma.SortOrder
   maxStores?: Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -527,6 +553,7 @@ export type PlanMinOrderByAggregateInput = {
   maxCustomers?: Prisma.SortOrder
   maxUsers?: Prisma.SortOrder
   maxStores?: Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -538,6 +565,7 @@ export type PlanSumOrderByAggregateInput = {
   maxCustomers?: Prisma.SortOrder
   maxUsers?: Prisma.SortOrder
   maxStores?: Prisma.SortOrder
+  maxSuppliers?: Prisma.SortOrder
 }
 
 export type PlanCreateNestedOneWithoutSubscriptionsInput = {
@@ -596,6 +624,7 @@ export type PlanCreateWithoutSubscriptionsInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   planFeature?: Prisma.PlanFeatureCreateNestedManyWithoutPlanInput
   payment?: Prisma.PaymentCreateNestedManyWithoutPlanInput
@@ -612,6 +641,7 @@ export type PlanUncheckedCreateWithoutSubscriptionsInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   planFeature?: Prisma.PlanFeatureUncheckedCreateNestedManyWithoutPlanInput
   payment?: Prisma.PaymentUncheckedCreateNestedManyWithoutPlanInput
@@ -643,6 +673,7 @@ export type PlanUpdateWithoutSubscriptionsInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   planFeature?: Prisma.PlanFeatureUpdateManyWithoutPlanNestedInput
   payment?: Prisma.PaymentUpdateManyWithoutPlanNestedInput
@@ -659,6 +690,7 @@ export type PlanUncheckedUpdateWithoutSubscriptionsInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   planFeature?: Prisma.PlanFeatureUncheckedUpdateManyWithoutPlanNestedInput
   payment?: Prisma.PaymentUncheckedUpdateManyWithoutPlanNestedInput
@@ -674,6 +706,7 @@ export type PlanCreateWithoutPlanFeatureInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutPlanInput
   payment?: Prisma.PaymentCreateNestedManyWithoutPlanInput
@@ -690,6 +723,7 @@ export type PlanUncheckedCreateWithoutPlanFeatureInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutPlanInput
   payment?: Prisma.PaymentUncheckedCreateNestedManyWithoutPlanInput
@@ -721,6 +755,7 @@ export type PlanUpdateWithoutPlanFeatureInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUpdateManyWithoutPlanNestedInput
   payment?: Prisma.PaymentUpdateManyWithoutPlanNestedInput
@@ -737,6 +772,7 @@ export type PlanUncheckedUpdateWithoutPlanFeatureInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutPlanNestedInput
   payment?: Prisma.PaymentUncheckedUpdateManyWithoutPlanNestedInput
@@ -752,6 +788,7 @@ export type PlanCreateWithoutPaymentInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionCreateNestedManyWithoutPlanInput
   planFeature?: Prisma.PlanFeatureCreateNestedManyWithoutPlanInput
@@ -768,6 +805,7 @@ export type PlanUncheckedCreateWithoutPaymentInput = {
   maxCustomers?: number | null
   maxUsers?: number | null
   maxStores?: number | null
+  maxSuppliers?: number | null
   createdAt?: Date | string
   subscriptions?: Prisma.SubscriptionUncheckedCreateNestedManyWithoutPlanInput
   planFeature?: Prisma.PlanFeatureUncheckedCreateNestedManyWithoutPlanInput
@@ -799,6 +837,7 @@ export type PlanUpdateWithoutPaymentInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUpdateManyWithoutPlanNestedInput
   planFeature?: Prisma.PlanFeatureUpdateManyWithoutPlanNestedInput
@@ -815,6 +854,7 @@ export type PlanUncheckedUpdateWithoutPaymentInput = {
   maxCustomers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxUsers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   maxStores?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxSuppliers?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subscriptions?: Prisma.SubscriptionUncheckedUpdateManyWithoutPlanNestedInput
   planFeature?: Prisma.PlanFeatureUncheckedUpdateManyWithoutPlanNestedInput
@@ -880,6 +920,7 @@ export type PlanSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   maxCustomers?: boolean
   maxUsers?: boolean
   maxStores?: boolean
+  maxSuppliers?: boolean
   createdAt?: boolean
   subscriptions?: boolean | Prisma.Plan$subscriptionsArgs<ExtArgs>
   planFeature?: boolean | Prisma.Plan$planFeatureArgs<ExtArgs>
@@ -898,6 +939,7 @@ export type PlanSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   maxCustomers?: boolean
   maxUsers?: boolean
   maxStores?: boolean
+  maxSuppliers?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["plan"]>
 
@@ -912,6 +954,7 @@ export type PlanSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   maxCustomers?: boolean
   maxUsers?: boolean
   maxStores?: boolean
+  maxSuppliers?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["plan"]>
 
@@ -926,10 +969,11 @@ export type PlanSelectScalar = {
   maxCustomers?: boolean
   maxUsers?: boolean
   maxStores?: boolean
+  maxSuppliers?: boolean
   createdAt?: boolean
 }
 
-export type PlanOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "price" | "description" | "maxSalesPerMonth" | "maxProducts" | "maxCustomers" | "maxUsers" | "maxStores" | "createdAt", ExtArgs["result"]["plan"]>
+export type PlanOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "price" | "description" | "maxSalesPerMonth" | "maxProducts" | "maxCustomers" | "maxUsers" | "maxStores" | "maxSuppliers" | "createdAt", ExtArgs["result"]["plan"]>
 export type PlanInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   subscriptions?: boolean | Prisma.Plan$subscriptionsArgs<ExtArgs>
   planFeature?: boolean | Prisma.Plan$planFeatureArgs<ExtArgs>
@@ -957,6 +1001,7 @@ export type $PlanPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     maxCustomers: number | null
     maxUsers: number | null
     maxStores: number | null
+    maxSuppliers: number | null
     createdAt: Date
   }, ExtArgs["result"]["plan"]>
   composites: {}
@@ -1394,6 +1439,7 @@ export interface PlanFieldRefs {
   readonly maxCustomers: Prisma.FieldRef<"Plan", 'Int'>
   readonly maxUsers: Prisma.FieldRef<"Plan", 'Int'>
   readonly maxStores: Prisma.FieldRef<"Plan", 'Int'>
+  readonly maxSuppliers: Prisma.FieldRef<"Plan", 'Int'>
   readonly createdAt: Prisma.FieldRef<"Plan", 'DateTime'>
 }
     
