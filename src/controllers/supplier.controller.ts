@@ -16,17 +16,55 @@ const getSupplierPlan = async (req: AuthRequest) => {
 export const getSuppliers = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
-    const suppliers = await prisma.supplier.findMany({
-      where: { shopId },
-      include: {
-        supplierDebts: {
-          include: { payments: true },
-          orderBy: { createdAt: "desc" },
-        },
-        _count: { select: { stockMovements: true } },
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+    const agingBucket =
+      typeof req.query.agingBucket === "string"
+        ? req.query.agingBucket
+        : undefined;
+    const now = Date.now();
+    const day = 86_400_000;
+    const agingRanges: Record<string, { gte?: Date; lt?: Date }> = {
+      "0-30": { gte: new Date(now - 31 * day) },
+      "31-60": {
+        gte: new Date(now - 61 * day),
+        lt: new Date(now - 31 * day),
       },
-      orderBy: { name: "asc" },
-    });
+      "61-90": {
+        gte: new Date(now - 91 * day),
+        lt: new Date(now - 61 * day),
+      },
+      "90+": { lt: new Date(now - 91 * day) },
+    };
+    const agingRange = agingBucket ? agingRanges[agingBucket] : undefined;
+    if (agingBucket && !agingRange) {
+      return res.status(400).json({ message: "Tranche d'ancienneté invalide" });
+    }
+    const debtWhere = {
+      status: { in: ["UNPAID", "PARTIAL"] },
+      ...(agingRange ? { createdAt: agingRange } : {}),
+    };
+    const supplierWhere = {
+      shopId,
+      ...(agingRange ? { supplierDebts: { some: debtWhere } } : {}),
+    };
+    const [total, suppliers] = await Promise.all([
+      prisma.supplier.count({ where: supplierWhere }),
+      prisma.supplier.findMany({
+        where: supplierWhere,
+        include: {
+          supplierDebts: {
+            where: agingBucket ? debtWhere : undefined,
+            include: { payments: true },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: { select: { stockMovements: true } },
+        },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     const formatted = suppliers.map((s) => ({
       ...s,
@@ -41,7 +79,10 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
       deliveries: s._count.stockMovements,
     }));
 
-    return res.status(200).json(formatted);
+    return res.status(200).json({
+      data: formatted,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     return res
       .status(500)
