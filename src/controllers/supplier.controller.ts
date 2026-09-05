@@ -2,6 +2,15 @@ import { NextFunction, Response } from "express";
 import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { BadRequestError, ForbiddenError } from "../utils/errors.js";
+import { SubscriptionService } from "../services/subscription.service.js";
+
+const getSupplierPlan = async (req: AuthRequest) => {
+  const subscription = await SubscriptionService.currentSubscription(
+    req.user!.shopId,
+    req.user!.ownerId,
+  );
+  return subscription.plan.code;
+};
 
 // ── GET /suppliers ────────────────────────────────────────────
 export const getSuppliers = async (req: AuthRequest, res: Response) => {
@@ -90,14 +99,20 @@ export const createSupplier = async (req: AuthRequest, res: Response, next : Nex
   try {
     const { name, phone, email, address } = req.body;
     const shopId = req.user!.shopId;
-    const shopPlan = req.user?.planType;
+    const shopPlan = await getSupplierPlan(req);
 
     if (!name) {
       throw new BadRequestError("Le nom est obligatoire");
     }
 
-    if (shopPlan === "FREE" || shopPlan === "BASIC") {
-      throw new ForbiddenError("Action non authoriser");
+    const supplierLimit =
+      shopPlan === "FREE" ? 2 : shopPlan === "BASIC" ? 5 : null;
+    const supplierCount = await prisma.supplier.count({ where: { shopId } });
+
+    if (supplierLimit !== null && supplierCount >= supplierLimit) {
+      throw new ForbiddenError(
+        `Limite de fournisseurs atteinte (${supplierLimit}). Passez au plan supérieur pour en ajouter davantage.`,
+      );
     }
 
     const supplier = await prisma.supplier.create({
@@ -115,6 +130,87 @@ export const createSupplier = async (req: AuthRequest, res: Response, next : Nex
       .json({ message: "Fournisseur créé avec succès", supplier });
   } catch (e) {
     next(e)
+  }
+};
+
+// ── GET /suppliers/quota ───────────────────────────────────────
+export const getSupplierQuota = async (req: AuthRequest, res: Response) => {
+  try {
+    const shopId = req.user!.shopId;
+    const plan = await getSupplierPlan(req);
+    const limit = plan === "FREE" ? 2 : plan === "BASIC" ? 5 : null;
+    const count = await prisma.supplier.count({ where: { shopId } });
+
+    return res.status(200).json({
+      count,
+      limit,
+      remaining: limit === null ? null : Math.max(limit - count, 0),
+      plan,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Erreur récupération quota fournisseurs", error });
+  }
+};
+
+// ── GET /suppliers/aging ───────────────────────────────────────
+export const getSupplierDebtAging = async (req: AuthRequest, res: Response) => {
+  try {
+    const shopId = req.user!.shopId;
+    const debts = await prisma.supplierDebt.findMany({
+      where: {
+        supplier: { shopId },
+        status: { in: ["UNPAID", "PARTIAL"] },
+      },
+      include: { supplier: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const now = Date.now();
+    const buckets = [
+      { key: "0-30", label: "0–30 jours", min: 0, max: 30, count: 0, amount: 0 },
+      { key: "31-60", label: "31–60 jours", min: 31, max: 60, count: 0, amount: 0 },
+      { key: "61-90", label: "61–90 jours", min: 61, max: 90, count: 0, amount: 0 },
+      { key: "90+", label: "90+ jours", min: 91, max: Infinity, count: 0, amount: 0 },
+    ];
+
+    const agingDebts = debts.map((debt) => {
+      const ageDays = Math.max(
+        0,
+        Math.floor((now - debt.createdAt.getTime()) / 86_400_000),
+      );
+      const bucket = buckets.find(
+        (candidate) => ageDays >= candidate.min && ageDays <= candidate.max,
+      )!;
+      bucket.count += 1;
+      bucket.amount += debt.remaining;
+
+      return {
+        id: debt.id,
+        supplierId: debt.supplierId,
+        supplierName: debt.supplier.name,
+        totalAmount: debt.totalAmount,
+        remaining: debt.remaining,
+        status: debt.status,
+        createdAt: debt.createdAt,
+        ageDays,
+        bucket: bucket.key,
+        note: debt.note,
+      };
+    });
+
+    return res.status(200).json({
+      referenceDate: new Date(now).toISOString(),
+      totalRemaining: agingDebts.reduce((sum, debt) => sum + debt.remaining, 0),
+      totalDebts: agingDebts.length,
+      buckets,
+      debts: agingDebts,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Erreur rapport ancienneté dettes", error });
   }
 };
 
