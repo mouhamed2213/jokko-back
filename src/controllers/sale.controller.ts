@@ -4,6 +4,7 @@ import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { SaleService } from "../services/sale.service.js";
 import { BadRequestError, UnauthorizedError } from "../utils/errors.js";
+import { Prisma } from "../database/prisma/generated/prisma/client.js";
 
 // ── Helpers ───────────────────────────────────────────────────
 export function getSaleStatus(paid: number, total: number) {
@@ -111,18 +112,22 @@ export const getSales = async (req: AuthRequest, res: Response) => {
       ? Number(req.query.clientId)
       : undefined;
     const search = req.query.search as string | undefined;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = { shopId };
-    if (status) where.status = status;
+    const where: Prisma.SaleWhereInput = { shopId };
+    if (status && ["PAID", "PARTIAL", "UNPAID"].includes(status)) {
+      where.status = status;
+    }
     if (clientId) where.clientId = clientId;
     if (search) {
       where.OR = [
-        { invoiceNumber: { contains: search } },
-        { customerName: { contains: search } },
-        { client: { name: { contains: search } } },
+        { invoiceNumber: { contains: search, mode: "insensitive" } },
+        { customerName: { contains: search, mode: "insensitive" } },
+        { client: { name: { contains: search, mode: "insensitive" } } },
+        { client: { phone: { contains: search, mode: "insensitive" } } },
+        { items: { some: { productName: { contains: search, mode: "insensitive" } } } },
       ];
     }
 
@@ -140,8 +145,11 @@ export const getSales = async (req: AuthRequest, res: Response) => {
         take: limit,
       }),
     ]);
-    // Count sale
-    const salescount = await prisma.sale.count();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const salescount = await prisma.sale.count({
+      where: { shopId, createdAt: { gte: startOfMonth } },
+    });
 
     return res.status(200).json({
       data: sales,
