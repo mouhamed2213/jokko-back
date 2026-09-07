@@ -21,29 +21,32 @@ import subscription from "./routes/subscription.routes.js";
 import superAdminRoutes from "./modules/super-admin/super-admin.routes.js";
 import supplierRoutes from "./routes/supplier.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 
 const app = express();
 // const PORT = Number(env.PORT) || 5000;
 
  
 app.use(express.json());
-const allowedOrigins = [
+const origins = [
   'https://jokko-business.com',
   'https://www.jokko-business.com',
   'http://localhost:4200',
   'http://localhost:5173'
 ];
+const allowedOrigins = env.mode === 'production' ? origins : '*';
 
+console.log('Allowed Origins:', allowedOrigins);
 app.use(
   cors({
-    origin: (origin, callback) => {
+    origin: env.mode=== 'production' ? (origin, callback) => {
       // Autoriser les requêtes sans origine (ex: Postman ou requêtes serveur à serveur)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Bloqué par CORS'));
       }
-    },
+    } : "*",
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
@@ -79,6 +82,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/shop", shopRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/subscription", subscription);
+app.use("/api/analytics", analyticsRoutes);
 
 app.use((req: Request, res: Response) => {
   logger.warn(`404 — Route non trouvée : ${req.method} ${req.originalUrl}`);

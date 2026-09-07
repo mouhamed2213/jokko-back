@@ -1,0 +1,21 @@
+export type AnalyticsPeriod = {
+  startDate: Date;
+  endDate: Date;
+  previousStartDate: Date;
+  previousEndDate: Date;
+};
+
+export type AnalyticsPeriodQuery = {
+  startDate?: string;
+  endDate?: string;
+  compare?: string;
+};
+
+export type AnalyticsSalesQuery = AnalyticsPeriodQuery & {
+  limit?: string;
+};
+
+export type AnalyticsCost = {
+  amount: number;
+  source: "HISTORICAL" | "ESTIMATED";
+};
