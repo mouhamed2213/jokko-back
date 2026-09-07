@@ -15,6 +15,10 @@ export type AnalyticsSalesQuery = AnalyticsPeriodQuery & {
   limit?: string;
 };
 
+export type AnalyticsProductsQuery = AnalyticsPeriodQuery & {
+  limit?: string;
+};
+
 export type AnalyticsCost = {
   amount: number;
   source: "HISTORICAL" | "ESTIMATED";

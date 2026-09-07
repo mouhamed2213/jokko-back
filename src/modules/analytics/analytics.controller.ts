@@ -2,6 +2,7 @@ import type { Response } from "express";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
 import { AnalyticsService } from "./analytics.service.js";
 import type { AnalyticsSalesQuery } from "./analytics.types.js";
+import type { AnalyticsProductsQuery } from "./analytics.types.js";
 
 export const getOverview = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getOverview(
@@ -19,6 +20,14 @@ export const getSales = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getSales(
     req.user!.shopId,
     req.query as AnalyticsSalesQuery,
+  );
+  return res.status(200).json(result);
+};
+
+export const getProducts = async (req: AuthRequest, res: Response) => {
+  const result = await AnalyticsService.getProducts(
+    req.user!.shopId,
+    req.query as AnalyticsProductsQuery,
   );
   return res.status(200).json(result);
 };

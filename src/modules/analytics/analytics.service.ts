@@ -7,7 +7,13 @@ import {
 } from "./analytics.utils.js";
 import type { AnalyticsPeriodQuery } from "./analytics.types.js";
 import type { AnalyticsSalesQuery } from "./analytics.types.js";
+import type { AnalyticsProductsQuery } from "./analytics.types.js";
 import { getSalesGranularity } from "./analytics.utils.js";
+import {
+  FAST_ROTATION_THRESHOLD,
+  SLOW_ROTATION_THRESHOLD,
+  getProductSalesStatus,
+} from "./analytics.utils.js";
 
 export const AnalyticsService = {
   getOverview: async (
@@ -101,6 +107,66 @@ export const AnalyticsService = {
           quantity: product._sum.quantity || 0,
           revenue: roundMoney(product._sum.totalAmount || 0),
         })),
+    };
+  },
+
+  getProducts: async (shopId: number, query: AnalyticsProductsQuery) => {
+    const period = parseAnalyticsPeriod(query);
+    const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 200);
+    const products = await AnalyticsRepository.getProductAnalytics(
+      shopId,
+      period,
+      limit,
+    );
+
+    return {
+      period: { startDate: period.startDate, endDate: period.endDate },
+      costing: {
+        method: "LATEST_ENTRY_BEFORE_SALE",
+        estimatedWhenUnavailable: true,
+      },
+      products: products.map((product) => {
+        const revenue = product.revenue || 0;
+        const costOfGoodsSold = product.costOfGoodsSold || 0;
+        const grossMargin = revenue - costOfGoodsSold;
+        const rotationBase = product.soldQuantity + product.currentStock;
+        const rotation =
+          rotationBase > 0 ? product.soldQuantity / rotationBase : 0;
+
+        return {
+          productId: product.productId,
+          productName: product.productName,
+          createdAt: product.createdAt,
+          soldQuantity: product.soldQuantity,
+          revenue: roundMoney(revenue),
+          costOfGoodsSold: roundMoney(costOfGoodsSold),
+          grossMargin: roundMoney(grossMargin),
+          marginRate:
+            revenue > 0 ? roundMoney((grossMargin / revenue) * 100) : null,
+          currentStock: product.currentStock,
+          rotation: roundMoney(rotation),
+          lastSaleAt: product.lastSaleAt,
+          status: getProductSalesStatus(
+            product.createdAt,
+            product.lastSaleAt,
+            period.endDate,
+            rotation,
+          ),
+          costSource:
+            product.estimatedQuantity > 0 ? "ESTIMATED" : "HISTORICAL",
+          estimatedQuantity: product.estimatedQuantity,
+          stockStatus:
+            product.currentStock === 0
+              ? "OUT_OF_STOCK"
+              : product.currentStock <= product.alertThreshold
+                ? "LOW_STOCK"
+                : "IN_STOCK",
+          rotationThresholds: {
+            fast: FAST_ROTATION_THRESHOLD,
+            slow: SLOW_ROTATION_THRESHOLD,
+          },
+        };
+      }),
     };
   },
 };

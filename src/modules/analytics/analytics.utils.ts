@@ -5,6 +5,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_PERIOD_DAYS = 30;
 export const DORMANT_PRODUCT_DAYS = 30;
 export const INACTIVE_CUSTOMER_DAYS = 60;
+export const FAST_ROTATION_THRESHOLD = 0.75;
+export const SLOW_ROTATION_THRESHOLD = 0.25;
 
 const startOfDay = (date: Date) => {
   const result = new Date(date);
@@ -68,4 +70,26 @@ export const getSalesGranularity = (period: AnalyticsPeriod) => {
   if (days <= 31) return "day";
   if (days <= 120) return "week";
   return "month";
+};
+
+export const getProductSalesStatus = (
+  productCreatedAt: Date,
+  lastSaleAt: Date | null,
+  endDate: Date,
+  rotation: number,
+) => {
+  const productAge =
+    endDate.getTime() - productCreatedAt.getTime();
+  if (!lastSaleAt && productAge < DORMANT_PRODUCT_DAYS * DAY_MS) {
+    return "NEW";
+  }
+  if (
+    !lastSaleAt ||
+    endDate.getTime() - lastSaleAt.getTime() > DORMANT_PRODUCT_DAYS * DAY_MS
+  ) {
+    return "DORMANT";
+  }
+  if (rotation >= FAST_ROTATION_THRESHOLD) return "FAST";
+  if (rotation <= SLOW_ROTATION_THRESHOLD) return "SLOW";
+  return "REGULAR";
 };
