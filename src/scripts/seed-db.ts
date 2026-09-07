@@ -167,7 +167,6 @@ BASIC: [
         "SUPPLIER_MANAGEMENT",
         "ADVANCED_REPORTS",
         "ACCOUNTING",
-        "MULTI_STORE",
   `OUT_OF_STOCK_ALERT`
 
       ],

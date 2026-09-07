@@ -21,6 +21,21 @@ export const getOverview = async (req: AuthRequest, res: Response) => {
   return res.status(200).json(result);
 };
 
+export const getMultiStoreOverview = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  const result = await AnalyticsService.getMultiStoreOverview(
+    req.user!.ownerId,
+    {
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      compare: req.query.compare as string | undefined,
+    },
+  );
+  return res.status(200).json(result);
+};
+
 export const getSales = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getSales(
     req.user!.shopId,

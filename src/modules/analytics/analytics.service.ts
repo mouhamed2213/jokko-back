@@ -24,7 +24,73 @@ import {
   getProductSalesStatus,
 } from "./analytics.utils.js";
 
+const getCashTransactionCategory = (label: string) => {
+  if (label.startsWith("Règlement facture")) return "SALE_PAYMENT";
+  if (label.startsWith("Acompte fournisseur")) return "SUPPLIER_DEPOSIT";
+  if (label.startsWith("Paiement fournisseur")) return "SUPPLIER_PAYMENT";
+  if (label.toLowerCase().includes("annulation")) return "PAYMENT_REVERSAL";
+  return "OTHER";
+};
+
+const getCashTransactionTarget = (label: string, reference: string | null) => {
+  const category = getCashTransactionCategory(label);
+  if (category === "SALE_PAYMENT") {
+    return { path: "/invoices", reference };
+  }
+  if (category === "SUPPLIER_DEPOSIT" || category === "SUPPLIER_PAYMENT") {
+    return { path: "/suppliers", reference };
+  }
+  return null;
+};
+
 export const AnalyticsService = {
+  getMultiStoreOverview: async (
+    ownerId: number,
+    query: AnalyticsPeriodQuery,
+  ) => {
+    const shops = await AnalyticsRepository.getAuthorizedShops(ownerId);
+    const overviews = await Promise.all(
+      shops.map(async ({ shopId, shop }) => ({
+        shop: { id: shop.id, name: shop.name },
+        overview: await AnalyticsService.getOverview(shopId, query),
+      })),
+    );
+    const consolidated = overviews.reduce(
+      (total, item) => ({
+        revenue: total.revenue + item.overview.kpis.revenue,
+        salesCount: total.salesCount + item.overview.kpis.salesCount,
+        collected: total.collected + item.overview.kpis.collected,
+        receivables: total.receivables + item.overview.kpis.receivables,
+        stockValue: total.stockValue + item.overview.kpis.stockValue,
+        outOfStockProducts:
+          total.outOfStockProducts + item.overview.kpis.outOfStockProducts,
+        lowStockProducts:
+          total.lowStockProducts + item.overview.kpis.lowStockProducts,
+      }),
+      {
+        revenue: 0,
+        salesCount: 0,
+        collected: 0,
+        receivables: 0,
+        stockValue: 0,
+        outOfStockProducts: 0,
+        lowStockProducts: 0,
+      },
+    );
+
+    return {
+      period: overviews[0]?.overview.period ?? null,
+      shops: overviews,
+      consolidated: {
+        ...consolidated,
+        averageBasket:
+          consolidated.salesCount > 0
+            ? roundMoney(consolidated.revenue / consolidated.salesCount)
+            : 0,
+      },
+    };
+  },
+
   getOverview: async (
     shopId: number,
     query: AnalyticsPeriodQuery,
@@ -343,6 +409,9 @@ export const AnalyticsService = {
         amount: roundMoney(transaction.amount),
         createdAt: transaction.createdAt,
         label: transaction.label,
+        reference: transaction.reference,
+        category: getCashTransactionCategory(transaction.label),
+        target: getCashTransactionTarget(transaction.label, transaction.reference),
       })),
     };
   },
@@ -481,7 +550,14 @@ export const AnalyticsService = {
         severity: "INFO",
         message: `Les 5 meilleurs produits représentent ${concentration}% de votre chiffre d'affaires.`,
         value: concentration,
-        context: { productCount: 5 },
+        context: {
+          productCount: 5,
+          products: products.products.slice(0, 5).map((product) => ({
+            productId: product.productId,
+            productName: product.productName,
+            revenue: product.revenue,
+          })),
+        },
       });
     }
 

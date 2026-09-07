@@ -3,6 +3,11 @@ import { Prisma } from "../../database/prisma/generated/prisma/client.js";
 import type { AnalyticsPeriod } from "./analytics.types.js";
 
 export const AnalyticsRepository = {
+  getAuthorizedShops: (ownerId: number) =>
+    prisma.shopOwner.findMany({
+      where: { userId: ownerId },
+      select: { shopId: true, shop: { select: { id: true, name: true } } },
+    }),
   getSalesAggregate: (shopId: number, period: AnalyticsPeriod) =>
     prisma.sale.aggregate({
       where: {
@@ -284,6 +289,7 @@ export const AnalyticsRepository = {
         amount: number;
         createdAt: Date;
         label: string;
+        reference: string | null;
       }>
     >(Prisma.sql`
       SELECT
@@ -291,7 +297,8 @@ export const AnalyticsRepository = {
         ct."paymentMethod" AS "paymentMethod",
         ct."amount" AS amount,
         ct."createdAt" AS "createdAt",
-        ct."label" AS label
+        ct."label" AS label,
+        ct."reference" AS reference
       FROM "cash_transactions" ct
       INNER JOIN "cash_registers" cr
         ON cr."id" = ct."cashRegisterId"
