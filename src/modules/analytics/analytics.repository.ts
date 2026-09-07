@@ -68,7 +68,7 @@ export const AnalyticsRepository = {
         AND "sales"."createdAt" >= ${period.startDate}
         AND "sales"."createdAt" <= ${period.endDate}
       GROUP BY 1
-      ORDER BY bucket ASC
+git add      ORDER BY bucket ASC
     `);
   },
 
@@ -120,7 +120,7 @@ export const AnalyticsRepository = {
       take: limit,
     }),
 
-  getProductAnalytics: (shopId: number, period: AnalyticsPeriod, limit: number) =>
+  getProductAnalytics: (shopId: number, period: AnalyticsPeriod) =>
     prisma.$queryRaw<
       Array<{
         productId: number;
@@ -185,7 +185,6 @@ export const AnalyticsRepository = {
       GROUP BY p."id", p."name", p."createdAt", p."quantity",
         p."alertThreshold", p."purchasePrice"
       ORDER BY revenue DESC, p."name" ASC
-      LIMIT ${limit}
     `),
 
   getStockAnalytics: (shopId: number, period: AnalyticsPeriod) =>

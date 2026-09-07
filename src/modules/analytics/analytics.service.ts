@@ -1,10 +1,34 @@
 import { AnalyticsRepository } from "./analytics.repository.js";
+import { BadRequestError } from "../../utils/errors.js";
 import {
   isComparisonRequested,
   percentageChange,
   parseAnalyticsPeriod,
   roundMoney,
 } from "./analytics.utils.js";
+
+const getPagination = (
+  query: { page?: string; pageSize?: string },
+  fallbackSize = 20,
+) => {
+  const pageSize = Math.min(Math.max(Number(query.pageSize) || fallbackSize, 1), 100);
+  const page = Math.max(Number(query.page) || 1, 1);
+  return { page, pageSize, offset: (page - 1) * pageSize };
+};
+
+const paginationMeta = (page: number, pageSize: number, total: number) => ({
+  page,
+  pageSize,
+  total,
+  totalPages: Math.max(Math.ceil(total / pageSize), 1),
+});
+
+const oneOf = (value: string | undefined, allowed: readonly string[], name: string) => {
+  if (value && !allowed.includes(value)) {
+    throw new BadRequestError(`Filtre ${name} invalide.`);
+  }
+  return value;
+};
 import type { AnalyticsPeriodQuery } from "./analytics.types.js";
 import type { AnalyticsSalesQuery } from "./analytics.types.js";
 import type { AnalyticsProductsQuery } from "./analytics.types.js";
@@ -187,66 +211,47 @@ export const AnalyticsService = {
 
   getProducts: async (shopId: number, query: AnalyticsProductsQuery) => {
     const period = parseAnalyticsPeriod(query);
-    const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 200);
-    const products = await AnalyticsRepository.getProductAnalytics(
-      shopId,
-      period,
-      limit,
-    );
+    const pagination = getPagination(query);
+    const status = oneOf(query.status, ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"], "status");
+    const stockStatus = oneOf(query.stockStatus, ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"], "stockStatus");
+    const costSource = oneOf(query.costSource, ["HISTORICAL", "ESTIMATED"], "costSource");
+    const products = await AnalyticsRepository.getProductAnalytics(shopId, period);
 
+    const rows = products.map((product) => {
+      const revenue = product.revenue || 0;
+      const costOfGoodsSold = product.costOfGoodsSold || 0;
+      const grossMargin = revenue - costOfGoodsSold;
+      const rotationBase = product.soldQuantity + product.currentStock;
+      const rotation = rotationBase > 0 ? product.soldQuantity / rotationBase : 0;
+      return {
+        productId: product.productId, productName: product.productName, createdAt: product.createdAt,
+        soldQuantity: product.soldQuantity, revenue: roundMoney(revenue),
+        costOfGoodsSold: roundMoney(costOfGoodsSold), grossMargin: roundMoney(grossMargin),
+        marginRate: revenue > 0 ? roundMoney((grossMargin / revenue) * 100) : null,
+        currentStock: product.currentStock, rotation: roundMoney(rotation), lastSaleAt: product.lastSaleAt,
+        status: getProductSalesStatus(product.createdAt, product.lastSaleAt, period.endDate, rotation),
+        costSource: product.estimatedQuantity > 0 ? "ESTIMATED" : "HISTORICAL",
+        estimatedQuantity: product.estimatedQuantity,
+        stockStatus: product.currentStock === 0 ? "OUT_OF_STOCK" : product.currentStock <= product.alertThreshold ? "LOW_STOCK" : "IN_STOCK",
+        rotationThresholds: { fast: FAST_ROTATION_THRESHOLD, slow: SLOW_ROTATION_THRESHOLD },
+      };
+    }).filter((row) => (!status || row.status === status) && (!stockStatus || row.stockStatus === stockStatus) && (!costSource || row.costSource === costSource));
+    const sortedRows = query.sort === "name" ? rows.sort((a, b) => a.productName.localeCompare(b.productName)) : rows;
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
+      pagination: paginationMeta(pagination.page, pagination.pageSize, sortedRows.length),
       costing: {
         method: "LATEST_ENTRY_BEFORE_SALE",
         estimatedWhenUnavailable: true,
       },
-      products: products.map((product) => {
-        const revenue = product.revenue || 0;
-        const costOfGoodsSold = product.costOfGoodsSold || 0;
-        const grossMargin = revenue - costOfGoodsSold;
-        const rotationBase = product.soldQuantity + product.currentStock;
-        const rotation =
-          rotationBase > 0 ? product.soldQuantity / rotationBase : 0;
-
-        return {
-          productId: product.productId,
-          productName: product.productName,
-          createdAt: product.createdAt,
-          soldQuantity: product.soldQuantity,
-          revenue: roundMoney(revenue),
-          costOfGoodsSold: roundMoney(costOfGoodsSold),
-          grossMargin: roundMoney(grossMargin),
-          marginRate:
-            revenue > 0 ? roundMoney((grossMargin / revenue) * 100) : null,
-          currentStock: product.currentStock,
-          rotation: roundMoney(rotation),
-          lastSaleAt: product.lastSaleAt,
-          status: getProductSalesStatus(
-            product.createdAt,
-            product.lastSaleAt,
-            period.endDate,
-            rotation,
-          ),
-          costSource:
-            product.estimatedQuantity > 0 ? "ESTIMATED" : "HISTORICAL",
-          estimatedQuantity: product.estimatedQuantity,
-          stockStatus:
-            product.currentStock === 0
-              ? "OUT_OF_STOCK"
-              : product.currentStock <= product.alertThreshold
-                ? "LOW_STOCK"
-                : "IN_STOCK",
-          rotationThresholds: {
-            fast: FAST_ROTATION_THRESHOLD,
-            slow: SLOW_ROTATION_THRESHOLD,
-          },
-        };
-      }),
+      products: sortedRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
     };
   },
 
   getStock: async (shopId: number, query: AnalyticsStockQuery) => {
     const period = parseAnalyticsPeriod(query);
+    const statusFilter = oneOf(query.status, ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"], "status");
+    const stockStatusFilter = oneOf(query.stockStatus, ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"], "stockStatus");
     const products = await AnalyticsRepository.getStockAnalytics(shopId, period);
     const productRows = products.map((product) => {
       const rotationBase = product.soldQuantity + product.currentStock;
@@ -278,7 +283,11 @@ export const AnalyticsService = {
         lastSaleAt: product.lastSaleAt,
       };
     });
-    const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 200);
+    const pagination = getPagination(query);
+    const filteredRows = productRows.filter((row) =>
+      (!statusFilter || row.status === statusFilter) &&
+      (!stockStatusFilter || row.stockStatus === stockStatusFilter),
+    );
 
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
@@ -288,27 +297,28 @@ export const AnalyticsService = {
       },
       summary: {
         totalStockValue: roundMoney(
-          productRows.reduce((total, product) => total + product.stockValue, 0),
+          filteredRows.reduce((total, product) => total + product.stockValue, 0),
         ),
-        productCount: productRows.length,
-        outOfStock: productRows.filter(
+        productCount: filteredRows.length,
+        outOfStock: filteredRows.filter(
           (product) => product.stockStatus === "OUT_OF_STOCK",
         ).length,
-        lowStock: productRows.filter(
+        lowStock: filteredRows.filter(
           (product) => product.stockStatus === "LOW_STOCK",
         ).length,
-        fastRotation: productRows.filter(
+        fastRotation: filteredRows.filter(
           (product) => product.status === "FAST",
         ).length,
-        slowRotation: productRows.filter(
+        slowRotation: filteredRows.filter(
           (product) => product.status === "SLOW",
         ).length,
-        dormant: productRows.filter((product) => product.status === "DORMANT")
+        dormant: filteredRows.filter((product) => product.status === "DORMANT")
           .length,
-        newProducts: productRows.filter((product) => product.status === "NEW")
+        newProducts: filteredRows.filter((product) => product.status === "NEW")
           .length,
       },
-      products: productRows.slice(0, limit),
+      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredRows.length),
+      products: filteredRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
     };
   },
 
@@ -340,48 +350,64 @@ export const AnalyticsService = {
       ),
       recurrent: customer.orderCount >= 2,
     }));
-    const limit = Math.min(Math.max(Number(query.limit) || 50, 1), 200);
+    const pagination = getPagination(query);
+    const statusFilter = oneOf(query.status, ["NEW", "ACTIVE", "INACTIVE"], "status");
+    const recurrentFilter = oneOf(query.recurrent, ["true", "false"], "recurrent");
+    const filteredRows = rows.filter((row) =>
+      (!statusFilter || row.status === statusFilter) &&
+      (!recurrentFilter || row.recurrent === (recurrentFilter === "true")),
+    );
 
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
       summary: {
-        newCustomers: rows.filter((customer) => customer.status === "NEW")
+        newCustomers: filteredRows.filter((customer) => customer.status === "NEW")
           .length,
-        activeCustomers: rows.filter(
+        activeCustomers:         filteredRows.filter(
           (customer) => customer.status === "ACTIVE",
         ).length,
-        inactiveCustomers: rows.filter(
+        inactiveCustomers:         filteredRows.filter(
           (customer) => customer.status === "INACTIVE",
         ).length,
-        recurrentCustomers: rows.filter((customer) => customer.recurrent)
+        recurrentCustomers: filteredRows.filter((customer) => customer.recurrent)
           .length,
       },
-      topCustomersByAmount: [...rows]
+      topCustomersByAmount: [...filteredRows]
         .sort((a, b) => b.purchasedAmount - a.purchasedAmount)
-        .slice(0, limit),
-      topCustomersByOrders: [...rows]
+        .slice(pagination.offset, pagination.offset + pagination.pageSize),
+      topCustomersByOrders: [...filteredRows]
         .sort((a, b) => b.orderCount - a.orderCount)
-        .slice(0, limit),
-      customers: rows.slice(0, limit),
+        .slice(pagination.offset, pagination.offset + pagination.pageSize),
+      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredRows.length),
+      customers: filteredRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
     };
   },
 
   getCash: async (shopId: number, query: AnalyticsCashQuery) => {
     const period = parseAnalyticsPeriod(query);
+    const pagination = getPagination(query);
+    const typeFilter = oneOf(query.type, ["IN", "OUT"], "type");
+    const paymentMethodFilter = query.paymentMethod;
+    const categoryFilter = query.category;
     const [transactions, salePayments] = await Promise.all([
       AnalyticsRepository.getCashAnalytics(shopId, period),
       AnalyticsRepository.getPaymentAggregate(shopId, period),
     ]);
-    const cashIn = transactions
+    const filteredTransactions = transactions.filter((transaction) =>
+      (!typeFilter || transaction.type === typeFilter) &&
+      (!paymentMethodFilter || transaction.paymentMethod === paymentMethodFilter) &&
+      (!categoryFilter || getCashTransactionCategory(transaction.label) === categoryFilter),
+    );
+    const cashIn = filteredTransactions
       .filter((transaction) => transaction.type === "IN")
       .reduce((total, transaction) => total + transaction.amount, 0);
-    const cashOut = transactions
+    const cashOut = filteredTransactions
       .filter((transaction) => transaction.type === "OUT")
       .reduce((total, transaction) => total + transaction.amount, 0);
     const collected = salePayments._sum.amount || 0;
     const byMethod = new Map<string, number>();
 
-    transactions.forEach((transaction) => {
+    filteredTransactions.forEach((transaction) => {
       byMethod.set(
         transaction.paymentMethod,
         (byMethod.get(transaction.paymentMethod) || 0) +
@@ -403,7 +429,8 @@ export const AnalyticsService = {
           amount: roundMoney(amount),
         }),
       ),
-      transactions: transactions.map((transaction) => ({
+      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredTransactions.length),
+      transactions: filteredTransactions.slice(pagination.offset, pagination.offset + pagination.pageSize).map((transaction) => ({
         type: transaction.type,
         paymentMethod: transaction.paymentMethod,
         amount: roundMoney(transaction.amount),
@@ -464,10 +491,21 @@ export const AnalyticsService = {
 
   getInsights: async (shopId: number, query: AnalyticsInsightsQuery) => {
     const period = parseAnalyticsPeriod(query);
+    const pagination = getPagination(query, 10);
+    const insightType = oneOf(query.type, [
+      "REVENUE_GROWTH", "REVENUE_DECLINE", "OUT_OF_STOCK", "LOW_STOCK",
+      "DORMANT_PRODUCTS", "SALES_CONCENTRATION", "RECEIVABLES",
+    ], "type");
+    const insightSeverity = oneOf(query.severity, ["POSITIVE", "INFO", "WARNING"], "severity");
     const [overview, products, currentSales, previousSales] =
       await Promise.all([
         AnalyticsService.getOverview(shopId, query),
-        AnalyticsService.getProducts(shopId, { ...query, limit: "200" }),
+        AnalyticsService.getProducts(shopId, {
+          ...query,
+          limit: "200",
+          page: "1",
+          pageSize: "100",
+        }),
         AnalyticsRepository.getSalesAggregate(shopId, period),
         AnalyticsRepository.getSalesAggregate(shopId, {
           ...period,
@@ -571,6 +609,10 @@ export const AnalyticsService = {
       });
     }
 
+    const filteredInsights = insights.filter((insight) =>
+      (!insightType || insight.type === insightType) &&
+      (!insightSeverity || insight.severity === insightSeverity),
+    );
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
       thresholds: {
@@ -578,7 +620,8 @@ export const AnalyticsService = {
         concentrationPercentage: INSIGHT_CONCENTRATION_THRESHOLD,
         dormantDays: DORMANT_PRODUCT_DAYS,
       },
-      insights,
+      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredInsights.length),
+      insights: filteredInsights.slice(pagination.offset, pagination.offset + pagination.pageSize),
     };
   },
 };
