@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
-import { getOverview, getProducts, getSales } from "./analytics.controller.js";
+import {
+  getOverview,
+  getProducts,
+  getSales,
+  getStock,
+  getCustomers,
+  getCash,
+} from "./analytics.controller.js";
 
 const router = Router();
 
@@ -17,5 +24,13 @@ router.get(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   getProducts,
 );
+router.get("/stock", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getStock);
+router.get(
+  "/customers",
+  protect,
+  authorizeRoles("ADMIN", "EMPLOYEE"),
+  getCustomers,
+);
+router.get("/cash", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getCash);
 
 export default router;

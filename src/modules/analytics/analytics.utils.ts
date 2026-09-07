@@ -93,3 +93,25 @@ export const getProductSalesStatus = (
   if (rotation <= SLOW_ROTATION_THRESHOLD) return "SLOW";
   return "REGULAR";
 };
+
+export const getCustomerStatus = (
+  customerCreatedAt: Date,
+  lastOrderAt: Date | null,
+  endDate: Date,
+) => {
+  if (
+    !lastOrderAt &&
+    endDate.getTime() - customerCreatedAt.getTime() <
+      INACTIVE_CUSTOMER_DAYS * DAY_MS
+  ) {
+    return "NEW";
+  }
+  if (
+    !lastOrderAt ||
+    endDate.getTime() - lastOrderAt.getTime() >
+      INACTIVE_CUSTOMER_DAYS * DAY_MS
+  ) {
+    return "INACTIVE";
+  }
+  return "ACTIVE";
+};
