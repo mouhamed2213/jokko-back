@@ -6,6 +6,8 @@ import type { AnalyticsProductsQuery } from "./analytics.types.js";
 import type { AnalyticsStockQuery } from "./analytics.types.js";
 import type { AnalyticsCustomersQuery } from "./analytics.types.js";
 import type { AnalyticsCashQuery } from "./analytics.types.js";
+import type { AnalyticsTrendsQuery } from "./analytics.types.js";
+import type { AnalyticsInsightsQuery } from "./analytics.types.js";
 
 export const getOverview = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getOverview(
@@ -55,6 +57,22 @@ export const getCash = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getCash(
     req.user!.shopId,
     req.query as AnalyticsCashQuery,
+  );
+  return res.status(200).json(result);
+};
+
+export const getTrends = async (req: AuthRequest, res: Response) => {
+  const result = await AnalyticsService.getTrends(
+    req.user!.shopId,
+    req.query as AnalyticsTrendsQuery,
+  );
+  return res.status(200).json(result);
+};
+
+export const getInsights = async (req: AuthRequest, res: Response) => {
+  const result = await AnalyticsService.getInsights(
+    req.user!.shopId,
+    req.query as AnalyticsInsightsQuery,
   );
   return res.status(200).json(result);
 };

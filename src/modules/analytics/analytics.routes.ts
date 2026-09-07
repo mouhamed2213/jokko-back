@@ -7,6 +7,8 @@ import {
   getStock,
   getCustomers,
   getCash,
+  getTrends,
+  getInsights,
 } from "./analytics.controller.js";
 
 const router = Router();
@@ -32,5 +34,17 @@ router.get(
   getCustomers,
 );
 router.get("/cash", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getCash);
+router.get(
+  "/trends",
+  protect,
+  authorizeRoles("ADMIN", "EMPLOYEE"),
+  getTrends,
+);
+router.get(
+  "/insights",
+  protect,
+  authorizeRoles("ADMIN", "EMPLOYEE"),
+  getInsights,
+);
 
 export default router;

@@ -29,6 +29,10 @@ export type AnalyticsCustomersQuery = AnalyticsPeriodQuery & {
 
 export type AnalyticsCashQuery = AnalyticsPeriodQuery;
 
+export type AnalyticsTrendsQuery = AnalyticsPeriodQuery;
+
+export type AnalyticsInsightsQuery = AnalyticsPeriodQuery;
+
 export type AnalyticsCost = {
   amount: number;
   source: "HISTORICAL" | "ESTIMATED";

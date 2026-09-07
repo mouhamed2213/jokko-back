@@ -7,6 +7,8 @@ export const DORMANT_PRODUCT_DAYS = 30;
 export const INACTIVE_CUSTOMER_DAYS = 60;
 export const FAST_ROTATION_THRESHOLD = 0.75;
 export const SLOW_ROTATION_THRESHOLD = 0.25;
+export const INSIGHT_REVENUE_CHANGE_THRESHOLD = 10;
+export const INSIGHT_CONCENTRATION_THRESHOLD = 60;
 
 const startOfDay = (date: Date) => {
   const result = new Date(date);

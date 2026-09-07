@@ -11,9 +11,14 @@ import type { AnalyticsProductsQuery } from "./analytics.types.js";
 import type { AnalyticsStockQuery } from "./analytics.types.js";
 import type { AnalyticsCustomersQuery } from "./analytics.types.js";
 import type { AnalyticsCashQuery } from "./analytics.types.js";
+import type { AnalyticsTrendsQuery } from "./analytics.types.js";
+import type { AnalyticsInsightsQuery } from "./analytics.types.js";
 import { getSalesGranularity } from "./analytics.utils.js";
 import {
   FAST_ROTATION_THRESHOLD,
+  DORMANT_PRODUCT_DAYS,
+  INSIGHT_CONCENTRATION_THRESHOLD,
+  INSIGHT_REVENUE_CHANGE_THRESHOLD,
   SLOW_ROTATION_THRESHOLD,
   getCustomerStatus,
   getProductSalesStatus,
@@ -339,6 +344,165 @@ export const AnalyticsService = {
         createdAt: transaction.createdAt,
         label: transaction.label,
       })),
+    };
+  },
+
+  getTrends: async (shopId: number, query: AnalyticsTrendsQuery) => {
+    const period = parseAnalyticsPeriod(query);
+    const [weekly, collections, heatmap] = await Promise.all([
+      AnalyticsRepository.getWeeklyTrends(shopId, period),
+      AnalyticsRepository.getWeeklyCollections(shopId, period),
+      AnalyticsRepository.getActivityHeatmap(shopId, period),
+    ]);
+    const names = [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+      "Dimanche",
+    ];
+    const collectedByDay = new Map(
+      collections.map((row) => [row.weekday, row.collected || 0]),
+    );
+    const days = weekly.map((row) => ({
+      weekday: row.weekday,
+      day: names[row.weekday - 1],
+      revenue: roundMoney(row.revenue || 0),
+      salesCount: row.salesCount,
+      collected: roundMoney(collectedByDay.get(row.weekday) || 0),
+      quantitySold: row.quantitySold || 0,
+      averageBasket:
+        row.salesCount > 0 ? roundMoney((row.revenue || 0) / row.salesCount) : 0,
+    }));
+
+    return {
+      period: { startDate: period.startDate, endDate: period.endDate },
+      byWeekday: days,
+      mostActiveDay:
+        [...days].sort((a, b) => b.salesCount - a.salesCount)[0] || null,
+      topRevenueDay:
+        [...days].sort((a, b) => b.revenue - a.revenue)[0] || null,
+      heatmap: heatmap.map((row) => ({
+        weekday: row.weekday,
+        day: names[row.weekday - 1],
+        hour: row.hour,
+        salesCount: row.salesCount,
+      })),
+    };
+  },
+
+  getInsights: async (shopId: number, query: AnalyticsInsightsQuery) => {
+    const period = parseAnalyticsPeriod(query);
+    const [overview, products, currentSales, previousSales] =
+      await Promise.all([
+        AnalyticsService.getOverview(shopId, query),
+        AnalyticsService.getProducts(shopId, { ...query, limit: "200" }),
+        AnalyticsRepository.getSalesAggregate(shopId, period),
+        AnalyticsRepository.getSalesAggregate(shopId, {
+          ...period,
+          startDate: period.previousStartDate,
+          endDate: period.previousEndDate,
+        }),
+      ]);
+    const insights: Array<{
+      type: string;
+      severity: "POSITIVE" | "INFO" | "WARNING";
+      message: string;
+      value?: number;
+      context: Record<string, unknown>;
+    }> = [];
+    const revenue = overview.kpis.revenue;
+    const previousRevenue = previousSales._sum.totalAmount || 0;
+    const revenueChange = percentageChange(revenue, previousRevenue);
+
+    if (
+      revenueChange !== null &&
+      currentSales._count._all > 0 &&
+      Math.abs(revenueChange) >= INSIGHT_REVENUE_CHANGE_THRESHOLD
+    ) {
+      insights.push({
+        type: revenueChange > 0 ? "REVENUE_GROWTH" : "REVENUE_DECLINE",
+        severity: revenueChange > 0 ? "POSITIVE" : "WARNING",
+        message:
+          revenueChange > 0
+            ? `Votre chiffre d'affaires est supérieur de ${revenueChange}% à celui de la période précédente.`
+            : `Votre chiffre d'affaires est inférieur de ${Math.abs(revenueChange)}% à celui de la période précédente.`,
+        value: revenueChange,
+        context: { previousRevenue: roundMoney(previousRevenue) },
+      });
+    }
+
+    if (overview.kpis.outOfStockProducts > 0) {
+      insights.push({
+        type: "OUT_OF_STOCK",
+        severity: "WARNING",
+        message: `${overview.kpis.outOfStockProducts} produit(s) sont en rupture de stock.`,
+        value: overview.kpis.outOfStockProducts,
+        context: {},
+      });
+    }
+    if (overview.kpis.lowStockProducts > 0) {
+      insights.push({
+        type: "LOW_STOCK",
+        severity: "WARNING",
+        message: `${overview.kpis.lowStockProducts} produit(s) sont sous leur seuil d'alerte.`,
+        value: overview.kpis.lowStockProducts,
+        context: {},
+      });
+    }
+
+    const dormantProducts = products.products.filter(
+      (product) => product.status === "DORMANT",
+    ).length;
+    if (dormantProducts > 0) {
+      insights.push({
+        type: "DORMANT_PRODUCTS",
+        severity: "INFO",
+        message: `${dormantProducts} produit(s) n'ont enregistré aucune vente récente.`,
+        value: dormantProducts,
+        context: { dormantDays: DORMANT_PRODUCT_DAYS },
+      });
+    }
+
+    const topFiveRevenue = products.products
+      .slice(0, 5)
+      .reduce((total, product) => total + product.revenue, 0);
+    const concentration =
+      revenue > 0 ? roundMoney((topFiveRevenue / revenue) * 100) : null;
+    if (
+      concentration !== null &&
+      products.products.length > 5 &&
+      concentration >= INSIGHT_CONCENTRATION_THRESHOLD
+    ) {
+      insights.push({
+        type: "SALES_CONCENTRATION",
+        severity: "INFO",
+        message: `Les 5 meilleurs produits représentent ${concentration}% de votre chiffre d'affaires.`,
+        value: concentration,
+        context: { productCount: 5 },
+      });
+    }
+
+    if (overview.kpis.receivables > 0) {
+      insights.push({
+        type: "RECEIVABLES",
+        severity: "WARNING",
+        message: `${overview.kpis.receivables} FCFA restent à encaisser.`,
+        value: overview.kpis.receivables,
+        context: {},
+      });
+    }
+
+    return {
+      period: { startDate: period.startDate, endDate: period.endDate },
+      thresholds: {
+        revenueChangePercentage: INSIGHT_REVENUE_CHANGE_THRESHOLD,
+        concentrationPercentage: INSIGHT_CONCENTRATION_THRESHOLD,
+        dormantDays: DORMANT_PRODUCT_DAYS,
+      },
+      insights,
     };
   },
 };

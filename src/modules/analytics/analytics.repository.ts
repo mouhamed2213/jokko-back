@@ -297,4 +297,63 @@ export const AnalyticsRepository = {
         AND ct."createdAt" <= ${period.endDate}
       ORDER BY ct."createdAt" ASC
     `),
+
+  getWeeklyTrends: (shopId: number, period: AnalyticsPeriod) =>
+    prisma.$queryRaw<
+      Array<{
+        weekday: number;
+        revenue: number | null;
+        salesCount: number;
+        quantitySold: number | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        EXTRACT(ISODOW FROM s."createdAt")::int AS weekday,
+        COALESCE(SUM(s."totalAmount"), 0)::float AS revenue,
+        COUNT(*)::int AS "salesCount",
+        COALESCE(SUM(items."quantitySold"), 0)::int AS "quantitySold"
+      FROM "sales" s
+      LEFT JOIN (
+        SELECT "saleId", SUM("quantity")::int AS "quantitySold"
+        FROM "sale_items"
+        GROUP BY "saleId"
+      ) items ON items."saleId" = s."id"
+      WHERE s."shopId" = ${shopId}
+        AND s."createdAt" >= ${period.startDate}
+        AND s."createdAt" <= ${period.endDate}
+      GROUP BY 1
+      ORDER BY 1
+    `),
+
+  getWeeklyCollections: (shopId: number, period: AnalyticsPeriod) =>
+    prisma.$queryRaw<
+      Array<{ weekday: number; collected: number | null }>
+    >(Prisma.sql`
+      SELECT
+        EXTRACT(ISODOW FROM sp."paidAt")::int AS weekday,
+        COALESCE(SUM(sp."amount"), 0)::float AS collected
+      FROM "sale_payments" sp
+      INNER JOIN "sales" s ON s."id" = sp."saleId"
+      WHERE s."shopId" = ${shopId}
+        AND sp."paidAt" >= ${period.startDate}
+        AND sp."paidAt" <= ${period.endDate}
+      GROUP BY 1
+      ORDER BY 1
+    `),
+
+  getActivityHeatmap: (shopId: number, period: AnalyticsPeriod) =>
+    prisma.$queryRaw<
+      Array<{ weekday: number; hour: number; salesCount: number }>
+    >(Prisma.sql`
+      SELECT
+        EXTRACT(ISODOW FROM s."createdAt")::int AS weekday,
+        EXTRACT(HOUR FROM s."createdAt")::int AS hour,
+        COUNT(*)::int AS "salesCount"
+      FROM "sales" s
+      WHERE s."shopId" = ${shopId}
+        AND s."createdAt" >= ${period.startDate}
+        AND s."createdAt" <= ${period.endDate}
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `),
 };
