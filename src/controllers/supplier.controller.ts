@@ -159,7 +159,214 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// ── POST /suppliers ───────────────────────────────────────────
+// ── GET /suppliers/analytics/price-comparison?productId= ──────
+// Compare le coût unitaire pratiqué par chaque fournisseur pour un produit.
+export const getSupplierPriceComparison = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  try {
+    const shopId = req.user!.shopId;
+    const productId = Number(req.query.productId);
+
+    if (!productId) {
+      return res.status(400).json({ message: "productId requis" });
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { id: productId, shopId },
+      select: { id: true, name: true },
+    });
+    if (!product) {
+      return res.status(404).json({ message: "Produit introuvable" });
+    }
+
+    const entries = await prisma.stockMovement.findMany({
+      where: {
+        shopId,
+        productId,
+        type: "ENTRY",
+        supplierId: { not: null },
+        unitCost: { not: null },
+      },
+      select: {
+        unitCost: true,
+        quantity: true,
+        createdAt: true,
+        supplierId: true,
+        supplier: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const bySupplier = new Map<
+      number,
+      {
+        supplierId: number;
+        supplierName: string;
+        lastUnitCost: number;
+        lastDate: Date;
+        minUnitCost: number;
+        maxUnitCost: number;
+        avgUnitCost: number;
+        totalQuantity: number;
+        deliveries: number;
+      }
+    >();
+
+    for (const entry of entries) {
+      if (!entry.supplierId || entry.unitCost === null) continue;
+      const cost = entry.unitCost;
+      const existing = bySupplier.get(entry.supplierId);
+      if (!existing) {
+        bySupplier.set(entry.supplierId, {
+          supplierId: entry.supplierId,
+          supplierName: entry.supplier?.name || "Fournisseur",
+          lastUnitCost: cost,
+          lastDate: entry.createdAt,
+          minUnitCost: cost,
+          maxUnitCost: cost,
+          avgUnitCost: cost,
+          totalQuantity: entry.quantity,
+          deliveries: 1,
+        });
+      } else {
+        existing.minUnitCost = Math.min(existing.minUnitCost, cost);
+        existing.maxUnitCost = Math.max(existing.maxUnitCost, cost);
+        existing.avgUnitCost =
+          (existing.avgUnitCost * existing.deliveries + cost) /
+          (existing.deliveries + 1);
+        existing.totalQuantity += entry.quantity;
+        existing.deliveries += 1;
+        // entries triés du plus récent au plus ancien : le premier vu est le dernier prix
+      }
+    }
+
+    const suppliers = Array.from(bySupplier.values()).sort(
+      (a, b) => a.lastUnitCost - b.lastUnitCost,
+    );
+
+    return res.status(200).json({
+      product: { id: product.id, name: product.name },
+      suppliers,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Erreur comparaison des prix fournisseurs",
+      error,
+    });
+  }
+};
+
+// ── GET /suppliers/analytics/ranking ────────────────────────────
+// Classe les fournisseurs par montant acheté, dette due et livraisons.
+export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
+  try {
+    const shopId = req.user!.shopId;
+    const sortBy =
+      typeof req.query.sortBy === "string" ? req.query.sortBy : "purchases";
+
+    const suppliers = await prisma.supplier.findMany({
+      where: { shopId },
+      include: {
+        supplierDebts: true,
+        _count: { select: { stockMovements: true } },
+      },
+    });
+
+    const ranked = suppliers.map((s) => ({
+      id: s.id,
+      name: s.name,
+      totalPurchases: s.supplierDebts.reduce(
+        (sum, d) => sum + d.totalAmount,
+        0,
+      ),
+      totalDebt: s.supplierDebts
+        .filter((d) => d.status !== "PAID")
+        .reduce((sum, d) => sum + d.remaining, 0),
+      deliveries: s._count.stockMovements,
+    }));
+
+    const sortKey: "totalDebt" | "deliveries" | "totalPurchases" =
+      sortBy === "debt"
+        ? "totalDebt"
+        : sortBy === "deliveries"
+          ? "deliveries"
+          : "totalPurchases";
+
+    ranked.sort((a, b) => b[sortKey] - a[sortKey]);
+
+    return res.status(200).json({ data: ranked });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Erreur classement fournisseurs", error });
+  }
+};
+
+// ── GET /suppliers/consolidated ─────────────────────────────────
+// Vue consolidée des fournisseurs/dettes à travers toutes les boutiques
+// du même propriétaire (aucune fusion de données, juste une addition
+// boutique par boutique — chaque boutique garde sa propre comptabilité).
+export const getConsolidatedSuppliers = async (
+  req: AuthRequest,
+  res: Response,
+) => {
+  try {
+    const ownerId = req.user!.ownerId;
+
+    const ownerships = await prisma.shopOwner.findMany({
+      where: { userId: ownerId },
+      select: { shop: { select: { id: true, name: true } } },
+    });
+
+    const shops = await Promise.all(
+      ownerships.map(async ({ shop }) => {
+        const suppliers = await prisma.supplier.findMany({
+          where: { shopId: shop.id },
+          include: { supplierDebts: true },
+        });
+
+        const totalDebt = suppliers.reduce(
+          (sum, s) =>
+            sum +
+            s.supplierDebts
+              .filter((d) => d.status !== "PAID")
+              .reduce((dSum, d) => dSum + d.remaining, 0),
+          0,
+        );
+        const totalPurchases = suppliers.reduce(
+          (sum, s) =>
+            sum +
+            s.supplierDebts.reduce((dSum, d) => dSum + d.totalAmount, 0),
+          0,
+        );
+
+        return {
+          shopId: shop.id,
+          shopName: shop.name,
+          supplierCount: suppliers.length,
+          totalDebt,
+          totalPurchases,
+        };
+      }),
+    );
+
+    const grandTotalDebt = shops.reduce((sum, s) => sum + s.totalDebt, 0);
+    const grandTotalSuppliers = shops.reduce(
+      (sum, s) => sum + s.supplierCount,
+      0,
+    );
+
+    return res.status(200).json({ shops, grandTotalDebt, grandTotalSuppliers });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Erreur vue consolidée fournisseurs", error });
+  }
+};
+
+
 export const createSupplier = async (req: AuthRequest, res: Response, next : NextFunction) => {
   try {
     const { name, phone, email, address } = req.body;
