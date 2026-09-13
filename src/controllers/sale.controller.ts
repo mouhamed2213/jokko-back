@@ -194,8 +194,6 @@ export const createSale = async (
   next: NextFunction,
 ) => {
   try {
-    const shopId = req.user!.shopId;
-    const userId = req.user!.userId;
 
     const user = req.user;
 
