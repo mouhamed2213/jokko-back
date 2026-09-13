@@ -5,6 +5,7 @@ import {
   addSupplierDebt, addSupplierPayment,
   getSupplierQuota, getSupplierDebtAging,
   getSupplierPriceComparison, getSupplierRanking,
+  getSupplierProducts,
   getConsolidatedSuppliers,
 } from "../controllers/supplier.controller.js";
 import { protect, authorizeRoles } from "../middlewares/auth.middleware.js";
@@ -28,6 +29,13 @@ router.get(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   requireFeature("ADVANCED_REPORTS"),
   getSupplierRanking,
+);
+router.get(
+  "/analytics/products",
+  protect,
+  authorizeRoles("ADMIN", "EMPLOYEE"),
+  requireFeature("ADVANCED_REPORTS"),
+  getSupplierProducts,
 );
 router.get(
   "/consolidated",

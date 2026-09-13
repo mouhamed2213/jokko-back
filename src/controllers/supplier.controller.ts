@@ -260,6 +260,86 @@ export const getSupplierPriceComparison = async (
 
 // ── GET /suppliers/analytics/ranking ────────────────────────────
 // Classe les fournisseurs par montant acheté, dette due et livraisons.
+// ── GET /suppliers/analytics/products?supplierId= ──────────────
+// Liste, pour un fournisseur donné, les produits qu'il a déjà livrés
+// (traçabilité : "quels produits viennent de quel fournisseur").
+export const getSupplierProducts = async (req: AuthRequest, res: Response) => {
+  try {
+    const shopId = req.user!.shopId;
+    const supplierId = Number(req.query.supplierId);
+
+    if (!supplierId) {
+      return res.status(400).json({ message: "supplierId requis" });
+    }
+
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: supplierId, shopId },
+      select: { id: true, name: true },
+    });
+    if (!supplier) {
+      return res.status(404).json({ message: "Fournisseur introuvable" });
+    }
+
+    const entries = await prisma.stockMovement.findMany({
+      where: { shopId, supplierId, type: "ENTRY" },
+      select: {
+        productId: true,
+        quantity: true,
+        unitCost: true,
+        createdAt: true,
+        product: { select: { id: true, name: true, imageUrl: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const byProduct = new Map<
+      number,
+      {
+        productId: number;
+        productName: string;
+        productImageUrl: string | null;
+        lastUnitCost: number | null;
+        lastDate: Date;
+        totalQuantity: number;
+        deliveries: number;
+      }
+    >();
+
+    for (const entry of entries) {
+      if (!entry.product) continue;
+      const existing = byProduct.get(entry.productId);
+      if (!existing) {
+        byProduct.set(entry.productId, {
+          productId: entry.productId,
+          productName: entry.product.name,
+          productImageUrl: entry.product.imageUrl,
+          lastUnitCost: entry.unitCost,
+          lastDate: entry.createdAt,
+          totalQuantity: entry.quantity,
+          deliveries: 1,
+        });
+      } else {
+        existing.totalQuantity += entry.quantity;
+        existing.deliveries += 1;
+        // entries triées du plus récent au plus ancien : le premier vu est le dernier
+      }
+    }
+
+    const products = Array.from(byProduct.values()).sort(
+      (a, b) => b.lastDate.getTime() - a.lastDate.getTime(),
+    );
+
+    return res
+      .status(200)
+      .json({ supplier: { id: supplier.id, name: supplier.name }, products });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Erreur produits du fournisseur", error });
+  }
+};
+
+
 export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
