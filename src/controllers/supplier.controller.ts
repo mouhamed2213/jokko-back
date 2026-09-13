@@ -265,6 +265,8 @@ export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
     const shopId = req.user!.shopId;
     const sortBy =
       typeof req.query.sortBy === "string" ? req.query.sortBy : "purchases";
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
 
     const suppliers = await prisma.supplier.findMany({
       where: { shopId },
@@ -296,7 +298,14 @@ export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
 
     ranked.sort((a, b) => b[sortKey] - a[sortKey]);
 
-    return res.status(200).json({ data: ranked });
+    const total = ranked.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const paged = ranked.slice((page - 1) * limit, page * limit);
+
+    return res.status(200).json({
+      data: paged,
+      pagination: { total, page, limit, totalPages },
+    });
   } catch (error) {
     return res
       .status(500)
