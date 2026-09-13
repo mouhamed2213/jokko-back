@@ -4,7 +4,7 @@ import {
   updateSupplier, deleteSupplier,
   addSupplierDebt, addSupplierPayment,
   getSupplierQuota, getSupplierDebtAging,
-  getSupplierPriceComparison, getSupplierRanking,
+  getSupplierRanking,
   getSupplierProducts,
   getConsolidatedSuppliers,
 } from "../controllers/supplier.controller.js";
@@ -16,13 +16,6 @@ const router = Router();
 router.get("/", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getSuppliers);
 router.get("/quota", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getSupplierQuota);
 router.get("/aging", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getSupplierDebtAging);
-router.get(
-  "/analytics/price-comparison",
-  protect,
-  authorizeRoles("ADMIN", "EMPLOYEE"),
-  requireFeature("ADVANCED_REPORTS"),
-  getSupplierPriceComparison,
-);
 router.get(
   "/analytics/ranking",
   protect,
