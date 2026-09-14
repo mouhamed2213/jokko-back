@@ -24,7 +24,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
     const skip = (page - 1) * limit;
 
     const where: any = { shopId, isActive: true };
-    if (search) where.name = { contains: search };
+    if (search) where.name = { contains: search, mode: "insensitive" };
     if (categoryId) where.categoryId = categoryId;
 
     const [total, products] = await Promise.all([
