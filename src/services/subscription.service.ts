@@ -23,7 +23,7 @@ export const SubscriptionService = {
     let subscription: SubscriptionWithPlan | null =
       await prisma.subscription.findFirst({
         where: {
-          shopOwnerId : shopOwnerId
+          shopId : shopId
         },
         include: {
           plan: {
