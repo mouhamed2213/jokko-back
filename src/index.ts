@@ -26,7 +26,6 @@ const app = express();
 // const PORT = Number(env.PORT) || 5000;
 
  
-app.use(express.json());
 const allowedOrigins = [
   'https://jokko-business.com',
   'https://www.jokko-business.com',
@@ -49,6 +48,8 @@ app.use(
     credentials: true,
   })
 );
+app.use(express.json());
+
 app.use(
   morgan(env.mode === "production" ? "combined" : "dev", {
     stream: morganStream,
