@@ -117,7 +117,6 @@ export const SubscriptionService = {
     return prisma.subscription.update({
       where: {
         id: subscription.id,
-        shopOwnerId,
         // status : "EXPIRED"
 
       },
