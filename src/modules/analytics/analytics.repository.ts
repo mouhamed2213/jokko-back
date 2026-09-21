@@ -67,13 +67,9 @@ export const AnalyticsRepository = {
       WHERE "sales"."shopId" = ${shopId}
         AND "sales"."createdAt" >= ${period.startDate}
         AND "sales"."createdAt" <= ${period.endDate}
-      GROUP BY 1
-git add      ORDER BY bucket ASC
+      GROUP BY 1  ORDER BY bucket ASC
     `);
   },
-
-
-  
 
   getCollectedTimeline: async (
     shopId: number,

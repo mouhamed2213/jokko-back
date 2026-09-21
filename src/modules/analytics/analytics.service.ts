@@ -1,9 +1,27 @@
-import { AnalyticsRepository } from "./analytics.repository.js";
 import { BadRequestError } from "../../utils/errors.js";
+import { AnalyticsRepository } from "./analytics.repository.js";
+import type {
+  AnalyticsCashQuery,
+  AnalyticsCustomersQuery,
+  AnalyticsInsightsQuery,
+  AnalyticsPeriodQuery,
+  AnalyticsProductsQuery,
+  AnalyticsSalesQuery,
+  AnalyticsStockQuery,
+  AnalyticsTrendsQuery,
+} from "./analytics.types.js";
 import {
+  DORMANT_PRODUCT_DAYS,
+  FAST_ROTATION_THRESHOLD,
+  INSIGHT_CONCENTRATION_THRESHOLD,
+  INSIGHT_REVENUE_CHANGE_THRESHOLD,
+  SLOW_ROTATION_THRESHOLD,
+  getCustomerStatus,
+  getProductSalesStatus,
+  getSalesGranularity,
   isComparisonRequested,
-  percentageChange,
   parseAnalyticsPeriod,
+  percentageChange,
   roundMoney,
 } from "./analytics.utils.js";
 
@@ -11,7 +29,10 @@ const getPagination = (
   query: { page?: string; pageSize?: string },
   fallbackSize = 20,
 ) => {
-  const pageSize = Math.min(Math.max(Number(query.pageSize) || fallbackSize, 1), 100);
+  const pageSize = Math.min(
+    Math.max(Number(query.pageSize) || fallbackSize, 1),
+    100,
+  );
   const page = Math.max(Number(query.page) || 1, 1);
   return { page, pageSize, offset: (page - 1) * pageSize };
 };
@@ -23,30 +44,16 @@ const paginationMeta = (page: number, pageSize: number, total: number) => ({
   totalPages: Math.max(Math.ceil(total / pageSize), 1),
 });
 
-const oneOf = (value: string | undefined, allowed: readonly string[], name: string) => {
+const oneOf = (
+  value: string | undefined,
+  allowed: readonly string[],
+  name: string,
+) => {
   if (value && !allowed.includes(value)) {
     throw new BadRequestError(`Filtre ${name} invalide.`);
   }
   return value;
 };
-import type { AnalyticsPeriodQuery } from "./analytics.types.js";
-import type { AnalyticsSalesQuery } from "./analytics.types.js";
-import type { AnalyticsProductsQuery } from "./analytics.types.js";
-import type { AnalyticsStockQuery } from "./analytics.types.js";
-import type { AnalyticsCustomersQuery } from "./analytics.types.js";
-import type { AnalyticsCashQuery } from "./analytics.types.js";
-import type { AnalyticsTrendsQuery } from "./analytics.types.js";
-import type { AnalyticsInsightsQuery } from "./analytics.types.js";
-import { getSalesGranularity } from "./analytics.utils.js";
-import {
-  FAST_ROTATION_THRESHOLD,
-  DORMANT_PRODUCT_DAYS,
-  INSIGHT_CONCENTRATION_THRESHOLD,
-  INSIGHT_REVENUE_CHANGE_THRESHOLD,
-  SLOW_ROTATION_THRESHOLD,
-  getCustomerStatus,
-  getProductSalesStatus,
-} from "./analytics.utils.js";
 
 const getCashTransactionCategory = (label: string) => {
   if (label.startsWith("Règlement facture")) return "SALE_PAYMENT";
@@ -115,10 +122,7 @@ export const AnalyticsService = {
     };
   },
 
-  getOverview: async (
-    shopId: number,
-    query: AnalyticsPeriodQuery,
-  ) => {
+  getOverview: async (shopId: number, query: AnalyticsPeriodQuery) => {
     const period = parseAnalyticsPeriod(query);
     const [sales, payments, previousSales, products] = await Promise.all([
       AnalyticsRepository.getSalesAggregate(shopId, period),
@@ -153,9 +157,7 @@ export const AnalyticsService = {
         revenue: roundMoney(revenue),
         salesCount: sales._count._all,
         averageBasket:
-          sales._count._all > 0
-            ? roundMoney(revenue / sales._count._all)
-            : 0,
+          sales._count._all > 0 ? roundMoney(revenue / sales._count._all) : 0,
         collected: roundMoney(payments._sum.amount || 0),
         receivables: roundMoney(sales._sum.remaining || 0),
         stockValue: roundMoney(stockValue),
@@ -171,15 +173,24 @@ export const AnalyticsService = {
     const period = parseAnalyticsPeriod(query);
     const granularity = getSalesGranularity(period);
     const limit = Math.min(Math.max(Number(query.limit) || 5, 1), 20);
-    const [timeline, collectedTimeline, topProductsByRevenue, topProductsByQuantity] =
-      await Promise.all([
+    const [
+      timeline,
+      collectedTimeline,
+      topProductsByRevenue,
+      topProductsByQuantity,
+    ] = await Promise.all([
       AnalyticsRepository.getSalesTimeline(shopId, period, granularity),
       AnalyticsRepository.getCollectedTimeline(shopId, period, granularity),
       AnalyticsRepository.getTopProducts(shopId, period, limit, "revenue"),
       AnalyticsRepository.getTopProducts(shopId, period, limit, "quantity"),
     ]);
+
+
     const collectedByBucket = new Map(
-      collectedTimeline.map((row) => [row.bucket.getTime(), row.collected || 0]),
+      collectedTimeline.map((row) => [
+        row.bucket.getTime(),
+        row.collected || 0,
+      ]),
     );
 
     return {
@@ -189,9 +200,7 @@ export const AnalyticsService = {
         bucket: row.bucket,
         revenue: roundMoney(row.revenue || 0),
         salesCount: Number(row.salesCount),
-        collected: roundMoney(
-          collectedByBucket.get(row.bucket.getTime()) || 0,
-        ),
+        collected: roundMoney(collectedByBucket.get(row.bucket.getTime()) || 0),
         remaining: roundMoney(row.remaining || 0),
       })),
       topProductsByRevenue: topProductsByRevenue.map((product) => ({
@@ -201,58 +210,123 @@ export const AnalyticsService = {
         revenue: roundMoney(product._sum.totalAmount || 0),
       })),
       topProductsByQuantity: topProductsByQuantity.map((product) => ({
-          productId: product.productId,
-          productName: product.productName,
-          quantity: product._sum.quantity || 0,
-          revenue: roundMoney(product._sum.totalAmount || 0),
-        })),
+        productId: product.productId,
+        productName: product.productName,
+        quantity: product._sum.quantity || 0,
+        revenue: roundMoney(product._sum.totalAmount || 0),
+      })),
     };
   },
 
   getProducts: async (shopId: number, query: AnalyticsProductsQuery) => {
     const period = parseAnalyticsPeriod(query);
     const pagination = getPagination(query);
-    const status = oneOf(query.status, ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"], "status");
-    const stockStatus = oneOf(query.stockStatus, ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"], "stockStatus");
-    const costSource = oneOf(query.costSource, ["HISTORICAL", "ESTIMATED"], "costSource");
-    const products = await AnalyticsRepository.getProductAnalytics(shopId, period);
+    const status = oneOf(
+      query.status,
+      ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"],
+      "status",
+    );
+    const stockStatus = oneOf(
+      query.stockStatus,
+      ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"],
+      "stockStatus",
+    );
+    const costSource = oneOf(
+      query.costSource,
+      ["HISTORICAL", "ESTIMATED"],
+      "costSource",
+    );
+    const products = await AnalyticsRepository.getProductAnalytics(
+      shopId,
+      period,
+    );
 
-    const rows = products.map((product) => {
-      const revenue = product.revenue || 0;
-      const costOfGoodsSold = product.costOfGoodsSold || 0;
-      const grossMargin = revenue - costOfGoodsSold;
-      const rotationBase = product.soldQuantity + product.currentStock;
-      const rotation = rotationBase > 0 ? product.soldQuantity / rotationBase : 0;
-      return {
-        productId: product.productId, productName: product.productName, createdAt: product.createdAt,
-        soldQuantity: product.soldQuantity, revenue: roundMoney(revenue),
-        costOfGoodsSold: roundMoney(costOfGoodsSold), grossMargin: roundMoney(grossMargin),
-        marginRate: revenue > 0 ? roundMoney((grossMargin / revenue) * 100) : null,
-        currentStock: product.currentStock, rotation: roundMoney(rotation), lastSaleAt: product.lastSaleAt,
-        status: getProductSalesStatus(product.createdAt, product.lastSaleAt, period.endDate, rotation),
-        costSource: product.estimatedQuantity > 0 ? "ESTIMATED" : "HISTORICAL",
-        estimatedQuantity: product.estimatedQuantity,
-        stockStatus: product.currentStock === 0 ? "OUT_OF_STOCK" : product.currentStock <= product.alertThreshold ? "LOW_STOCK" : "IN_STOCK",
-        rotationThresholds: { fast: FAST_ROTATION_THRESHOLD, slow: SLOW_ROTATION_THRESHOLD },
-      };
-    }).filter((row) => (!status || row.status === status) && (!stockStatus || row.stockStatus === stockStatus) && (!costSource || row.costSource === costSource));
-    const sortedRows = query.sort === "name" ? rows.sort((a, b) => a.productName.localeCompare(b.productName)) : rows;
+    const rows = products
+      .map((product) => {
+        const revenue = product.revenue || 0;
+        const costOfGoodsSold = product.costOfGoodsSold || 0;
+        const grossMargin = revenue - costOfGoodsSold;
+        const rotationBase = product.soldQuantity + product.currentStock;
+        const rotation =
+          rotationBase > 0 ? product.soldQuantity / rotationBase : 0;
+        return {
+          productId: product.productId,
+          productName: product.productName,
+          createdAt: product.createdAt,
+          soldQuantity: product.soldQuantity,
+          revenue: roundMoney(revenue),
+          costOfGoodsSold: roundMoney(costOfGoodsSold),
+          grossMargin: roundMoney(grossMargin),
+          marginRate:
+            revenue > 0 ? roundMoney((grossMargin / revenue) * 100) : null,
+          currentStock: product.currentStock,
+          rotation: roundMoney(rotation),
+          lastSaleAt: product.lastSaleAt,
+          status: getProductSalesStatus(
+            product.createdAt,
+            product.lastSaleAt,
+            period.endDate,
+            rotation,
+          ),
+          costSource:
+            product.estimatedQuantity > 0 ? "ESTIMATED" : "HISTORICAL",
+          estimatedQuantity: product.estimatedQuantity,
+          stockStatus:
+            product.currentStock === 0
+              ? "OUT_OF_STOCK"
+              : product.currentStock <= product.alertThreshold
+                ? "LOW_STOCK"
+                : "IN_STOCK",
+          rotationThresholds: {
+            fast: FAST_ROTATION_THRESHOLD,
+            slow: SLOW_ROTATION_THRESHOLD,
+          },
+        };
+      })
+      .filter(
+        (row) =>
+          (!status || row.status === status) &&
+          (!stockStatus || row.stockStatus === stockStatus) &&
+          (!costSource || row.costSource === costSource),
+      );
+    const sortedRows =
+      query.sort === "name"
+        ? rows.sort((a, b) => a.productName.localeCompare(b.productName))
+        : rows;
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
-      pagination: paginationMeta(pagination.page, pagination.pageSize, sortedRows.length),
+      pagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        sortedRows.length,
+      ),
       costing: {
         method: "LATEST_ENTRY_BEFORE_SALE",
         estimatedWhenUnavailable: true,
       },
-      products: sortedRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
+      products: sortedRows.slice(
+        pagination.offset,
+        pagination.offset + pagination.pageSize,
+      ),
     };
   },
 
   getStock: async (shopId: number, query: AnalyticsStockQuery) => {
     const period = parseAnalyticsPeriod(query);
-    const statusFilter = oneOf(query.status, ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"], "status");
-    const stockStatusFilter = oneOf(query.stockStatus, ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"], "stockStatus");
-    const products = await AnalyticsRepository.getStockAnalytics(shopId, period);
+    const statusFilter = oneOf(
+      query.status,
+      ["NEW", "FAST", "SLOW", "REGULAR", "DORMANT"],
+      "status",
+    );
+    const stockStatusFilter = oneOf(
+      query.stockStatus,
+      ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"],
+      "stockStatus",
+    );
+    const products = await AnalyticsRepository.getStockAnalytics(
+      shopId,
+      period,
+    );
     const productRows = products.map((product) => {
       const rotationBase = product.soldQuantity + product.currentStock;
       const rotation =
@@ -284,9 +358,10 @@ export const AnalyticsService = {
       };
     });
     const pagination = getPagination(query);
-    const filteredRows = productRows.filter((row) =>
-      (!statusFilter || row.status === statusFilter) &&
-      (!stockStatusFilter || row.stockStatus === stockStatusFilter),
+    const filteredRows = productRows.filter(
+      (row) =>
+        (!statusFilter || row.status === statusFilter) &&
+        (!stockStatusFilter || row.stockStatus === stockStatusFilter),
     );
 
     return {
@@ -297,7 +372,10 @@ export const AnalyticsService = {
       },
       summary: {
         totalStockValue: roundMoney(
-          filteredRows.reduce((total, product) => total + product.stockValue, 0),
+          filteredRows.reduce(
+            (total, product) => total + product.stockValue,
+            0,
+          ),
         ),
         productCount: filteredRows.length,
         outOfStock: filteredRows.filter(
@@ -317,15 +395,19 @@ export const AnalyticsService = {
         newProducts: filteredRows.filter((product) => product.status === "NEW")
           .length,
       },
-      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredRows.length),
-      products: filteredRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
+      pagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        filteredRows.length,
+      ),
+      products: filteredRows.slice(
+        pagination.offset,
+        pagination.offset + pagination.pageSize,
+      ),
     };
   },
 
-  getCustomers: async (
-    shopId: number,
-    query: AnalyticsCustomersQuery,
-  ) => {
+  getCustomers: async (shopId: number, query: AnalyticsCustomersQuery) => {
     const period = parseAnalyticsPeriod(query);
     const customers = await AnalyticsRepository.getCustomerAnalytics(
       shopId,
@@ -351,26 +433,37 @@ export const AnalyticsService = {
       recurrent: customer.orderCount >= 2,
     }));
     const pagination = getPagination(query);
-    const statusFilter = oneOf(query.status, ["NEW", "ACTIVE", "INACTIVE"], "status");
-    const recurrentFilter = oneOf(query.recurrent, ["true", "false"], "recurrent");
-    const filteredRows = rows.filter((row) =>
-      (!statusFilter || row.status === statusFilter) &&
-      (!recurrentFilter || row.recurrent === (recurrentFilter === "true")),
+    const statusFilter = oneOf(
+      query.status,
+      ["NEW", "ACTIVE", "INACTIVE"],
+      "status",
+    );
+    const recurrentFilter = oneOf(
+      query.recurrent,
+      ["true", "false"],
+      "recurrent",
+    );
+    const filteredRows = rows.filter(
+      (row) =>
+        (!statusFilter || row.status === statusFilter) &&
+        (!recurrentFilter || row.recurrent === (recurrentFilter === "true")),
     );
 
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
       summary: {
-        newCustomers: filteredRows.filter((customer) => customer.status === "NEW")
-          .length,
-        activeCustomers:         filteredRows.filter(
+        newCustomers: filteredRows.filter(
+          (customer) => customer.status === "NEW",
+        ).length,
+        activeCustomers: filteredRows.filter(
           (customer) => customer.status === "ACTIVE",
         ).length,
-        inactiveCustomers:         filteredRows.filter(
+        inactiveCustomers: filteredRows.filter(
           (customer) => customer.status === "INACTIVE",
         ).length,
-        recurrentCustomers: filteredRows.filter((customer) => customer.recurrent)
-          .length,
+        recurrentCustomers: filteredRows.filter(
+          (customer) => customer.recurrent,
+        ).length,
       },
       topCustomersByAmount: [...filteredRows]
         .sort((a, b) => b.purchasedAmount - a.purchasedAmount)
@@ -378,8 +471,15 @@ export const AnalyticsService = {
       topCustomersByOrders: [...filteredRows]
         .sort((a, b) => b.orderCount - a.orderCount)
         .slice(pagination.offset, pagination.offset + pagination.pageSize),
-      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredRows.length),
-      customers: filteredRows.slice(pagination.offset, pagination.offset + pagination.pageSize),
+      pagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        filteredRows.length,
+      ),
+      customers: filteredRows.slice(
+        pagination.offset,
+        pagination.offset + pagination.pageSize,
+      ),
     };
   },
 
@@ -393,10 +493,13 @@ export const AnalyticsService = {
       AnalyticsRepository.getCashAnalytics(shopId, period),
       AnalyticsRepository.getPaymentAggregate(shopId, period),
     ]);
-    const filteredTransactions = transactions.filter((transaction) =>
-      (!typeFilter || transaction.type === typeFilter) &&
-      (!paymentMethodFilter || transaction.paymentMethod === paymentMethodFilter) &&
-      (!categoryFilter || getCashTransactionCategory(transaction.label) === categoryFilter),
+    const filteredTransactions = transactions.filter(
+      (transaction) =>
+        (!typeFilter || transaction.type === typeFilter) &&
+        (!paymentMethodFilter ||
+          transaction.paymentMethod === paymentMethodFilter) &&
+        (!categoryFilter ||
+          getCashTransactionCategory(transaction.label) === categoryFilter),
     );
     const cashIn = filteredTransactions
       .filter((transaction) => transaction.type === "IN")
@@ -411,7 +514,9 @@ export const AnalyticsService = {
       byMethod.set(
         transaction.paymentMethod,
         (byMethod.get(transaction.paymentMethod) || 0) +
-          (transaction.type === "IN" ? transaction.amount : -transaction.amount),
+          (transaction.type === "IN"
+            ? transaction.amount
+            : -transaction.amount),
       );
     });
 
@@ -429,17 +534,26 @@ export const AnalyticsService = {
           amount: roundMoney(amount),
         }),
       ),
-      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredTransactions.length),
-      transactions: filteredTransactions.slice(pagination.offset, pagination.offset + pagination.pageSize).map((transaction) => ({
-        type: transaction.type,
-        paymentMethod: transaction.paymentMethod,
-        amount: roundMoney(transaction.amount),
-        createdAt: transaction.createdAt,
-        label: transaction.label,
-        reference: transaction.reference,
-        category: getCashTransactionCategory(transaction.label),
-        target: getCashTransactionTarget(transaction.label, transaction.reference),
-      })),
+      pagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        filteredTransactions.length,
+      ),
+      transactions: filteredTransactions
+        .slice(pagination.offset, pagination.offset + pagination.pageSize)
+        .map((transaction) => ({
+          type: transaction.type,
+          paymentMethod: transaction.paymentMethod,
+          amount: roundMoney(transaction.amount),
+          createdAt: transaction.createdAt,
+          label: transaction.label,
+          reference: transaction.reference,
+          category: getCashTransactionCategory(transaction.label),
+          target: getCashTransactionTarget(
+            transaction.label,
+            transaction.reference,
+          ),
+        })),
     };
   },
 
@@ -470,7 +584,9 @@ export const AnalyticsService = {
       collected: roundMoney(collectedByDay.get(row.weekday) || 0),
       quantitySold: row.quantitySold || 0,
       averageBasket:
-        row.salesCount > 0 ? roundMoney((row.revenue || 0) / row.salesCount) : 0,
+        row.salesCount > 0
+          ? roundMoney((row.revenue || 0) / row.salesCount)
+          : 0,
     }));
 
     return {
@@ -478,8 +594,7 @@ export const AnalyticsService = {
       byWeekday: days,
       mostActiveDay:
         [...days].sort((a, b) => b.salesCount - a.salesCount)[0] || null,
-      topRevenueDay:
-        [...days].sort((a, b) => b.revenue - a.revenue)[0] || null,
+      topRevenueDay: [...days].sort((a, b) => b.revenue - a.revenue)[0] || null,
       heatmap: heatmap.map((row) => ({
         weekday: row.weekday,
         day: names[row.weekday - 1],
@@ -492,13 +607,26 @@ export const AnalyticsService = {
   getInsights: async (shopId: number, query: AnalyticsInsightsQuery) => {
     const period = parseAnalyticsPeriod(query);
     const pagination = getPagination(query, 10);
-    const insightType = oneOf(query.type, [
-      "REVENUE_GROWTH", "REVENUE_DECLINE", "OUT_OF_STOCK", "LOW_STOCK",
-      "DORMANT_PRODUCTS", "SALES_CONCENTRATION", "RECEIVABLES",
-    ], "type");
-    const insightSeverity = oneOf(query.severity, ["POSITIVE", "INFO", "WARNING"], "severity");
-    const [overview, products, currentSales, previousSales] =
-      await Promise.all([
+    const insightType = oneOf(
+      query.type,
+      [
+        "REVENUE_GROWTH",
+        "REVENUE_DECLINE",
+        "OUT_OF_STOCK",
+        "LOW_STOCK",
+        "DORMANT_PRODUCTS",
+        "SALES_CONCENTRATION",
+        "RECEIVABLES",
+      ],
+      "type",
+    );
+    const insightSeverity = oneOf(
+      query.severity,
+      ["POSITIVE", "INFO", "WARNING"],
+      "severity",
+    );
+    const [overview, products, currentSales, previousSales] = await Promise.all(
+      [
         AnalyticsService.getOverview(shopId, query),
         AnalyticsService.getProducts(shopId, {
           ...query,
@@ -512,7 +640,8 @@ export const AnalyticsService = {
           startDate: period.previousStartDate,
           endDate: period.previousEndDate,
         }),
-      ]);
+      ],
+    );
     const insights: Array<{
       type: string;
       severity: "POSITIVE" | "INFO" | "WARNING";
@@ -609,9 +738,10 @@ export const AnalyticsService = {
       });
     }
 
-    const filteredInsights = insights.filter((insight) =>
-      (!insightType || insight.type === insightType) &&
-      (!insightSeverity || insight.severity === insightSeverity),
+    const filteredInsights = insights.filter(
+      (insight) =>
+        (!insightType || insight.type === insightType) &&
+        (!insightSeverity || insight.severity === insightSeverity),
     );
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
@@ -620,8 +750,15 @@ export const AnalyticsService = {
         concentrationPercentage: INSIGHT_CONCENTRATION_THRESHOLD,
         dormantDays: DORMANT_PRODUCT_DAYS,
       },
-      pagination: paginationMeta(pagination.page, pagination.pageSize, filteredInsights.length),
-      insights: filteredInsights.slice(pagination.offset, pagination.offset + pagination.pageSize),
+      pagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        filteredInsights.length,
+      ),
+      insights: filteredInsights.slice(
+        pagination.offset,
+        pagination.offset + pagination.pageSize,
+      ),
     };
   },
 };

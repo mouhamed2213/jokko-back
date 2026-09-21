@@ -37,6 +37,8 @@ export const getMultiStoreOverview = async (
 };
 
 export const getSales = async (req: AuthRequest, res: Response) => {
+  //   console.log(req.user)
+  // return
   const result = await AnalyticsService.getSales(
     req.user!.shopId,
     req.query as AnalyticsSalesQuery,
@@ -45,10 +47,12 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 };
 
 export const getProducts = async (req: AuthRequest, res: Response) => {
+
   const result = await AnalyticsService.getProducts(
     req.user!.shopId,
     req.query as AnalyticsProductsQuery,
   );
+
   return res.status(200).json(result);
 };
 
