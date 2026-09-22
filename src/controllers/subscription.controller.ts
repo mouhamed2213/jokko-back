@@ -2,6 +2,7 @@ import { NextFunction, Response } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { SubscriptionService } from "../services/subscription.service.js";
 import { NotFoundError } from "../utils/errors.js";
+import { logger } from "../config/logger.js";
 
 export const SubscriptionController = {
   getCurrentSubs: async (
@@ -23,7 +24,7 @@ export const SubscriptionController = {
 
       return res.status(200).json({ message: "Subscription", subscription });
     } catch (e) {
-      console.error("Error while getting subscription");
+      logger.error("Error while getting subscription", e);
       next(e)
     }
   },
