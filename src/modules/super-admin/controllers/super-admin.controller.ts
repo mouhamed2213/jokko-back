@@ -165,10 +165,32 @@ updateSubscriptionStatus: async (req: AuthRequest, res: Response, next: NextFunc
   }
 },
   // extendTrialPeriod
-  extendTrialPeriod : async (req: AuthRequest, res: Response, next: NextFunction) => {
+  extendTrialPeriod: async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const shopId = Number(req.params.shopId);
+      const daysToAdd = Number(req.body?.daysToAdd);
 
-      return res.status(200).json("extendTrialPeriod");
+      if (!Number.isInteger(shopId) || shopId <= 0) {
+        throw new Error("Identifiant de boutique invalide");
+      }
+
+      if (!Number.isInteger(daysToAdd) || daysToAdd <= 0) {
+        throw new Error("Le nombre de jours doit être un entier supérieur à 0");
+      }
+
+      const result = await SubscriptionManagementService.extendPeriod(
+        shopId,
+        daysToAdd,
+      );
+
+      logger.info(
+        `Subscription extended — Shop: ${shopId} — Days: ${daysToAdd} — New end date: ${result.endDate}`,
+      );
+
+      return res.status(200).json({
+        message: "Abonnement prolongé avec succès",
+        subscription: result,
+      });
     } catch (e) {
       logger.warn(`Error, cannot extend subscription ${e}`);
       next(e);
