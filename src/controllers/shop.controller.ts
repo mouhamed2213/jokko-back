@@ -82,8 +82,6 @@ export const switchShop = async (
   try {
     const shopData = req.body;
     const ownerId = req.user?.ownerId;
-    const userId = req.user?.userId;
-
     const { token, user } = await ShopService.switchShop(
       ownerId as number,
       shopData,
