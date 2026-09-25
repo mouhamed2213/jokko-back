@@ -81,29 +81,54 @@ export const protectSuperAdmin = (
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new UnauthorizedError("Forbidenn");
-
-      // return res.status(401).json({ message: "Accès non autorisé" });
+    if (!authHeader?.startsWith("Bearer ")) {
+      logger.warn("Tentative d'accès Super Admin sans token");
+      return res.status(401).json({
+        message: "Accès non autorisé : token manquant",
+      });
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.slice(7).trim();
+
+    if (!token) {
+      logger.warn("Tentative d'accès Super Admin avec un token vide");
+      return res.status(401).json({
+        message: "Accès non autorisé : token manquant",
+      });
+    }
+
     const decoded = jwt.verify(token, env.secret.jwt) as {
-      ownerId: number;
       userId: number;
       email: string;
-      planType: PlanType;
       role: string;
     };
 
     if (decoded.role !== "SUPER_ADMIN") {
-      throw new UnauthorizedError("Forbidenn");
+      logger.warn("Tentative d'accès Super Admin avec un rôle invalide");
+      return res.status(403).json({
+        message: "Accès interdit : rôle Super Admin requis",
+      });
     }
 
-    req.user = { ...decoded, shopId: 0 };
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      shopId: 0,
+    } as AuthRequest["user"];
+
     next();
   } catch (e) {
-    logger.warn("Attemp to login as admin failed");
-    throw e
+    if (e instanceof jwt.JsonWebTokenError || e instanceof jwt.TokenExpiredError) {
+      logger.warn("Tentative d'accès Super Admin avec un token invalide ou expiré");
+      return res.status(401).json({
+        message: "Token invalide ou expiré",
+      });
+    }
+
+    logger.error("Erreur lors de la vérification du token Super Admin", e);
+    return res.status(500).json({
+      message: "Erreur lors de l'authentification Super Admin",
+    });
   }
 };
