@@ -1,7 +1,11 @@
 import { Router } from "express";
+import { protectSuperAdmin } from "../../middlewares/auth.middleware.js";
 import { SuperAdminShopController } from "./controllers/super-admin.controller.js";
 
 const router = Router();
+
+// Toutes les routes /api/super-admin/* sont réservées aux Super Admins.
+router.use(protectSuperAdmin);
 
 router.get("/stats", SuperAdminShopController.getStats);
 router.get("/shops", SuperAdminShopController.listShops);
@@ -21,5 +25,3 @@ router.patch(
 );
 
 export default router;
-
-// git
