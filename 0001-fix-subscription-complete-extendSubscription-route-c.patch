@@ -1,0 +1,203 @@
+From b2953d6ff39e9c9131421bc9ffaa2eb2b3b07255 Mon Sep 17 00:00:00 2001
+From: Claude <assistant@example.com>
+Date: Fri, 25 Sep 2026 12:03:37 +0000
+Subject: [PATCH] fix(subscription): complete extendSubscription (route,
+ controller, validation, persistence)
+
+---
+ src/controllers/subscription.controller.ts | 26 ++++++---
+ src/helpers/dates.ts                       |  6 +--
+ src/routes/subscription.routes.ts          |  4 +-
+ src/services/subscription.service.ts       | 63 +++++++++++++++-------
+ 4 files changed, 66 insertions(+), 33 deletions(-)
+
+diff --git a/src/controllers/subscription.controller.ts b/src/controllers/subscription.controller.ts
+index fbf0a1a..fc4bb03 100644
+--- a/src/controllers/subscription.controller.ts
++++ b/src/controllers/subscription.controller.ts
+@@ -29,28 +29,38 @@ export const SubscriptionController = {
+     }
+   },
+ 
+-  extendSubscription: async (req: AuthRequest, res: Response) => {
++  extendSubscription: async (
++    req: AuthRequest,
++    res: Response,
++    next: NextFunction,
++  ) => {
+     try {
+       const { user } = req;
+       const { extendedTo } = req.body;
+ 
+       if (!user) {
+         throw new AppError(
+-          "Impossible défectuer un prolongment: Utilisateur ou boutique non trouvée",
++          "Impossible d'effectuer le prolongement : utilisateur ou boutique non trouvée",
+         );
+       }
+ 
+-      const result = await SubscriptionService.extendSubscription({
+-        shopId: user?.shopId,
+-        shopOwnerId: user?.ownerId,
++      const subscription = await SubscriptionService.extendSubscription({
++        shopId: user.shopId,
++        shopOwnerId: user.ownerId,
+         extendToDate: extendedTo,
+       });
+ 
+-      logger.info("Extenstion success full");
++      logger.info(
++        `📅 Abonnement prolongé — Shop: ${user.shopId} — Nouvelle date de fin: ${subscription.endDate}`,
++      );
+ 
+-      return res.status(200).json({ message: "Success" });
++      return res.status(200).json({
++        message: "Abonnement prolongé avec succès",
++        subscription,
++      });
+     } catch (e) {
+-      logger.error("Erreur lors du prolongment de l'abonnment");
++      logger.error("Erreur lors du prolongement de l'abonnement", e);
++      next(e);
+     }
+   },
+ };
+diff --git a/src/helpers/dates.ts b/src/helpers/dates.ts
+index b99979a..a2f4d60 100644
+--- a/src/helpers/dates.ts
++++ b/src/helpers/dates.ts
+@@ -1,16 +1,14 @@
+ import { addMonths } from "date-fns";
+ 
+-export const dateManagement = (currentEndDate?: Date, extendTo?: Date) => {
++export const dateManagement = () => {
+   const startDate = new Date();
+   const endTrialDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+   const endSubscriptionSate = addMonths(startDate, 1);
+ 
+-  const extendToDate = currentEndDate?.getDate() ?? "" + extendTo?.getDate();
+-
+   return {
+     startDate,
+     endSubscriptionSate,
+     endTrialDate,
+-    extendToDate ,
+   };
+ };
++
+diff --git a/src/routes/subscription.routes.ts b/src/routes/subscription.routes.ts
+index 31ecd2a..cb3ef93 100644
+--- a/src/routes/subscription.routes.ts
++++ b/src/routes/subscription.routes.ts
+@@ -11,9 +11,9 @@ router.get(
+   SubscriptionController.getCurrentSubs,
+ );
+ router.patch(
+-  "extend",
++  "/extend",
+   protect,
+-  authorizeRoles["ADMIN"],
++  authorizeRoles("ADMIN"),
+   SubscriptionController.extendSubscription,
+ );
+ 
+diff --git a/src/services/subscription.service.ts b/src/services/subscription.service.ts
+index 63a26f0..4d2eaea 100644
+--- a/src/services/subscription.service.ts
++++ b/src/services/subscription.service.ts
+@@ -178,48 +178,73 @@ export const SubscriptionService = {
+   },
+ 
+   /**
+-   *  Used to extend active subscription
++   * Prolonge la date de fin d'un abonnement actif (ex : geste commercial,
++   * correction manuelle par un admin). Ne s'applique qu'aux abonnements
++   * payants actifs ; un abonnement expiré doit être renouvelé (`renewal`),
++   * et le plan FREE n'a pas de date de fin à prolonger.
+    */
+   extendSubscription: async (data: {
+     shopOwnerId: number;
+-
+-    extendToDate: Date;
+-
++    extendToDate: string | Date;
+     shopId: number;
+   }) => {
+-    // check if extendTo is null
++    // 1. La nouvelle date de fin doit être fournie
+     if (!data.extendToDate) {
+       throw new BadRequestError(
+-        "Date de prolongement n'est pas fournit ou est incorrect",
++        "La date de prolongement n'est pas fournie ou est incorrecte",
+       );
+     }
+ 
++    const parsedExtendToDate = new Date(data.extendToDate);
++    if (isNaN(parsedExtendToDate.getTime())) {
++      throw new BadRequestError("La date de prolongement est invalide");
++    }
++
+     const subscription = await SubscriptionService.currentSubscription(
+       data.shopId,
+       data.shopOwnerId,
+     );
+ 
++    // 2. Le plan FREE n'a pas d'abonnement payant à prolonger
++    if (subscription.plan.code === "FREE") {
++      throw new BadRequestError(
++        "Le plan gratuit ne peut pas être prolongé. Souscrivez à un plan payant.",
++      );
++    }
++
++    // 3. Seul un abonnement actif peut être prolongé (sinon : renouvellement)
+     if (subscription.status !== "ACTIVE") {
+       throw new UnprocessableEntity(
+-        "L'abnnement est active. Renouveller l'abonnemnt si expirée",
++        "Seul un abonnement actif peut être prolongé. Renouvelez l'abonnement s'il est expiré.",
+       );
+     }
+ 
+-    if (
+-      subscription.plan.code === "FREE" &&
+-      !subscription.endDate &&
+-      subscription.status !== "ACTIVE"
+-    ) {
+-      throw new AppError("Impossible de prolonger l'abonnement");
+-    }
+     const endDate = subscription.endDate;
+     if (!endDate) {
+-      throw new AppError("Erreur prolongement");
++      throw new AppError("Erreur de prolongement : aucune date de fin définie pour cet abonnement.");
++    }
++
++    // 4. La nouvelle date doit être postérieure à la date de fin actuelle
++    if (parsedExtendToDate.getTime() <= endDate.getTime()) {
++      throw new BadRequestError(
++        "La nouvelle date doit être postérieure à la date de fin actuelle de l'abonnement.",
++      );
+     }
+-    const extendToDate = dateManagement(endDate, data.extendToDate);
+ 
+-    // return await prisma.subscription.update({
+-    //   data: { endDate: extendToDate.extendToDate },
+-    // });
++    return prisma.subscription.update({
++      where: { id: subscription.id, shopOwnerId: data.shopOwnerId },
++      data: { endDate: parsedExtendToDate },
++      include: {
++        plan: {
++          include: {
++            planFeature: {
++              include: {
++                feature: true,
++              },
++            },
++          },
++        },
++      },
++    });
+   },
+ };
+-- 
+2.43.0
+
