@@ -293,7 +293,6 @@ export const ShopService = {
   switchShop: async (
     shopOwnerId: number,
     shopData: {
-      userId: number; // should retrieve from the jwt
       password: string;
       targetShopId: number;
     },
@@ -307,7 +306,7 @@ export const ShopService = {
     });
 
     if (!ownership) {
-      throw new UnauthorizedError("Accée non autorisé");
+      throw new ForbiddenError("Accée non autorisé");
     }
     const actor = await prisma.user.findFirst({
       where: {
@@ -329,7 +328,7 @@ export const ShopService = {
       throw new NotFoundError("Utillsateur non reconnu");
     }
 
-    let plan = actor.shop.subscriptions[0].plan.code;
+
 
     // if (plan !== "PRO" && plan !== "PREMIUM") {
     //   throw new UnauthorizedError(
@@ -343,7 +342,7 @@ export const ShopService = {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedError("Mot de passe incorrect");
+      throw new ForbiddenError("Mot de passe incorrect");
     }
 
     const token = jwt.sign(
