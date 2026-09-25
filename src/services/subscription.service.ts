@@ -178,20 +178,26 @@ export const SubscriptionService = {
   },
 
   /**
-   *  Used to extend active subscription
+   * Prolonge la date de fin d'un abonnement actif (ex : geste commercial,
+   * correction manuelle par un admin). Ne s'applique qu'aux abonnements
+   * payants actifs ; un abonnement expiré doit être renouvelé (`renewal`),
+   * et le plan FREE n'a pas de date de fin à prolonger.
    */
   extendSubscription: async (data: {
     shopOwnerId: number;
-
-    extendToDate: Date;
-
+    extendToDate: string | Date;
     shopId: number;
   }) => {
-    // check if extendTo is null
+    // 1. La nouvelle date de fin doit être fournie
     if (!data.extendToDate) {
       throw new BadRequestError(
-        "Date de prolongement n'est pas fournit ou est incorrect",
+        "La date de prolongement n'est pas fournie ou est incorrecte",
       );
+    }
+
+    const parsedExtendToDate = new Date(data.extendToDate);
+    if (isNaN(parsedExtendToDate.getTime())) {
+      throw new BadRequestError("La date de prolongement est invalide");
     }
 
     const subscription = await SubscriptionService.currentSubscription(
@@ -199,27 +205,46 @@ export const SubscriptionService = {
       data.shopOwnerId,
     );
 
-    if (subscription.status !== "ACTIVE") {
-      throw new UnprocessableEntity(
-        "L'abnnement est active. Renouveller l'abonnemnt si expirée",
+    // 2. Le plan FREE n'a pas d'abonnement payant à prolonger
+    if (subscription.plan.code === "FREE") {
+      throw new BadRequestError(
+        "Le plan gratuit ne peut pas être prolongé. Souscrivez à un plan payant.",
       );
     }
 
-    if (
-      subscription.plan.code === "FREE" &&
-      !subscription.endDate &&
-      subscription.status !== "ACTIVE"
-    ) {
-      throw new AppError("Impossible de prolonger l'abonnement");
+    // 3. Seul un abonnement actif peut être prolongé (sinon : renouvellement)
+    if (subscription.status !== "ACTIVE") {
+      throw new UnprocessableEntity(
+        "Seul un abonnement actif peut être prolongé. Renouvelez l'abonnement s'il est expiré.",
+      );
     }
+
     const endDate = subscription.endDate;
     if (!endDate) {
-      throw new AppError("Erreur prolongement");
+      throw new AppError("Erreur de prolongement : aucune date de fin définie pour cet abonnement.");
     }
-    const extendToDate = dateManagement(endDate, data.extendToDate);
 
-    // return await prisma.subscription.update({
-    //   data: { endDate: extendToDate.extendToDate },
-    // });
+    // 4. La nouvelle date doit être postérieure à la date de fin actuelle
+    if (parsedExtendToDate.getTime() <= endDate.getTime()) {
+      throw new BadRequestError(
+        "La nouvelle date doit être postérieure à la date de fin actuelle de l'abonnement.",
+      );
+    }
+
+    return prisma.subscription.update({
+      where: { id: subscription.id, shopOwnerId: data.shopOwnerId },
+      data: { endDate: parsedExtendToDate },
+      include: {
+        plan: {
+          include: {
+            planFeature: {
+              include: {
+                feature: true,
+              },
+            },
+          },
+        },
+      },
+    });
   },
 };

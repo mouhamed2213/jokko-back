@@ -11,9 +11,9 @@ router.get(
   SubscriptionController.getCurrentSubs,
 );
 router.patch(
-  "extend",
+  "/extend",
   protect,
-  authorizeRoles["ADMIN"],
+  authorizeRoles("ADMIN"),
   SubscriptionController.extendSubscription,
 );
 

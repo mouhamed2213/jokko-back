@@ -29,28 +29,38 @@ export const SubscriptionController = {
     }
   },
 
-  extendSubscription: async (req: AuthRequest, res: Response) => {
+  extendSubscription: async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const { user } = req;
       const { extendedTo } = req.body;
 
       if (!user) {
         throw new AppError(
-          "Impossible défectuer un prolongment: Utilisateur ou boutique non trouvée",
+          "Impossible d'effectuer le prolongement : utilisateur ou boutique non trouvée",
         );
       }
 
-      const result = await SubscriptionService.extendSubscription({
-        shopId: user?.shopId,
-        shopOwnerId: user?.ownerId,
+      const subscription = await SubscriptionService.extendSubscription({
+        shopId: user.shopId,
+        shopOwnerId: user.ownerId,
         extendToDate: extendedTo,
       });
 
-      logger.info("Extenstion success full");
+      logger.info(
+        `📅 Abonnement prolongé — Shop: ${user.shopId} — Nouvelle date de fin: ${subscription.endDate}`,
+      );
 
-      return res.status(200).json({ message: "Success" });
+      return res.status(200).json({
+        message: "Abonnement prolongé avec succès",
+        subscription,
+      });
     } catch (e) {
-      logger.error("Erreur lors du prolongment de l'abonnment");
+      logger.error("Erreur lors du prolongement de l'abonnement", e);
+      next(e);
     }
   },
 };
