@@ -185,7 +185,6 @@ export const AnalyticsService = {
       AnalyticsRepository.getTopProducts(shopId, period, limit, "quantity"),
     ]);
 
-
     const collectedByBucket = new Map(
       collectedTimeline.map((row) => [
         row.bucket.getTime(),

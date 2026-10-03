@@ -1,8 +1,8 @@
 import { prisma } from "../../../config/prisma.js";
-import { PaymentStatus, SubscriptionStatus } from "../../../database/prisma/generated/prisma/enums.js";
-import { NotFoundError, ForbiddenError } from "../../../utils/errors.js";
-import { SubscriptionService } from "../../../services/subscription.service.js";
+import { SubscriptionStatus } from "../../../database/prisma/generated/prisma/enums.js";
 import { PaymentService } from "../../../services/payment.service.js";
+import { SubscriptionService } from "../../../services/subscription.service.js";
+import { ForbiddenError, NotFoundError } from "../../../utils/errors.js";
 
 export const SubscriptionManagementService = {
   /**
@@ -22,7 +22,8 @@ export const SubscriptionManagementService = {
     const shopOwner = await prisma.shopOwner.findFirst({
       where: { shopId },
     });
-    if (!shopOwner) throw new NotFoundError("Propriétaire boutique introuvable");
+    if (!shopOwner)
+      throw new NotFoundError("Propriétaire boutique introuvable");
 
     // Get current subscription
     const currentSub = await prisma.subscription.findFirst({
@@ -33,12 +34,17 @@ export const SubscriptionManagementService = {
     if (!currentSub) throw new NotFoundError("Abonnement introuvable");
 
     // Get new plan
-    const newPlan = await prisma.plan.findUnique({ where: { code: planCode as any } });
+    const newPlan = await prisma.plan.findUnique({
+      where: { code: planCode as any },
+    });
     if (!newPlan) throw new NotFoundError(`Plan ${planCode} introuvable`);
 
     // If new plan is FREE, special handling (end trial, no payment)
     if (newPlan.code === "FREE") {
-      const freeSub = await SubscriptionService.downgradeToFree(currentSub as any, shopOwner.userId);
+      const freeSub = await SubscriptionService.downgradeToFree(
+        currentSub as any,
+        shopOwner.userId,
+      );
       return { subscription: freeSub, payment: null };
     }
 
@@ -72,11 +78,14 @@ export const SubscriptionManagementService = {
   /**
    * Update subscription status manually
    */
-  updateStatus: async (
-    shopId: number,
-    status: SubscriptionStatus,
-  ) => {
-    const validStatuses = ["TRIAL", "ACTIVE", "EXPIRED", "TRIAL_EXPIRED", "SUSPENDED"];
+  updateStatus: async (shopId: number, status: SubscriptionStatus) => {
+    const validStatuses = [
+      "TRIAL",
+      "ACTIVE",
+      "EXPIRED",
+      "TRIAL_EXPIRED",
+      "SUSPENDED",
+    ];
     if (!validStatuses.includes(status)) {
       throw new ForbiddenError(`Statut invalide: ${status}`);
     }
@@ -99,10 +108,7 @@ export const SubscriptionManagementService = {
   /**
    * Extend the trial/subscription period by adding days to endDate
    */
-  extendPeriod: async (
-    shopId: number,
-    daysToAdd: number,
-  ) => {
+  extendPeriod: async (shopId: number, daysToAdd: number) => {
     if (daysToAdd <= 0) {
       throw new ForbiddenError("Nombre de jours doit être > 0");
     }

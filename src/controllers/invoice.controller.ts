@@ -4,7 +4,13 @@ import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { getFullStorageUrl } from "../utils/file-upload.js";
 
 // Helper encaissement caisse
-async function recordCashIn(shopId: number, amount: number, label: string, reference: string, paymentMethod = "CASH") {
+async function recordCashIn(
+  shopId: number,
+  amount: number,
+  label: string,
+  reference: string,
+  paymentMethod = "CASH",
+) {
   if (amount <= 0) return;
   const cashRegister = await prisma.cashRegister.findFirst({
     where: { shopId, status: "OPEN" },
@@ -12,7 +18,14 @@ async function recordCashIn(shopId: number, amount: number, label: string, refer
   if (!cashRegister) return;
   await prisma.$transaction([
     prisma.cashTransaction.create({
-      data: { cashRegisterId: cashRegister.id, type: "IN", amount, label, reference, paymentMethod },
+      data: {
+        cashRegisterId: cashRegister.id,
+        type: "IN",
+        amount,
+        label,
+        reference,
+        paymentMethod,
+      },
     }),
     prisma.cashRegister.update({
       where: { id: cashRegister.id },
@@ -63,6 +76,7 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
         where,
         include: {
           client: true,
+          shop: { select: { phone: true } },
           items: { include: { product: true } },
           payments: { orderBy: { paidAt: "asc" } },
         },
@@ -72,16 +86,15 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-
     // Get product images for each invoice item
-    const  invoicesWithImages = invoices.map(invoice => {
-      const itemsWithImages = invoice.items.map(item => {
+    const invoicesWithImages = invoices.map((invoice) => {
+      const itemsWithImages = invoice.items.map((item) => {
         const imgUrl = item.product?.imageUrl || null;
-        const url = getFullStorageUrl("products", imgUrl as string)
-        return { ...item, productImageUrl: url }
-      })
-      return { ...invoice, items: itemsWithImages }
-    })
+        const url = getFullStorageUrl("products", imgUrl as string);
+        return { ...item, productImageUrl: url };
+      });
+      return { ...invoice, items: itemsWithImages };
+    });
 
     // Stats globales
     const stats = await prisma.sale.aggregate({
@@ -101,7 +114,9 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Erreur récupération factures", error });
+    return res
+      .status(500)
+      .json({ message: "Erreur récupération factures", error });
   }
 };
 
@@ -120,10 +135,13 @@ export const getInvoiceById = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    if (!invoice) return res.status(404).json({ message: "Facture introuvable" });
+    if (!invoice)
+      return res.status(404).json({ message: "Facture introuvable" });
     return res.status(200).json(invoice);
   } catch (error) {
-    return res.status(500).json({ message: "Erreur récupération facture", error });
+    return res
+      .status(500)
+      .json({ message: "Erreur récupération facture", error });
   }
 };
 
@@ -143,7 +161,9 @@ export const addInvoicePayment = async (req: AuthRequest, res: Response) => {
     const sale = await prisma.sale.findFirst({ where: { id: saleId, shopId } });
     if (!sale) return res.status(404).json({ message: "Facture introuvable" });
     if (sale.remaining <= 0) {
-      return res.status(400).json({ message: "Cette facture est déjà totalement soldée" });
+      return res
+        .status(400)
+        .json({ message: "Cette facture est déjà totalement soldée" });
     }
     if (paymentAmount > sale.remaining) {
       return res.status(400).json({
@@ -161,18 +181,28 @@ export const addInvoicePayment = async (req: AuthRequest, res: Response) => {
     });
     if (!cashRegister) {
       return res.status(400).json({
-        message: "La caisse est fermée. Veuillez ouvrir la caisse avant d'enregistrer un paiement.",
+        message:
+          "La caisse est fermée. Veuillez ouvrir la caisse avant d'enregistrer un paiement.",
         code: "CASH_CLOSED",
       });
     }
 
     const updatedSale = await prisma.$transaction(async (tx) => {
       await tx.salePayment.create({
-        data: { saleId, amount: paymentAmount, note: note || null, paymentMethod: paymentMethod || "CASH" },
+        data: {
+          saleId,
+          amount: paymentAmount,
+          note: note || null,
+          paymentMethod: paymentMethod || "CASH",
+        },
       });
       return tx.sale.update({
         where: { id: saleId },
-        data: { paidAmount: newPaid, remaining: newRemaining, status: newStatus },
+        data: {
+          paidAmount: newPaid,
+          remaining: newRemaining,
+          status: newStatus,
+        },
         include: {
           client: true,
           items: { include: { product: true } },
@@ -182,13 +212,14 @@ export const addInvoicePayment = async (req: AuthRequest, res: Response) => {
     });
 
     // ✅ Encaissement automatique en caisse
-    const clientLabel = updatedSale.client?.name || updatedSale.customerName || "Client";
+    const clientLabel =
+      updatedSale.client?.name || updatedSale.customerName || "Client";
     await recordCashIn(
       shopId,
       paymentAmount,
       `Règlement facture ${sale.invoiceNumber} — ${clientLabel}`,
       sale.invoiceNumber || String(saleId),
-      paymentMethod || "CASH"
+      paymentMethod || "CASH",
     );
 
     return res.status(200).json({
