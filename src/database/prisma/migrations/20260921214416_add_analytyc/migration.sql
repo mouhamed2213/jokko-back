@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "plans" ADD COLUMN     "maxSuppliers" INTEGER;
+-- ALTER TABLE "plans" ADD COLUMN     "maxSuppliers" INTEGER;
