@@ -7,6 +7,7 @@ const router = Router();
 // Toutes les routes /api/super-admin/* sont réservées aux Super Admins.
 router.use(protectSuperAdmin);
 
+router.get("/me", SuperAdminShopController.me);
 router.get("/stats", SuperAdminShopController.getStats);
 router.get("/shops", SuperAdminShopController.listShops);
 router.get("/shops/:id", SuperAdminShopController.getShopDetail);

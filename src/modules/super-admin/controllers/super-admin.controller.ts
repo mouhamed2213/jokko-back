@@ -8,6 +8,25 @@ import { SuperAdminShopService } from "../services/shop.service.js";
 import { SubscriptionManagementService } from "../services/subscription-management.service.js";
 
 export const SuperAdminShopController = {
+  // Identité du Super Admin connecté (utilisée par le frontend pour valider la session)
+  me: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const admin = await prisma.superAdmin.findUnique({
+        where: { id: req.user!.userId },
+        select: { id: true, name: true, email: true },
+      });
+
+      // Token valide mais compte supprimé : session invalide
+      if (!admin) {
+        return res.status(401).json({ message: "Session Super Admin invalide" });
+      }
+
+      return res.status(200).json({ ...admin, role: "SUPER_ADMIN" });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   getStats: async (_req: Request, res: Response, next: NextFunction) => {
     try {
       // Total shops
