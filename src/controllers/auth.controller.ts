@@ -7,6 +7,7 @@ import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { AuthService } from "../services/auth.service.js";
 import { NotFoundError } from "../utils/errors.js";
 import { env } from "../config/env-config.js";
+import { isBlockedStatus } from "../helpers/shop-status.js";
 
 // ── Login utilisateur boutique ────────────────────────────────
 export const login = async (req: Request, res: Response) => {
@@ -60,6 +61,14 @@ export const login = async (req: Request, res: Response) => {
         `❌ Tentative de connexion échouée — ${email} (mauvais mot de passe)`,
       );
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
+    }
+
+    // Boutique archivée (vérifié après le mot de passe pour ne rien révéler avant)
+    if (isBlockedStatus(user.shop.status)) {
+      return res.status(403).json({
+        code: "SHOP_ARCHIVED",
+        message: "Cette boutique est archivée. Contactez le support pour la réactiver.",
+      });
     }
 
     const token = jwt.sign(

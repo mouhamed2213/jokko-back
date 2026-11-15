@@ -4,6 +4,7 @@ import { env } from "../config/env-config.js";
 import { logger } from "../config/logger.js";
 import { PlanType } from "../database/prisma/generated/prisma/enums.js";
 import { UnauthorizedError } from "../utils/errors.js";
+import { isShopBlocked } from "../helpers/shop-status.js";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -16,7 +17,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const protect = (
+export const protect = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
@@ -50,6 +51,15 @@ export const protect = (
       planType: PlanType;
       role: string;
     };
+
+    // Boutique archivée : on coupe aussi les sessions déjà ouvertes.
+    // (isShopBlocked ne lève jamais d'erreur : fail-open en cas de souci base de données)
+    if (decoded.shopId && (await isShopBlocked(decoded.shopId))) {
+      return res.status(403).json({
+        code: "ACCOUNT_DISABLED",
+        message: "Cette boutique est archivée. Contactez le support.",
+      });
+    }
 
     req.user = decoded;
     next();

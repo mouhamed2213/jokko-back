@@ -1,3 +1,4 @@
+import { isBlockedStatus } from "../helpers/shop-status.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { logger } from "../config/logger.js";
@@ -261,6 +262,7 @@ export const ShopService = {
             address: true,
             logoUrl: true,
             currentShop: true,
+            status: true,
             subscriptions: {
               select: {
                 plan: { select: { code: true } },
@@ -275,7 +277,9 @@ export const ShopService = {
       throw new ForbiddenError("Access interdit");
     }
 
-    const shops = ownership.map((s) => ({
+    const shops = ownership
+      .filter((s) => !isBlockedStatus(s.shop.status))
+      .map((s) => ({
       id: s.shop.id,
       shopOwner: ownerId,
       actorName: s.shop.ownerName,
@@ -284,7 +288,7 @@ export const ShopService = {
       address: s.shop.address,
       logoUrl:  getFullStorageUrl(LOGO_BUCKET, s.shop.logoUrl),
       currentShop: s.shop.currentShop,
-    }));
+      }));
 
     return shops;
   },
@@ -326,6 +330,10 @@ export const ShopService = {
 
     if (!actor) {
       throw new NotFoundError("Utillsateur non reconnu");
+    }
+
+    if (isBlockedStatus(actor.shop.status)) {
+      throw new ForbiddenError("Cette boutique est archivée");
     }
 
 
