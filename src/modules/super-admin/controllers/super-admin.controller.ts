@@ -5,6 +5,9 @@ import { AuthRequest } from "../../../middlewares/auth.middleware.js";
 import { NextFunction, Request, Response } from "express";
 // import { BillingService } from "../services/billing.service.js";
 import { SuperAdminShopService } from "../services/shop.service.js";
+import { ShopArchiveService } from "../services/shop-archive.service.js";
+import { getAuditActor } from "../../../helpers/audit-logger.js";
+import { BadRequestError } from "../../../utils/errors.js";
 import { SubscriptionManagementService } from "../services/subscription-management.service.js";
 
 export const SuperAdminShopController = {
@@ -137,6 +140,34 @@ export const SuperAdminShopController = {
       });
 
       return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Archiver une boutique (réversible, aucune donnée supprimée)
+  archiveShop: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const shopId = Number(req.params.id);
+      if (!Number.isInteger(shopId) || shopId <= 0) {
+        throw new BadRequestError("Identifiant de boutique invalide");
+      }
+      const shop = await ShopArchiveService.archive(shopId, getAuditActor(req));
+      return res.status(200).json({ message: "Boutique archivée", shop });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Restaurer une boutique archivée
+  restoreShop: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const shopId = Number(req.params.id);
+      if (!Number.isInteger(shopId) || shopId <= 0) {
+        throw new BadRequestError("Identifiant de boutique invalide");
+      }
+      const shop = await ShopArchiveService.restore(shopId, getAuditActor(req));
+      return res.status(200).json({ message: "Boutique restaurée", shop });
     } catch (error) {
       next(error);
     }

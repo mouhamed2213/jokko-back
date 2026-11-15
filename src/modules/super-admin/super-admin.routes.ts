@@ -12,6 +12,10 @@ router.get("/stats", SuperAdminShopController.getStats);
 router.get("/shops", SuperAdminShopController.listShops);
 router.get("/shops/:id", SuperAdminShopController.getShopDetail);
 
+// Archivage (suppression douce, réversible)
+router.patch("/shops/:id/archive", SuperAdminShopController.archiveShop);
+router.patch("/shops/:id/restore", SuperAdminShopController.restoreShop);
+
 // Subscription management
 
 router.post("/subscription", SuperAdminShopController.subscription);
