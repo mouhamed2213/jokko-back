@@ -3,6 +3,7 @@ import { SubscriptionStatus } from "../../../database/prisma/generated/prisma/en
 import { PaymentService } from "../../../services/payment.service.js";
 import { SubscriptionService } from "../../../services/subscription.service.js";
 import { ForbiddenError, NotFoundError } from "../../../utils/errors.js";
+import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
 
 export const SubscriptionManagementService = {
   /**
@@ -28,7 +29,7 @@ export const SubscriptionManagementService = {
     // Get current subscription
     const currentSub = await prisma.subscription.findFirst({
       where: { shopId },
-      orderBy: { createdAt: "desc" },
+      orderBy: LATEST_SUBSCRIPTION_ORDER,
       include: { plan: true },
     });
     if (!currentSub) throw new NotFoundError("Abonnement introuvable");
@@ -92,7 +93,7 @@ export const SubscriptionManagementService = {
 
     const subscription = await prisma.subscription.findFirst({
       where: { shopId },
-      orderBy: { createdAt: "desc" },
+      orderBy: LATEST_SUBSCRIPTION_ORDER,
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
 
@@ -115,7 +116,7 @@ export const SubscriptionManagementService = {
 
     const subscription = await prisma.subscription.findFirst({
       where: { shopId },
-      orderBy: { createdAt: "desc" },
+      orderBy: LATEST_SUBSCRIPTION_ORDER,
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
 

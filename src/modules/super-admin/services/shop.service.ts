@@ -1,6 +1,7 @@
 import { prisma } from "../../../config/prisma.js";
 import { Prisma } from "../../../database/prisma/generated/prisma/client.js";
 import { NotFoundError } from "../../../utils/errors.js";
+import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
 
 type ShopListFilters = {
   page?: number;
@@ -16,6 +17,20 @@ export const SuperAdminShopService = {
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 20;
     const skip = (page - 1) * limit;
 
+    // Filtre par plan : on ne garde que les boutiques dont l'abonnement COURANT
+    // (le plus récent) correspond, comme ce qui est affiché dans la liste.
+    let planShopIds: number[] | undefined;
+    if (filters.plan) {
+      const latestPerShop = await prisma.subscription.findMany({
+        distinct: ["shopId"],
+        orderBy: [{ shopId: "asc" }, ...LATEST_SUBSCRIPTION_ORDER],
+        select: { shopId: true, plan: { select: { code: true } } },
+      });
+      planShopIds = latestPerShop
+        .filter((sub) => sub.plan.code === filters.plan)
+        .map((sub) => sub.shopId);
+    }
+
     const where: Prisma.ShopWhereInput = {
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.q
@@ -27,15 +42,7 @@ export const SuperAdminShopService = {
             ],
           }
         : {}),
-      ...(filters.plan
-        ? {
-            subscriptions: {
-              some: {
-                plan: { code: filters.plan as Prisma.EnumPlanTypeFilter["equals"] },
-              },
-            },
-          }
-        : {}),
+      ...(planShopIds ? { id: { in: planShopIds } } : {}),
     };
 
     const [shops, total] = await Promise.all([
@@ -47,7 +54,8 @@ export const SuperAdminShopService = {
         include: {
           subscriptions: {
             include: { plan: true },
-            take: 1, // one subscription per shop, but take(1) keeps this safe either way
+            orderBy: LATEST_SUBSCRIPTION_ORDER,
+            take: 1, // abonnement courant = le plus récent
           },
           _count: {
             select: { users: true, products: true, sales: true },
@@ -108,7 +116,8 @@ export const SuperAdminShopService = {
       secondaryShops: { select: { id: true, name: true, status: true } },
       subscriptions: {
         include: { plan: true },
-        take: 1,
+        orderBy: LATEST_SUBSCRIPTION_ORDER,
+        take: 1, // abonnement courant = le plus récent
       },
       users: {
         select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
