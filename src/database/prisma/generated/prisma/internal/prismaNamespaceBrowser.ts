@@ -74,7 +74,8 @@ export const ModelName = {
   CashTransaction: 'CashTransaction',
   Payment: 'Payment',
   AuditLog: 'AuditLog',
-  AuthToken: 'AuthToken'
+  AuthToken: 'AuthToken',
+  PlatformSetting: 'PlatformSetting'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -100,7 +101,9 @@ export const SuperAdminScalarFieldEnum = {
   password: 'password',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  emailVerifiedAt: 'emailVerifiedAt'
+  emailVerifiedAt: 'emailVerifiedAt',
+  isActive: 'isActive',
+  lastLoginAt: 'lastLoginAt'
 } as const
 
 export type SuperAdminScalarFieldEnum = (typeof SuperAdminScalarFieldEnum)[keyof typeof SuperAdminScalarFieldEnum]
@@ -445,6 +448,16 @@ export const AuthTokenScalarFieldEnum = {
 } as const
 
 export type AuthTokenScalarFieldEnum = (typeof AuthTokenScalarFieldEnum)[keyof typeof AuthTokenScalarFieldEnum]
+
+
+export const PlatformSettingScalarFieldEnum = {
+  id: 'id',
+  maintenanceEnabled: 'maintenanceEnabled',
+  maintenanceMessage: 'maintenanceMessage',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlatformSettingScalarFieldEnum = (typeof PlatformSettingScalarFieldEnum)[keyof typeof PlatformSettingScalarFieldEnum]
 
 
 export const SortOrder = {

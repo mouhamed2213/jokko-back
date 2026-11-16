@@ -420,7 +420,8 @@ export const ModelName = {
   CashTransaction: 'CashTransaction',
   Payment: 'Payment',
   AuditLog: 'AuditLog',
-  AuthToken: 'AuthToken'
+  AuthToken: 'AuthToken',
+  PlatformSetting: 'PlatformSetting'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -436,7 +437,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "superAdmin" | "shop" | "shopOwner" | "subscription" | "plan" | "feature" | "planFeature" | "usageCounter" | "user" | "category" | "product" | "client" | "supplier" | "supplierDebt" | "supplierPayment" | "stockMovement" | "sale" | "saleItem" | "salePayment" | "cashRegister" | "cashTransaction" | "payment" | "auditLog" | "authToken"
+    modelProps: "superAdmin" | "shop" | "shopOwner" | "subscription" | "plan" | "feature" | "planFeature" | "usageCounter" | "user" | "category" | "product" | "client" | "supplier" | "supplierDebt" | "supplierPayment" | "stockMovement" | "sale" | "saleItem" | "salePayment" | "cashRegister" | "cashTransaction" | "payment" | "auditLog" | "authToken" | "platformSetting"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2216,6 +2217,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PlatformSetting: {
+      payload: Prisma.$PlatformSettingPayload<ExtArgs>
+      fields: Prisma.PlatformSettingFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PlatformSettingFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PlatformSettingFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        findFirst: {
+          args: Prisma.PlatformSettingFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PlatformSettingFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        findMany: {
+          args: Prisma.PlatformSettingFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>[]
+        }
+        create: {
+          args: Prisma.PlatformSettingCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        createMany: {
+          args: Prisma.PlatformSettingCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PlatformSettingCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>[]
+        }
+        delete: {
+          args: Prisma.PlatformSettingDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        update: {
+          args: Prisma.PlatformSettingUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        deleteMany: {
+          args: Prisma.PlatformSettingDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PlatformSettingUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PlatformSettingUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>[]
+        }
+        upsert: {
+          args: Prisma.PlatformSettingUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlatformSettingPayload>
+        }
+        aggregate: {
+          args: Prisma.PlatformSettingAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePlatformSetting>
+        }
+        groupBy: {
+          args: Prisma.PlatformSettingGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlatformSettingGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PlatformSettingCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlatformSettingCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2262,7 +2337,9 @@ export const SuperAdminScalarFieldEnum = {
   password: 'password',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  emailVerifiedAt: 'emailVerifiedAt'
+  emailVerifiedAt: 'emailVerifiedAt',
+  isActive: 'isActive',
+  lastLoginAt: 'lastLoginAt'
 } as const
 
 export type SuperAdminScalarFieldEnum = (typeof SuperAdminScalarFieldEnum)[keyof typeof SuperAdminScalarFieldEnum]
@@ -2609,6 +2686,16 @@ export const AuthTokenScalarFieldEnum = {
 export type AuthTokenScalarFieldEnum = (typeof AuthTokenScalarFieldEnum)[keyof typeof AuthTokenScalarFieldEnum]
 
 
+export const PlatformSettingScalarFieldEnum = {
+  id: 'id',
+  maintenanceEnabled: 'maintenanceEnabled',
+  maintenanceMessage: 'maintenanceMessage',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlatformSettingScalarFieldEnum = (typeof PlatformSettingScalarFieldEnum)[keyof typeof PlatformSettingScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -2699,6 +2786,13 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
  * Reference to a field of type 'CurrentShopType'
  */
 export type EnumCurrentShopTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CurrentShopType'>
@@ -2765,13 +2859,6 @@ export type EnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
  * Reference to a field of type 'UsageMetric[]'
  */
 export type ListEnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UsageMetric[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -3047,6 +3134,7 @@ export type GlobalOmitConfig = {
   payment?: Prisma.PaymentOmit
   auditLog?: Prisma.AuditLogOmit
   authToken?: Prisma.AuthTokenOmit
+  platformSetting?: Prisma.PlatformSettingOmit
 }
 
 /* Types for Logging */

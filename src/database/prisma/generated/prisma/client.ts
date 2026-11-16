@@ -161,3 +161,8 @@ export type AuditLog = Prisma.AuditLogModel
  * 
  */
 export type AuthToken = Prisma.AuthTokenModel
+/**
+ * Model PlatformSetting
+ * 
+ */
+export type PlatformSetting = Prisma.PlatformSettingModel

@@ -37,6 +37,19 @@ const actionButton = (url: string, label: string) =>
   `<p style="margin:28px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:13px 22px;background:#059669;color:#ffffff;text-decoration:none;border-radius:9px;font-weight:700;">${escapeHtml(label)}</a></p>`;
 
 export const emailTemplates = {
+  superAdminInvitation: (name: string, url: string) => ({
+    subject: "Invitation à rejoindre l'équipe d'administration - Jokko Business",
+    text: `Bonjour ${name}, vous avez été invité à rejoindre l'équipe Super Admin de Jokko Business. Définissez votre mot de passe avec ce lien : ${url}. Ce lien expire dans 48 heures et ne peut être utilisé qu'une seule fois.`,
+    html: layout(
+      "Invitation Super Admin",
+      `<h1 style="font-size:22px;">Vous êtes invité à rejoindre l'équipe d'administration</h1>
+      <p>Bonjour ${escapeHtml(name)},</p>
+      <p>Un administrateur vous a invité à rejoindre l'équipe Super Admin de Jokko Business.</p>
+      <p>Pour activer votre compte, choisissez un mot de passe sécurisé en utilisant le bouton ci-dessous.</p>
+      ${actionButton(url, "Accepter l'invitation")}
+      <p>Ce lien est valable pendant 48 heures et ne peut être utilisé qu'une seule fois. Si vous n'attendiez pas cette invitation, ignorez cet email.</p>`,
+    ),
+  }),
   verification: (name: string, url: string) => ({
     subject: "Confirmez votre adresse email - Jokko Business",
     text: `Bonjour ${name}, confirmez votre adresse email en ouvrant ce lien : ${url}. Ce lien expire dans 30 minutes.`,

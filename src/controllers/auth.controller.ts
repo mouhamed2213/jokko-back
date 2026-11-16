@@ -152,11 +152,23 @@ export const loginSuperAdmin = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Identifiants invalides" });
     }
 
+    if (!admin.isActive) {
+      return res.status(403).json({
+        code: "SUPER_ADMIN_DISABLED",
+        message: "Ce compte Super Admin est désactivé ou n'a pas encore été activé.",
+      });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, admin.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Identifiants invalides" });
     }
+
+    await prisma.superAdmin.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     const token = jwt.sign(
       { userId: admin.id, email: admin.email, role: "SUPER_ADMIN" },

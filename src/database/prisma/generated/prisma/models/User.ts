@@ -603,10 +603,6 @@ export type UserUpdateOneRequiredWithoutOwnedShopsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOwnedShopsInput, Prisma.UserUpdateWithoutOwnedShopsInput>, Prisma.UserUncheckedUpdateWithoutOwnedShopsInput>
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type UserCreateNestedOneWithoutStockMovementsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutStockMovementsInput, Prisma.UserUncheckedCreateWithoutStockMovementsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutStockMovementsInput

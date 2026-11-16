@@ -201,10 +201,10 @@ export const protectSuperAdmin = async (
     // les anciennes sessions après une modification de l'identifiant.
     const admin = await prisma.superAdmin.findUnique({
       where: { id: decoded.userId as number },
-      select: { id: true, email: true },
+      select: { id: true, email: true, isActive: true },
     });
 
-    if (!admin || admin.email !== decoded.email) {
+    if (!admin || admin.email !== decoded.email || !admin.isActive) {
       logger.warn("Accès refusé : compte Super Admin absent ou identité modifiée", {
         userId: decoded.userId,
       });
