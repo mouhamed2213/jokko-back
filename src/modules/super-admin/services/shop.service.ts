@@ -57,10 +57,19 @@ export const SuperAdminShopService = {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
+          primaryShop: {
+            select: {
+              subscriptions: {
+                include: { plan: true },
+                orderBy: LATEST_SUBSCRIPTION_ORDER,
+                take: 1,
+              },
+            },
+          },
           subscriptions: {
             include: { plan: true },
             orderBy: LATEST_SUBSCRIPTION_ORDER,
-            take: 1, // abonnement courant = le plus récent
+            take: 1,
           },
           _count: {
             select: { users: true, products: true, sales: true },
@@ -72,8 +81,8 @@ export const SuperAdminShopService = {
 
     const data = shops.map((shop) => {
       const subscription =
-    shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
-  const subscriptionInherited = !!shop.primaryShopId;
+        shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
+      const subscriptionInherited = !!shop.primaryShop;
 
       return {
         id: shop.id,
@@ -83,6 +92,8 @@ export const SuperAdminShopService = {
         phone: shop.phone,
         status: shop.status,
         createdAt: shop.createdAt,
+        subscriptionInherited,
+        billingShopId: shop.primaryShopId ?? shop.id,
         subscription: subscription
           ? {
               status: subscription.status,
@@ -156,7 +167,9 @@ export const SuperAdminShopService = {
     throw new NotFoundError("Shop not found");
   }
 
-  const subscription = shop.subscriptions[0] ?? null;
+  const subscription =
+    shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
+  const subscriptionInherited = !!shop.primaryShopId;
 
   const [salesRevenue, payments, auditLogs] = await Promise.all([
     prisma.sale.aggregate({
