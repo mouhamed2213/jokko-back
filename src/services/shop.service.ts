@@ -286,111 +286,88 @@ export const ShopService = {
     return shops;
   },
 
-  // Switch to another shop
+  // Le propriétaire principal change de contexte avec ses propres identifiants.
   switchShop: async (
     shopOwnerId: number,
-    shopData: {
-      password: string;
-      targetShopId: number;
-    },
+    shopData: { password: string; targetShopId: number },
   ) => {
-    // owner verification
-    const ownership = await prisma.shopOwner.findFirst({
-      where: {
-        userId: shopOwnerId,
-        shopId: shopData.targetShopId,
-      },
+    const owner = await prisma.user.findUnique({
+      where: { id: shopOwnerId },
+      select: { id: true, shopId: true, name: true, email: true, password: true, role: true, isActive: true },
     });
 
-    if (!ownership) {
-      throw new ForbiddenError("Accée non autorisé");
+    if (!owner || !owner.isActive || owner.role !== "ADMIN") {
+      throw new ForbiddenError("Compte propriétaire non autorisé");
     }
-    const actor = await prisma.user.findFirst({
-      where: {
-        // id: shopData.userId,
-        shopId: shopData.targetShopId,
-      },
+
+    const targetShop = await prisma.shop.findUnique({
+      where: { id: shopData.targetShopId },
       include: {
-        shop: {
-          select: {
-            status: true,
-            name: true,
-            primaryShop: {
-              select: {
-                status: true,
-                subscriptions: {
-                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-                  take: 1,
-                  select: { plan: { select: { code: true } } },
-                },
-              },
-            },
+        primaryShop: { select: { id: true, status: true } },
+        subscriptions: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 1,
+          select: { plan: { select: { code: true } } },
+        },
+      },
+    });
+    if (!targetShop) throw new NotFoundError("Boutique introuvable");
+    if (targetShop.id !== owner.shopId && targetShop.primaryShopId !== owner.shopId) {
+      throw new ForbiddenError("Cette boutique n'appartient pas à votre réseau");
+    }
+
+    const ownership = await prisma.shopOwner.findFirst({
+      where: { userId: owner.id, shopId: targetShop.id },
+      select: { id: true },
+    });
+    if (!ownership) throw new ForbiddenError("Accès non autorisé");
+
+    if (isBlockedStatus(targetShop.status) || isBlockedStatus(targetShop.primaryShop?.status)) {
+      throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
+    }
+
+    const billingShop = targetShop.primaryShopId
+      ? await prisma.shop.findUnique({
+          where: { id: targetShop.primaryShopId },
+          include: {
             subscriptions: {
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 1,
               select: { plan: { select: { code: true } } },
             },
           },
-        },
-      },
-    });
+        })
+      : targetShop;
+    const inheritedPlanCode = billingShop?.subscriptions[0]?.plan.code;
+    if (!inheritedPlanCode) throw new NotFoundError("Abonnement de la boutique principale introuvable");
 
-    if (!actor) {
-      throw new NotFoundError("Utillsateur non reconnu");
-    }
-
-    if (isBlockedStatus(actor.shop.status) || isBlockedStatus(actor.shop.primaryShop?.status)) {
-      throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
-    }
-
-    const inheritedPlanCode = actor.shop.primaryShop
-      ? actor.shop.primaryShop.subscriptions[0]?.plan.code
-      : actor.shop.subscriptions[0]?.plan.code;
-
-    if (!inheritedPlanCode) {
-      throw new NotFoundError("Abonnement de la boutique principale introuvable");
-    }
-
-
-
-    // if (plan !== "PRO" && plan !== "PREMIUM") {
-    //   throw new UnauthorizedError(
-    //     " Votre abonnment n'inclut pas cette fonctionnalitée",
-    //   );
-    // }
-
-    const isPasswordValid = await bcrypt.compare(
-      shopData.password,
-      actor?.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new ForbiddenError("Mot de passe incorrect");
-    }
+    const isPasswordValid = await bcrypt.compare(shopData.password, owner.password);
+    if (!isPasswordValid) throw new ForbiddenError("Mot de passe incorrect");
 
     const token = jwt.sign(
       {
-        ownerId: ownership.userId, // the shop owner id . it's immuable and is always in every token
-        userId: actor.id, // user who is connected TO A SHOP maybe primary or secondary
-        shopId: actor.shopId,
+        ownerId: owner.id,
+        userId: owner.id,
+        shopId: targetShop.id,
         planType: inheritedPlanCode,
-        role: actor.role,
+        role: owner.role,
+        email: owner.email,
+        ...(targetShop.id !== owner.shopId ? { accessMode: "OWNER" as const } : {}),
       },
       env.secret.jwt,
       { expiresIn: "1d" },
     );
 
-    // });
     return {
       token,
       user: {
-        id: actor.id,
-        name: actor.name,
-        email: actor.email,
-        role: actor.role,
+        id: owner.id,
+        name: owner.name,
+        email: owner.email,
+        role: owner.role,
         plan: inheritedPlanCode,
-        shopId: actor.shopId,
-        shopName: actor.shop.name,
+        shopId: targetShop.id,
+        shopName: targetShop.name,
       },
     };
   },
