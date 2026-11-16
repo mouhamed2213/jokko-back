@@ -22,12 +22,40 @@ type SubscriptionWithPlan = Prisma.SubscriptionGetPayload<{
   };
 }>;
 
+const resolveBillingOwner = async (shopId: number, ownerUserId: number) => {
+  const shop = await prisma.shop.findUnique({
+    where: { id: shopId },
+    select: { id: true, primaryShopId: true },
+  });
+
+  if (!shop) {
+    throw new NotFoundError("Boutique introuvable");
+  }
+
+  const billingShopId = shop.primaryShopId ?? shop.id;
+  const billingOwner = await prisma.shopOwner.findFirst({
+    where: { userId: ownerUserId, shopId: billingShopId },
+    select: { id: true },
+  });
+
+  if (!billingOwner) {
+    throw new NotFoundError("Propriétaire de la boutique principale introuvable");
+  }
+
+  return { billingShopId, billingOwnerId: billingOwner.id };
+};
+
 export const SubscriptionService = {
-  currentSubscription: async (shopId: number, shopOwnerId: number) => {
+  currentSubscription: async (shopId: number, ownerUserId: number) => {
+    const { billingShopId, billingOwnerId } = await resolveBillingOwner(
+      shopId,
+      ownerUserId,
+    );
     let subscription: SubscriptionWithPlan | null =
       await prisma.subscription.findFirst({
         where: {
-          shopId: shopId,
+          shopId: billingShopId,
+          shopOwnerId: billingOwnerId,
         },
         include: {
           plan: {
@@ -48,7 +76,7 @@ export const SubscriptionService = {
 
     subscription = await SubscriptionService.ensureSubscriptionIsValid(
       subscription,
-      shopOwnerId,
+      billingOwnerId,
     );
 
     return {
@@ -200,6 +228,10 @@ export const SubscriptionService = {
       throw new BadRequestError("La date de prolongement est invalide");
     }
 
+    const { billingOwnerId } = await resolveBillingOwner(
+      data.shopId,
+      data.shopOwnerId,
+    );
     const subscription = await SubscriptionService.currentSubscription(
       data.shopId,
       data.shopOwnerId,
@@ -232,7 +264,7 @@ export const SubscriptionService = {
     }
 
     return prisma.subscription.update({
-      where: { id: subscription.id, shopOwnerId: data.shopOwnerId },
+      where: { id: subscription.id, shopOwnerId: billingOwnerId },
       data: { endDate: parsedExtendToDate },
       include: {
         plan: {
