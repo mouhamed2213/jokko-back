@@ -36,8 +36,12 @@ const getAccount = async (type: AccountType, id: number): Promise<Account | null
 const findAccountsByEmail = async (email: string) => {
   const normalizedEmail = email.trim().toLowerCase();
   const [user, superAdmin] = await Promise.all([
-    prisma.user.findUnique({ where: { email: normalizedEmail } }),
-    prisma.superAdmin.findUnique({ where: { email: normalizedEmail } }),
+    prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+    }),
+    prisma.superAdmin.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+    }),
   ]);
   return [
     ...(user ? [{ type: "USER" as const, id: user.id, name: user.name, email: user.email }] : []),
@@ -203,6 +207,10 @@ export const AccountAuthService = {
   resetPassword: async (rawToken: string, newPassword: string) => {
     const token = await prisma.authToken.findUnique({
       where: { tokenHash: hashToken(rawToken) },
+      include: {
+        user: { select: { name: true, email: true } },
+        superAdmin: { select: { name: true, email: true } },
+      },
     });
     if (!token || token.type !== "PASSWORD_RESET" || token.consumedAt || token.expiresAt <= new Date()) {
       throw new Error("Lien de réinitialisation invalide ou expiré");
@@ -220,6 +228,18 @@ export const AccountAuthService = {
         await tx.superAdmin.update({ where: { id: token.superAdminId }, data: { password: hashedPassword } });
       }
     });
+    const account = token.user ?? token.superAdmin;
+    if (account) {
+      try {
+        const template = emailTemplates.passwordChanged(account.name);
+        await EmailService.send({ to: account.email, ...template, category: "password-reset-completed" });
+      } catch (error) {
+        logger.error("Mot de passe réinitialisé mais notification email non envoyée", {
+          tokenId: token.id,
+          error: error instanceof Error ? error.message : "Erreur inconnue",
+        });
+      }
+    }
   },
 
   changePassword: async (
@@ -265,8 +285,14 @@ export const AccountAuthService = {
       throw new Error("La nouvelle adresse email doit être différente de l'adresse actuelle");
     }
     const [userConflict, adminConflict] = await Promise.all([
-      prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } }),
-      prisma.superAdmin.findUnique({ where: { email: normalizedEmail }, select: { id: true } }),
+      prisma.user.findFirst({
+        where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+        select: { id: true },
+      }),
+      prisma.superAdmin.findFirst({
+        where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+        select: { id: true },
+      }),
     ]);
     if (userConflict || adminConflict) throw new Error("Cette adresse email est déjà utilisée");
     if (!(await canSendToken("EMAIL_CHANGE", accountType, accountId))) {
