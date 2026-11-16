@@ -23,6 +23,7 @@ router.patch("/shops/:id/restore", SuperAdminShopController.restoreShop);
 // Subscription management
 
 router.post("/subscription", SuperAdminShopController.subscription);
+router.patch("/subscription/payments/:paymentId/confirm", SuperAdminShopController.confirmSubscriptionPayment);
 
 router.patch(
   "/shops/:shopId/subscription/status",
