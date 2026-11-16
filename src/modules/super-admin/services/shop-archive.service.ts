@@ -21,7 +21,6 @@ export const ShopArchiveService = {
         name: true,
         email: true,
         status: true,
-        secondaryShops: { select: { id: true, name: true, status: true } },
       },
     });
     if (!shop) throw new NotFoundError("Boutique introuvable");
@@ -30,17 +29,8 @@ export const ShopArchiveService = {
       throw new ConflictError("Cette boutique est déjà archivée");
     }
 
-    // Ne jamais laisser des boutiques secondaires actives sans boutique principale
-    const activeSecondaries = shop.secondaryShops.filter(
-      (s) => s.status !== SHOP_STATUS.ARCHIVED,
-    );
-    if (activeSecondaries.length > 0) {
-      throw new ConflictError(
-        `Archivez d'abord les boutiques secondaires : ${activeSecondaries
-          .map((s) => s.name)
-          .join(", ")}`,
-      );
-    }
+    // Les boutiques secondaires restent dans leur état individuel.
+    // Leur accès est bloqué tant que la boutique principale est archivée.
 
     // Garde atomique : ne passe que si la boutique n'a pas été archivée entre-temps
     const result = await prisma.shop.updateMany({
