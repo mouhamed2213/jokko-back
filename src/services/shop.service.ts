@@ -154,7 +154,6 @@ export const ShopService = {
       const plan = shopOwner.shop.subscriptions[0].plan;
       const subcription = shopOwner.shop.subscriptions[0].status;
       const planCode = shopOwner.shop.subscriptions[0].plan.code;
-      const endDate = shopOwner.shop.subscriptions[0].endDate;
 
       if (planCode !== "PREMIUM" && planCode !== "PRO") {
         throw new ForbiddenError(
@@ -191,14 +190,6 @@ export const ShopService = {
           },
         });
 
-        const plan = await tx.plan.findUnique({
-          where: { code: planCode },
-        });
-
-        if (!plan) {
-          throw new NotFoundError(`Plan not found: ${planCode}`);
-        }
-
         await tx.user.create({
           data: {
             shopId: shop.id,
@@ -215,16 +206,6 @@ export const ShopService = {
             userId: shopOwner.id,
             shopId: shop.id,
             phone: shop.phone,
-          },
-        });
-
-        await tx.subscription.create({
-          data: {
-            shopOwnerId: owner.userId,
-            shopId: owner.shopId,
-            planId: plan.id,
-            status: "ACTIVE",
-            endDate, // end date of the primary shop
           },
         });
 
@@ -263,10 +244,19 @@ export const ShopService = {
             logoUrl: true,
             currentShop: true,
             status: true,
-            subscriptions: {
+            primaryShop: {
               select: {
-                plan: { select: { code: true } },
+                subscriptions: {
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                  take: 1,
+                  select: { plan: { select: { code: true } } },
+                },
               },
+            },
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              select: { plan: { select: { code: true } } },
             },
           },
         },
@@ -284,7 +274,7 @@ export const ShopService = {
       shopOwner: ownerId,
       actorName: s.shop.ownerName,
       name: s.shop.name,
-      plan: s.shop.subscriptions[0].plan.code,
+      plan: s.shop.primaryShop?.subscriptions[0]?.plan.code ?? s.shop.subscriptions[0]?.plan.code ?? "FREE",
       address: s.shop.address,
       logoUrl:  getFullStorageUrl(LOGO_BUCKET, s.shop.logoUrl),
       currentShop: s.shop.currentShop,
@@ -322,7 +312,21 @@ export const ShopService = {
           select: {
             status: true,
             name: true,
-            subscriptions: { select: { plan: { select: { code: true } } } },
+            primaryShop: {
+              select: {
+                status: true,
+                subscriptions: {
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                  take: 1,
+                  select: { plan: { select: { code: true } } },
+                },
+              },
+            },
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              select: { plan: { select: { code: true } } },
+            },
           },
         },
       },
@@ -332,8 +336,16 @@ export const ShopService = {
       throw new NotFoundError("Utillsateur non reconnu");
     }
 
-    if (isBlockedStatus(actor.shop.status)) {
-      throw new ForbiddenError("Cette boutique est archivée");
+    if (isBlockedStatus(actor.shop.status) || isBlockedStatus(actor.shop.primaryShop?.status)) {
+      throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
+    }
+
+    const inheritedPlanCode =
+      actor.shop.primaryShop?.subscriptions[0]?.plan.code ??
+      actor.shop.subscriptions[0]?.plan.code;
+
+    if (!inheritedPlanCode) {
+      throw new NotFoundError("Abonnement de la boutique principale introuvable");
     }
 
 
@@ -358,7 +370,7 @@ export const ShopService = {
         ownerId: ownership.userId, // the shop owner id . it's immuable and is always in every token
         userId: actor.id, // user who is connected TO A SHOP maybe primary or secondary
         shopId: actor.shopId,
-        plan: actor.shop.subscriptions[0].plan.code === "FREE",
+        planType: inheritedPlanCode,
         role: actor.role,
       },
       env.secret.jwt,
@@ -373,7 +385,7 @@ export const ShopService = {
         name: actor.name,
         email: actor.email,
         role: actor.role,
-        plan: actor.shop.subscriptions[0].plan.code,
+        plan: inheritedPlanCode,
         shopId: actor.shopId,
         shopName: actor.shop.name,
       },
