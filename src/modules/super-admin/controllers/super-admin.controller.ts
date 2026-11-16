@@ -6,6 +6,7 @@ import { NextFunction, Request, Response } from "express";
 // import { BillingService } from "../services/billing.service.js";
 import { SuperAdminShopService } from "../services/shop.service.js";
 import { ShopArchiveService } from "../services/shop-archive.service.js";
+import { SuperAdminOwnerService } from "../services/owner.service.js";
 import { getAuditActor } from "../../../helpers/audit-logger.js";
 import { BadRequestError } from "../../../utils/errors.js";
 import { SubscriptionManagementService } from "../services/subscription-management.service.js";
@@ -139,6 +140,34 @@ export const SuperAdminShopController = {
         plan: plan ? String(plan) : undefined,
       });
 
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Propriétaires : liste et vue globale du réseau de boutiques
+  listOwners: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { page, limit, q } = req.query;
+      const result = await SuperAdminOwnerService.listOwners({
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+        q: q ? String(q) : undefined,
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getOwnerDetail: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = Number(req.params.id);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        throw new BadRequestError("Identifiant de propriétaire invalide");
+      }
+      const result = await SuperAdminOwnerService.getOwnerDetail(userId);
       return res.status(200).json(result);
     } catch (error) {
       next(error);
