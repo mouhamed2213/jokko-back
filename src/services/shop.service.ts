@@ -297,7 +297,9 @@ export const ShopService = {
       shopOwner: ownerId,
       actorName: s.shop.ownerName,
       name: s.shop.name,
-      plan: s.shop.primaryShop?.subscriptions[0]?.plan.code ?? s.shop.subscriptions[0]?.plan.code ?? "FREE",
+      plan: s.shop.primaryShop
+        ? s.shop.primaryShop.subscriptions[0]?.plan.code ?? "FREE"
+        : s.shop.subscriptions[0]?.plan.code ?? "FREE",
       address: s.shop.address,
       logoUrl:  getFullStorageUrl(LOGO_BUCKET, s.shop.logoUrl),
       currentShop: s.shop.currentShop,
