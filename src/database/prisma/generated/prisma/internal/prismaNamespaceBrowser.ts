@@ -101,7 +101,9 @@ export const SuperAdminScalarFieldEnum = {
   password: 'password',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  emailVerifiedAt: 'emailVerifiedAt'
+  emailVerifiedAt: 'emailVerifiedAt',
+  isActive: 'isActive',
+  lastLoginAt: 'lastLoginAt'
 } as const
 
 export type SuperAdminScalarFieldEnum = (typeof SuperAdminScalarFieldEnum)[keyof typeof SuperAdminScalarFieldEnum]

@@ -2337,7 +2337,9 @@ export const SuperAdminScalarFieldEnum = {
   password: 'password',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  emailVerifiedAt: 'emailVerifiedAt'
+  emailVerifiedAt: 'emailVerifiedAt',
+  isActive: 'isActive',
+  lastLoginAt: 'lastLoginAt'
 } as const
 
 export type SuperAdminScalarFieldEnum = (typeof SuperAdminScalarFieldEnum)[keyof typeof SuperAdminScalarFieldEnum]
@@ -2784,6 +2786,13 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
  * Reference to a field of type 'CurrentShopType'
  */
 export type EnumCurrentShopTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CurrentShopType'>
@@ -2850,13 +2859,6 @@ export type EnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
  * Reference to a field of type 'UsageMetric[]'
  */
 export type ListEnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UsageMetric[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
