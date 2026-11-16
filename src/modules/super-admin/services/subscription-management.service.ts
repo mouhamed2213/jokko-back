@@ -132,6 +132,15 @@ export const SubscriptionManagementService = {
         throw new ForbiddenError("Le paiement ne correspond pas à la boutique de l'abonnement");
       }
 
+      // Conditional transition prevents two concurrent admins from activating the same payment twice.
+      const claimed = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.PENDING },
+        data: { status: PaymentStatus.SUCCESS, paidAt: new Date() },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestError("Ce paiement vient d'être traité par un autre administrateur");
+      }
+
       const now = new Date();
       const dates = dateManagement();
       const subscription = await tx.subscription.update({
@@ -145,9 +154,8 @@ export const SubscriptionManagementService = {
         include: { plan: { include: { planFeature: { include: { feature: true } } } } },
       });
 
-      const confirmedPayment = await tx.payment.update({
+      const confirmedPayment = await tx.payment.findUniqueOrThrow({
         where: { id: payment.id },
-        data: { status: PaymentStatus.SUCCESS, paidAt: now },
       });
 
       await tx.auditLog.create({
@@ -155,8 +163,8 @@ export const SubscriptionManagementService = {
           actorId: actor.actorId,
           actorName: actor.actorName,
           action: "CONFIRM_SUBSCRIPTION_PAYMENT",
-          targetType: "Payment",
-          targetId: payment.id,
+          targetType: "Subscription",
+          targetId: payment.subscription.shopId,
           details: {
             shopId: payment.shopOwner.shopId,
             subscriptionId: payment.subscriptionId,
