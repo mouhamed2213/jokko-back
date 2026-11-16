@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
 import { prisma } from "../../config/prisma.js";
+import { AppError } from "../../utils/errors.js";
 import { logger } from "../../config/logger.js";
 import { env } from "../../config/env-config.js";
 import { EmailService } from "./email.service.js";
@@ -299,7 +300,16 @@ export const AccountAuthService = {
       throw new Error("Veuillez patienter avant de demander un nouveau lien");
     }
     const token = await createToken("EMAIL_CHANGE", accountType, accountId, normalizedEmail);
-    await sendTokenEmail("EMAIL_CHANGE", account, token, normalizedEmail);
+    try {
+      await sendTokenEmail("EMAIL_CHANGE", account, token, normalizedEmail);
+    } catch (error) {
+      logger.error("Impossible d'envoyer le lien de confirmation du changement d'email", {
+        accountType,
+        accountId,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      });
+      throw new AppError("Impossible d'envoyer le lien de confirmation pour le moment.", 503);
+    }
     try {
       const notice = emailTemplates.emailChangeRequested(account.name, normalizedEmail);
       await EmailService.send({ to: account.email, ...notice, category: "email-change-requested" });
