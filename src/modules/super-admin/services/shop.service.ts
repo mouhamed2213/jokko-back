@@ -204,7 +204,11 @@ export const SuperAdminShopService = {
     currentShop: shop.currentShop,
     createdAt: shop.createdAt,
     primaryShop: shop.primaryShop
-      ? { id: shop.primaryShop.id, name: shop.primaryShop.name }
+      ? {
+          id: shop.primaryShop.id,
+          name: shop.primaryShop.name,
+          status: shop.primaryShop.status,
+        }
       : null,
     secondaryShops: shop.secondaryShops,
     subscriptionInherited,
