@@ -214,17 +214,34 @@ export const SuperAdminShopController = {
   },
 
   // extendTrialPeriod
-  subscription : async (req: AuthRequest, res: Response, next: NextFunction) => {
+  subscription: async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { shop_id, planType } = req.body;
-      const result = await SubscriptionManagementService.changePlan(
-        shop_id,
-        planType,
-      );
-      logger.info("New subscription");
-      return res.status(200).json(result);
+      const { shop_id, planType, provider, amount, transactionReference } = req.body ?? {};
+      const result = await SubscriptionManagementService.changePlan({
+        shopId: Number(shop_id),
+        planCode: planType,
+        provider,
+        amount: amount === undefined ? undefined : Number(amount),
+        transactionReference,
+      });
+      logger.info("Subscription plan change requested", { shopId: Number(shop_id), planType, paymentId: result.payment?.id });
+      return res.status(201).json(result);
     } catch (e) {
       logger.warn(`Error cannot change subscription plan ${e}`);
+      next(e);
+    }
+  },
+
+  confirmSubscriptionPayment: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const paymentId = Number(req.params.paymentId);
+      const result = await SubscriptionManagementService.confirmPayment(paymentId, {
+        actorId: req.user!.userId,
+        actorName: req.user!.email,
+      });
+      return res.status(200).json({ message: "Paiement confirmé et abonnement activé", ...result });
+    } catch (e) {
+      logger.warn(`Error cannot confirm subscription payment ${e}`);
       next(e);
     }
   },
