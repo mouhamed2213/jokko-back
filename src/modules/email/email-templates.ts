@@ -82,4 +82,15 @@ export const emailTemplates = {
       <p><strong>Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.</strong></p>`,
     ),
   }),
+  emailChanged: (name: string, newEmail: string) => ({
+    subject: "Votre adresse email a été modifiée - Jokko Business",
+    text: `Bonjour ${name}, l'adresse email de votre compte vient d'être remplacée par ${newEmail}. Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.`,
+    html: layout(
+      "Adresse email modifiée",
+      `<h1 style="font-size:22px;">Adresse email modifiée</h1>
+      <p>Bonjour ${escapeHtml(name)},</p>
+      <p>L'adresse email de votre compte vient d'être remplacée par <strong>${escapeHtml(newEmail)}</strong>.</p>
+      <p><strong>Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.</strong></p>`,
+    ),
+  }),
 };
