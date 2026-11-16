@@ -164,20 +164,30 @@ export const AccountAuthService = {
       where: { tokenHash: hashToken(rawToken) },
       include: { user: true, superAdmin: true },
     });
-    if (
-      !token ||
-      token.type !== "EMAIL_VERIFICATION" ||
-      token.consumedAt ||
-      token.expiresAt <= new Date()
-    ) {
+
+    if (!token || token.type !== "EMAIL_VERIFICATION") {
       throw new Error("Lien de vérification invalide ou expiré");
     }
-    await prisma.$transaction(async (tx) => {
-      const consumed = await tx.authToken.updateMany({
+
+    const isAccountVerified = () =>
+      token.user?.emailVerifiedAt != null ||
+      token.superAdmin?.emailVerifiedAt != null;
+
+    // A verification link may be requested more than once by the browser
+    // (for example, after a reload or a concurrent request). Treat a token
+    // already consumed for a verified account as a successful, idempotent call.
+    if (token.consumedAt || token.expiresAt <= new Date()) {
+      if (isAccountVerified()) return { alreadyVerified: true };
+      throw new Error("Lien de vérification invalide ou expiré");
+    }
+
+    const consumed = await prisma.$transaction(async (tx) => {
+      const result = await tx.authToken.updateMany({
         where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } },
         data: { consumedAt: new Date() },
       });
-      if (consumed.count !== 1) throw new Error("Lien de vérification invalide ou déjà utilisé");
+      if (result.count !== 1) return false;
+
       if (token.userId) {
         await tx.user.update({
           where: { id: token.userId },
@@ -188,8 +198,30 @@ export const AccountAuthService = {
           where: { id: token.superAdminId },
           data: { emailVerifiedAt: new Date() },
         });
+      } else {
+        throw new Error("Jeton de vérification sans compte associé");
       }
+      return true;
     });
+
+    if (!consumed) {
+      const account = token.userId
+        ? await prisma.user.findUnique({
+            where: { id: token.userId },
+            select: { emailVerifiedAt: true },
+          })
+        : token.superAdminId
+          ? await prisma.superAdmin.findUnique({
+              where: { id: token.superAdminId },
+              select: { emailVerifiedAt: true },
+            })
+          : null;
+
+      if (account?.emailVerifiedAt) return { alreadyVerified: true };
+      throw new Error("Lien de vérification invalide ou déjà utilisé");
+    }
+
+    return { alreadyVerified: false };
   },
 
   requestPasswordReset: async (email: string) => {
