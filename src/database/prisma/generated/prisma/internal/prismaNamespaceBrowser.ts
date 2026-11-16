@@ -73,7 +73,8 @@ export const ModelName = {
   CashRegister: 'CashRegister',
   CashTransaction: 'CashTransaction',
   Payment: 'Payment',
-  AuditLog: 'AuditLog'
+  AuditLog: 'AuditLog',
+  AuthToken: 'AuthToken'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -98,7 +99,8 @@ export const SuperAdminScalarFieldEnum = {
   email: 'email',
   password: 'password',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  emailVerifiedAt: 'emailVerifiedAt'
 } as const
 
 export type SuperAdminScalarFieldEnum = (typeof SuperAdminScalarFieldEnum)[keyof typeof SuperAdminScalarFieldEnum]
@@ -205,6 +207,7 @@ export const UserScalarFieldEnum = {
   isActive: 'isActive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  emailVerifiedAt: 'emailVerifiedAt',
   userCounts: 'userCounts'
 } as const
 
@@ -427,6 +430,21 @@ export const AuditLogScalarFieldEnum = {
 } as const
 
 export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+export const AuthTokenScalarFieldEnum = {
+  id: 'id',
+  tokenHash: 'tokenHash',
+  type: 'type',
+  userId: 'userId',
+  superAdminId: 'superAdminId',
+  targetEmail: 'targetEmail',
+  expiresAt: 'expiresAt',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AuthTokenScalarFieldEnum = (typeof AuthTokenScalarFieldEnum)[keyof typeof AuthTokenScalarFieldEnum]
 
 
 export const SortOrder = {

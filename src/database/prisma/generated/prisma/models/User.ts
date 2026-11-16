@@ -48,6 +48,7 @@ export type UserMinAggregateOutputType = {
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
+  emailVerifiedAt: Date | null
   userCounts: number | null
 }
 
@@ -61,6 +62,7 @@ export type UserMaxAggregateOutputType = {
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
+  emailVerifiedAt: Date | null
   userCounts: number | null
 }
 
@@ -74,6 +76,7 @@ export type UserCountAggregateOutputType = {
   isActive: number
   createdAt: number
   updatedAt: number
+  emailVerifiedAt: number
   userCounts: number
   _all: number
 }
@@ -101,6 +104,7 @@ export type UserMinAggregateInputType = {
   isActive?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
   userCounts?: true
 }
 
@@ -114,6 +118,7 @@ export type UserMaxAggregateInputType = {
   isActive?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
   userCounts?: true
 }
 
@@ -127,6 +132,7 @@ export type UserCountAggregateInputType = {
   isActive?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
   userCounts?: true
   _all?: true
 }
@@ -227,6 +233,7 @@ export type UserGroupByOutputType = {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  emailVerifiedAt: Date | null
   userCounts: number
   _count: UserCountAggregateOutputType | null
   _avg: UserAvgAggregateOutputType | null
@@ -263,7 +270,9 @@ export type UserWhereInput = {
   isActive?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   userCounts?: Prisma.IntFilter<"User"> | number
+  authTokens?: Prisma.AuthTokenListRelationFilter
   shop?: Prisma.XOR<Prisma.ShopScalarRelationFilter, Prisma.ShopWhereInput>
   cashRegisters?: Prisma.CashRegisterListRelationFilter
   stockMovements?: Prisma.StockMovementListRelationFilter
@@ -281,7 +290,9 @@ export type UserOrderByWithRelationInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   userCounts?: Prisma.SortOrder
+  authTokens?: Prisma.AuthTokenOrderByRelationAggregateInput
   shop?: Prisma.ShopOrderByWithRelationInput
   cashRegisters?: Prisma.CashRegisterOrderByRelationAggregateInput
   stockMovements?: Prisma.StockMovementOrderByRelationAggregateInput
@@ -302,7 +313,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   isActive?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   userCounts?: Prisma.IntFilter<"User"> | number
+  authTokens?: Prisma.AuthTokenListRelationFilter
   shop?: Prisma.XOR<Prisma.ShopScalarRelationFilter, Prisma.ShopWhereInput>
   cashRegisters?: Prisma.CashRegisterListRelationFilter
   stockMovements?: Prisma.StockMovementListRelationFilter
@@ -320,6 +333,7 @@ export type UserOrderByWithAggregationInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   userCounts?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _avg?: Prisma.UserAvgOrderByAggregateInput
@@ -341,6 +355,7 @@ export type UserScalarWhereWithAggregatesInput = {
   isActive?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   userCounts?: Prisma.IntWithAggregatesFilter<"User"> | number
 }
 
@@ -352,7 +367,9 @@ export type UserCreateInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   shop: Prisma.ShopCreateNestedOneWithoutUsersInput
   cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
@@ -370,7 +387,9 @@ export type UserUncheckedCreateInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
@@ -385,7 +404,9 @@ export type UserUpdateInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
   cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
@@ -403,7 +424,9 @@ export type UserUncheckedUpdateInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
@@ -420,6 +443,7 @@ export type UserCreateManyInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
 }
 
@@ -431,6 +455,7 @@ export type UserUpdateManyMutationInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -444,6 +469,7 @@ export type UserUncheckedUpdateManyInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -472,6 +498,7 @@ export type UserCountOrderByAggregateInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
   userCounts?: Prisma.SortOrder
 }
 
@@ -491,6 +518,7 @@ export type UserMaxOrderByAggregateInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
   userCounts?: Prisma.SortOrder
 }
 
@@ -504,6 +532,7 @@ export type UserMinOrderByAggregateInput = {
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
   userCounts?: Prisma.SortOrder
 }
 
@@ -626,6 +655,22 @@ export type UserUpdateOneWithoutCashRegistersNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCashRegistersInput, Prisma.UserUpdateWithoutCashRegistersInput>, Prisma.UserUncheckedUpdateWithoutCashRegistersInput>
 }
 
+export type UserCreateNestedOneWithoutAuthTokensInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAuthTokensInput, Prisma.UserUncheckedCreateWithoutAuthTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAuthTokensInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutAuthTokensNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAuthTokensInput, Prisma.UserUncheckedCreateWithoutAuthTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAuthTokensInput
+  upsert?: Prisma.UserUpsertWithoutAuthTokensInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAuthTokensInput, Prisma.UserUpdateWithoutAuthTokensInput>, Prisma.UserUncheckedUpdateWithoutAuthTokensInput>
+}
+
 export type UserCreateWithoutShopInput = {
   name: string
   email: string
@@ -634,7 +679,9 @@ export type UserCreateWithoutShopInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleCreateNestedManyWithoutUserInput
@@ -650,7 +697,9 @@ export type UserUncheckedCreateWithoutShopInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
@@ -696,6 +745,7 @@ export type UserScalarWhereInput = {
   isActive?: Prisma.BoolFilter<"User"> | boolean
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   userCounts?: Prisma.IntFilter<"User"> | number
 }
 
@@ -707,7 +757,9 @@ export type UserCreateWithoutOwnedShopsInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   shop: Prisma.ShopCreateNestedOneWithoutUsersInput
   cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
@@ -724,7 +776,9 @@ export type UserUncheckedCreateWithoutOwnedShopsInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
@@ -754,7 +808,9 @@ export type UserUpdateWithoutOwnedShopsInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
   cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
@@ -771,7 +827,9 @@ export type UserUncheckedUpdateWithoutOwnedShopsInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
@@ -785,7 +843,9 @@ export type UserCreateWithoutStockMovementsInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   shop: Prisma.ShopCreateNestedOneWithoutUsersInput
   cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleCreateNestedManyWithoutUserInput
@@ -802,7 +862,9 @@ export type UserUncheckedCreateWithoutStockMovementsInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
   ownedShops?: Prisma.ShopOwnerUncheckedCreateNestedManyWithoutUserInput
@@ -832,7 +894,9 @@ export type UserUpdateWithoutStockMovementsInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
   cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUpdateManyWithoutUserNestedInput
@@ -849,7 +913,9 @@ export type UserUncheckedUpdateWithoutStockMovementsInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
   ownedShops?: Prisma.ShopOwnerUncheckedUpdateManyWithoutUserNestedInput
@@ -863,7 +929,9 @@ export type UserCreateWithoutSalesInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   shop: Prisma.ShopCreateNestedOneWithoutUsersInput
   cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
@@ -880,7 +948,9 @@ export type UserUncheckedCreateWithoutSalesInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
   ownedShops?: Prisma.ShopOwnerUncheckedCreateNestedManyWithoutUserInput
@@ -910,7 +980,9 @@ export type UserUpdateWithoutSalesInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
   cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
@@ -927,7 +999,9 @@ export type UserUncheckedUpdateWithoutSalesInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
   ownedShops?: Prisma.ShopOwnerUncheckedUpdateManyWithoutUserNestedInput
@@ -941,7 +1015,9 @@ export type UserCreateWithoutCashRegistersInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutUserInput
   shop: Prisma.ShopCreateNestedOneWithoutUsersInput
   stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleCreateNestedManyWithoutUserInput
@@ -958,7 +1034,9 @@ export type UserUncheckedCreateWithoutCashRegistersInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutUserInput
   stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
   sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
   ownedShops?: Prisma.ShopOwnerUncheckedCreateNestedManyWithoutUserInput
@@ -988,7 +1066,9 @@ export type UserUpdateWithoutCashRegistersInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
   stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUpdateManyWithoutUserNestedInput
@@ -1005,7 +1085,95 @@ export type UserUncheckedUpdateWithoutCashRegistersInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
+  stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
+  sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
+  ownedShops?: Prisma.ShopOwnerUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutAuthTokensInput = {
+  name: string
+  email: string
+  password: string
+  role?: string
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+  userCounts?: number
+  shop: Prisma.ShopCreateNestedOneWithoutUsersInput
+  cashRegisters?: Prisma.CashRegisterCreateNestedManyWithoutUserInput
+  stockMovements?: Prisma.StockMovementCreateNestedManyWithoutUserInput
+  sales?: Prisma.SaleCreateNestedManyWithoutUserInput
+  ownedShops?: Prisma.ShopOwnerCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutAuthTokensInput = {
+  id?: number
+  shopId: number
+  name: string
+  email: string
+  password: string
+  role?: string
+  isActive?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+  userCounts?: number
+  cashRegisters?: Prisma.CashRegisterUncheckedCreateNestedManyWithoutUserInput
+  stockMovements?: Prisma.StockMovementUncheckedCreateNestedManyWithoutUserInput
+  sales?: Prisma.SaleUncheckedCreateNestedManyWithoutUserInput
+  ownedShops?: Prisma.ShopOwnerUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutAuthTokensInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutAuthTokensInput, Prisma.UserUncheckedCreateWithoutAuthTokensInput>
+}
+
+export type UserUpsertWithoutAuthTokensInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAuthTokensInput, Prisma.UserUncheckedUpdateWithoutAuthTokensInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAuthTokensInput, Prisma.UserUncheckedCreateWithoutAuthTokensInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutAuthTokensInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAuthTokensInput, Prisma.UserUncheckedUpdateWithoutAuthTokensInput>
+}
+
+export type UserUpdateWithoutAuthTokensInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  shop?: Prisma.ShopUpdateOneRequiredWithoutUsersNestedInput
+  cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
+  stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
+  sales?: Prisma.SaleUpdateManyWithoutUserNestedInput
+  ownedShops?: Prisma.ShopOwnerUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutAuthTokensInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  shopId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.StringFieldUpdateOperationsInput | string
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
   ownedShops?: Prisma.ShopOwnerUncheckedUpdateManyWithoutUserNestedInput
@@ -1020,6 +1188,7 @@ export type UserCreateManyShopInput = {
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
   userCounts?: number
 }
 
@@ -1031,7 +1200,9 @@ export type UserUpdateWithoutShopInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUpdateManyWithoutUserNestedInput
@@ -1047,7 +1218,9 @@ export type UserUncheckedUpdateWithoutShopInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutUserNestedInput
   cashRegisters?: Prisma.CashRegisterUncheckedUpdateManyWithoutUserNestedInput
   stockMovements?: Prisma.StockMovementUncheckedUpdateManyWithoutUserNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutUserNestedInput
@@ -1063,6 +1236,7 @@ export type UserUncheckedUpdateManyWithoutShopInput = {
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userCounts?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -1072,6 +1246,7 @@ export type UserUncheckedUpdateManyWithoutShopInput = {
  */
 
 export type UserCountOutputType = {
+  authTokens: number
   cashRegisters: number
   stockMovements: number
   sales: number
@@ -1079,6 +1254,7 @@ export type UserCountOutputType = {
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  authTokens?: boolean | UserCountOutputTypeCountAuthTokensArgs
   cashRegisters?: boolean | UserCountOutputTypeCountCashRegistersArgs
   stockMovements?: boolean | UserCountOutputTypeCountStockMovementsArgs
   sales?: boolean | UserCountOutputTypeCountSalesArgs
@@ -1093,6 +1269,13 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
    * Select specific fields to fetch from the UserCountOutputType
    */
   select?: Prisma.UserCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountAuthTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AuthTokenWhereInput
 }
 
 /**
@@ -1134,7 +1317,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
   userCounts?: boolean
+  authTokens?: boolean | Prisma.User$authTokensArgs<ExtArgs>
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   cashRegisters?: boolean | Prisma.User$cashRegistersArgs<ExtArgs>
   stockMovements?: boolean | Prisma.User$stockMovementsArgs<ExtArgs>
@@ -1153,6 +1338,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
   userCounts?: boolean
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
@@ -1167,6 +1353,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
   userCounts?: boolean
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
@@ -1181,11 +1368,13 @@ export type UserSelectScalar = {
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
   userCounts?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "name" | "email" | "password" | "role" | "isActive" | "createdAt" | "updatedAt" | "userCounts", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "name" | "email" | "password" | "role" | "isActive" | "createdAt" | "updatedAt" | "emailVerifiedAt" | "userCounts", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  authTokens?: boolean | Prisma.User$authTokensArgs<ExtArgs>
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   cashRegisters?: boolean | Prisma.User$cashRegistersArgs<ExtArgs>
   stockMovements?: boolean | Prisma.User$stockMovementsArgs<ExtArgs>
@@ -1203,6 +1392,7 @@ export type UserIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "User"
   objects: {
+    authTokens: Prisma.$AuthTokenPayload<ExtArgs>[]
     shop: Prisma.$ShopPayload<ExtArgs>
     cashRegisters: Prisma.$CashRegisterPayload<ExtArgs>[]
     stockMovements: Prisma.$StockMovementPayload<ExtArgs>[]
@@ -1219,6 +1409,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     isActive: boolean
     createdAt: Date
     updatedAt: Date
+    emailVerifiedAt: Date | null
     userCounts: number
   }, ExtArgs["result"]["user"]>
   composites: {}
@@ -1614,6 +1805,7 @@ readonly fields: UserFieldRefs;
  */
 export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  authTokens<T extends Prisma.User$authTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$authTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   shop<T extends Prisma.ShopDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ShopDefaultArgs<ExtArgs>>): Prisma.Prisma__ShopClient<runtime.Types.Result.GetResult<Prisma.$ShopPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   cashRegisters<T extends Prisma.User$cashRegistersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$cashRegistersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CashRegisterPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   stockMovements<T extends Prisma.User$stockMovementsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$stockMovementsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StockMovementPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -1657,6 +1849,7 @@ export interface UserFieldRefs {
   readonly isActive: Prisma.FieldRef<"User", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly emailVerifiedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly userCounts: Prisma.FieldRef<"User", 'Int'>
 }
     
@@ -2056,6 +2249,30 @@ export type UserDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
    * Limit how many Users to delete.
    */
   limit?: number
+}
+
+/**
+ * User.authTokens
+ */
+export type User$authTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AuthToken
+   */
+  select?: Prisma.AuthTokenSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AuthToken
+   */
+  omit?: Prisma.AuthTokenOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AuthTokenInclude<ExtArgs> | null
+  where?: Prisma.AuthTokenWhereInput
+  orderBy?: Prisma.AuthTokenOrderByWithRelationInput | Prisma.AuthTokenOrderByWithRelationInput[]
+  cursor?: Prisma.AuthTokenWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AuthTokenScalarFieldEnum | Prisma.AuthTokenScalarFieldEnum[]
 }
 
 /**

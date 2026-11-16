@@ -102,3 +102,12 @@ export const UsageMetric = {
 } as const
 
 export type UsageMetric = (typeof UsageMetric)[keyof typeof UsageMetric]
+
+
+export const AuthTokenType = {
+  EMAIL_VERIFICATION: 'EMAIL_VERIFICATION',
+  PASSWORD_RESET: 'PASSWORD_RESET',
+  EMAIL_CHANGE: 'EMAIL_CHANGE'
+} as const
+
+export type AuthTokenType = (typeof AuthTokenType)[keyof typeof AuthTokenType]

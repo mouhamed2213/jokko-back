@@ -41,6 +41,7 @@ export type SuperAdminMinAggregateOutputType = {
   password: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  emailVerifiedAt: Date | null
 }
 
 export type SuperAdminMaxAggregateOutputType = {
@@ -50,6 +51,7 @@ export type SuperAdminMaxAggregateOutputType = {
   password: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  emailVerifiedAt: Date | null
 }
 
 export type SuperAdminCountAggregateOutputType = {
@@ -59,6 +61,7 @@ export type SuperAdminCountAggregateOutputType = {
   password: number
   createdAt: number
   updatedAt: number
+  emailVerifiedAt: number
   _all: number
 }
 
@@ -78,6 +81,7 @@ export type SuperAdminMinAggregateInputType = {
   password?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
 }
 
 export type SuperAdminMaxAggregateInputType = {
@@ -87,6 +91,7 @@ export type SuperAdminMaxAggregateInputType = {
   password?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
 }
 
 export type SuperAdminCountAggregateInputType = {
@@ -96,6 +101,7 @@ export type SuperAdminCountAggregateInputType = {
   password?: true
   createdAt?: true
   updatedAt?: true
+  emailVerifiedAt?: true
   _all?: true
 }
 
@@ -192,6 +198,7 @@ export type SuperAdminGroupByOutputType = {
   password: string
   createdAt: Date
   updatedAt: Date
+  emailVerifiedAt: Date | null
   _count: SuperAdminCountAggregateOutputType | null
   _avg: SuperAdminAvgAggregateOutputType | null
   _sum: SuperAdminSumAggregateOutputType | null
@@ -224,6 +231,8 @@ export type SuperAdminWhereInput = {
   password?: Prisma.StringFilter<"SuperAdmin"> | string
   createdAt?: Prisma.DateTimeFilter<"SuperAdmin"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SuperAdmin"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableFilter<"SuperAdmin"> | Date | string | null
+  authTokens?: Prisma.AuthTokenListRelationFilter
 }
 
 export type SuperAdminOrderByWithRelationInput = {
@@ -233,6 +242,8 @@ export type SuperAdminOrderByWithRelationInput = {
   password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  authTokens?: Prisma.AuthTokenOrderByRelationAggregateInput
 }
 
 export type SuperAdminWhereUniqueInput = Prisma.AtLeast<{
@@ -245,6 +256,8 @@ export type SuperAdminWhereUniqueInput = Prisma.AtLeast<{
   password?: Prisma.StringFilter<"SuperAdmin"> | string
   createdAt?: Prisma.DateTimeFilter<"SuperAdmin"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SuperAdmin"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableFilter<"SuperAdmin"> | Date | string | null
+  authTokens?: Prisma.AuthTokenListRelationFilter
 }, "id" | "email">
 
 export type SuperAdminOrderByWithAggregationInput = {
@@ -254,6 +267,7 @@ export type SuperAdminOrderByWithAggregationInput = {
   password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.SuperAdminCountOrderByAggregateInput
   _avg?: Prisma.SuperAdminAvgOrderByAggregateInput
   _max?: Prisma.SuperAdminMaxOrderByAggregateInput
@@ -271,6 +285,7 @@ export type SuperAdminScalarWhereWithAggregatesInput = {
   password?: Prisma.StringWithAggregatesFilter<"SuperAdmin"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SuperAdmin"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"SuperAdmin"> | Date | string
+  emailVerifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"SuperAdmin"> | Date | string | null
 }
 
 export type SuperAdminCreateInput = {
@@ -279,6 +294,8 @@ export type SuperAdminCreateInput = {
   password: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+  authTokens?: Prisma.AuthTokenCreateNestedManyWithoutSuperAdminInput
 }
 
 export type SuperAdminUncheckedCreateInput = {
@@ -288,6 +305,8 @@ export type SuperAdminUncheckedCreateInput = {
   password: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+  authTokens?: Prisma.AuthTokenUncheckedCreateNestedManyWithoutSuperAdminInput
 }
 
 export type SuperAdminUpdateInput = {
@@ -296,6 +315,8 @@ export type SuperAdminUpdateInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  authTokens?: Prisma.AuthTokenUpdateManyWithoutSuperAdminNestedInput
 }
 
 export type SuperAdminUncheckedUpdateInput = {
@@ -305,6 +326,8 @@ export type SuperAdminUncheckedUpdateInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  authTokens?: Prisma.AuthTokenUncheckedUpdateManyWithoutSuperAdminNestedInput
 }
 
 export type SuperAdminCreateManyInput = {
@@ -314,6 +337,7 @@ export type SuperAdminCreateManyInput = {
   password: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
 }
 
 export type SuperAdminUpdateManyMutationInput = {
@@ -322,6 +346,7 @@ export type SuperAdminUpdateManyMutationInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type SuperAdminUncheckedUpdateManyInput = {
@@ -331,6 +356,7 @@ export type SuperAdminUncheckedUpdateManyInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type SuperAdminCountOrderByAggregateInput = {
@@ -340,6 +366,7 @@ export type SuperAdminCountOrderByAggregateInput = {
   password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
 }
 
 export type SuperAdminAvgOrderByAggregateInput = {
@@ -353,6 +380,7 @@ export type SuperAdminMaxOrderByAggregateInput = {
   password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
 }
 
 export type SuperAdminMinOrderByAggregateInput = {
@@ -362,10 +390,16 @@ export type SuperAdminMinOrderByAggregateInput = {
   password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  emailVerifiedAt?: Prisma.SortOrder
 }
 
 export type SuperAdminSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
+}
+
+export type SuperAdminNullableScalarRelationFilter = {
+  is?: Prisma.SuperAdminWhereInput | null
+  isNot?: Prisma.SuperAdminWhereInput | null
 }
 
 export type StringFieldUpdateOperationsInput = {
@@ -376,6 +410,10 @@ export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
 
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
+}
+
 export type IntFieldUpdateOperationsInput = {
   set?: number
   increment?: number
@@ -384,6 +422,105 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type SuperAdminCreateNestedOneWithoutAuthTokensInput = {
+  create?: Prisma.XOR<Prisma.SuperAdminCreateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedCreateWithoutAuthTokensInput>
+  connectOrCreate?: Prisma.SuperAdminCreateOrConnectWithoutAuthTokensInput
+  connect?: Prisma.SuperAdminWhereUniqueInput
+}
+
+export type SuperAdminUpdateOneWithoutAuthTokensNestedInput = {
+  create?: Prisma.XOR<Prisma.SuperAdminCreateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedCreateWithoutAuthTokensInput>
+  connectOrCreate?: Prisma.SuperAdminCreateOrConnectWithoutAuthTokensInput
+  upsert?: Prisma.SuperAdminUpsertWithoutAuthTokensInput
+  disconnect?: Prisma.SuperAdminWhereInput | boolean
+  delete?: Prisma.SuperAdminWhereInput | boolean
+  connect?: Prisma.SuperAdminWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SuperAdminUpdateToOneWithWhereWithoutAuthTokensInput, Prisma.SuperAdminUpdateWithoutAuthTokensInput>, Prisma.SuperAdminUncheckedUpdateWithoutAuthTokensInput>
+}
+
+export type SuperAdminCreateWithoutAuthTokensInput = {
+  name: string
+  email: string
+  password: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+}
+
+export type SuperAdminUncheckedCreateWithoutAuthTokensInput = {
+  id?: number
+  name: string
+  email: string
+  password: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  emailVerifiedAt?: Date | string | null
+}
+
+export type SuperAdminCreateOrConnectWithoutAuthTokensInput = {
+  where: Prisma.SuperAdminWhereUniqueInput
+  create: Prisma.XOR<Prisma.SuperAdminCreateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedCreateWithoutAuthTokensInput>
+}
+
+export type SuperAdminUpsertWithoutAuthTokensInput = {
+  update: Prisma.XOR<Prisma.SuperAdminUpdateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedUpdateWithoutAuthTokensInput>
+  create: Prisma.XOR<Prisma.SuperAdminCreateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedCreateWithoutAuthTokensInput>
+  where?: Prisma.SuperAdminWhereInput
+}
+
+export type SuperAdminUpdateToOneWithWhereWithoutAuthTokensInput = {
+  where?: Prisma.SuperAdminWhereInput
+  data: Prisma.XOR<Prisma.SuperAdminUpdateWithoutAuthTokensInput, Prisma.SuperAdminUncheckedUpdateWithoutAuthTokensInput>
+}
+
+export type SuperAdminUpdateWithoutAuthTokensInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type SuperAdminUncheckedUpdateWithoutAuthTokensInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+
+/**
+ * Count Type SuperAdminCountOutputType
+ */
+
+export type SuperAdminCountOutputType = {
+  authTokens: number
+}
+
+export type SuperAdminCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  authTokens?: boolean | SuperAdminCountOutputTypeCountAuthTokensArgs
+}
+
+/**
+ * SuperAdminCountOutputType without action
+ */
+export type SuperAdminCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SuperAdminCountOutputType
+   */
+  select?: Prisma.SuperAdminCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * SuperAdminCountOutputType without action
+ */
+export type SuperAdminCountOutputTypeCountAuthTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AuthTokenWhereInput
+}
 
 
 export type SuperAdminSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -393,6 +530,9 @@ export type SuperAdminSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
+  authTokens?: boolean | Prisma.SuperAdmin$authTokensArgs<ExtArgs>
+  _count?: boolean | Prisma.SuperAdminCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["superAdmin"]>
 
 export type SuperAdminSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -402,6 +542,7 @@ export type SuperAdminSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
 }, ExtArgs["result"]["superAdmin"]>
 
 export type SuperAdminSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -411,6 +552,7 @@ export type SuperAdminSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
 }, ExtArgs["result"]["superAdmin"]>
 
 export type SuperAdminSelectScalar = {
@@ -420,13 +562,22 @@ export type SuperAdminSelectScalar = {
   password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  emailVerifiedAt?: boolean
 }
 
-export type SuperAdminOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "password" | "createdAt" | "updatedAt", ExtArgs["result"]["superAdmin"]>
+export type SuperAdminOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "password" | "createdAt" | "updatedAt" | "emailVerifiedAt", ExtArgs["result"]["superAdmin"]>
+export type SuperAdminInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  authTokens?: boolean | Prisma.SuperAdmin$authTokensArgs<ExtArgs>
+  _count?: boolean | Prisma.SuperAdminCountOutputTypeDefaultArgs<ExtArgs>
+}
+export type SuperAdminIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type SuperAdminIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
 
 export type $SuperAdminPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SuperAdmin"
-  objects: {}
+  objects: {
+    authTokens: Prisma.$AuthTokenPayload<ExtArgs>[]
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
     name: string
@@ -434,6 +585,7 @@ export type $SuperAdminPayload<ExtArgs extends runtime.Types.Extensions.Internal
     password: string
     createdAt: Date
     updatedAt: Date
+    emailVerifiedAt: Date | null
   }, ExtArgs["result"]["superAdmin"]>
   composites: {}
 }
@@ -828,6 +980,7 @@ readonly fields: SuperAdminFieldRefs;
  */
 export interface Prisma__SuperAdminClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  authTokens<T extends Prisma.SuperAdmin$authTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SuperAdmin$authTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -863,6 +1016,7 @@ export interface SuperAdminFieldRefs {
   readonly password: Prisma.FieldRef<"SuperAdmin", 'String'>
   readonly createdAt: Prisma.FieldRef<"SuperAdmin", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"SuperAdmin", 'DateTime'>
+  readonly emailVerifiedAt: Prisma.FieldRef<"SuperAdmin", 'DateTime'>
 }
     
 
@@ -879,6 +1033,10 @@ export type SuperAdminFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.In
    * Omit specific fields from the SuperAdmin
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
   /**
    * Filter, which SuperAdmin to fetch.
    */
@@ -898,6 +1056,10 @@ export type SuperAdminFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extens
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
+  /**
    * Filter, which SuperAdmin to fetch.
    */
   where: Prisma.SuperAdminWhereUniqueInput
@@ -915,6 +1077,10 @@ export type SuperAdminFindFirstArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the SuperAdmin
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
   /**
    * Filter, which SuperAdmin to fetch.
    */
@@ -964,6 +1130,10 @@ export type SuperAdminFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensi
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
+  /**
    * Filter, which SuperAdmin to fetch.
    */
   where?: Prisma.SuperAdminWhereInput
@@ -1011,6 +1181,10 @@ export type SuperAdminFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Omit specific fields from the SuperAdmin
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
   /**
    * Filter, which SuperAdmins to fetch.
    */
@@ -1060,6 +1234,10 @@ export type SuperAdminCreateArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
+  /**
    * The data needed to create a SuperAdmin.
    */
   data: Prisma.XOR<Prisma.SuperAdminCreateInput, Prisma.SuperAdminUncheckedCreateInput>
@@ -1107,6 +1285,10 @@ export type SuperAdminUpdateArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Omit specific fields from the SuperAdmin
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
   /**
    * The data needed to update a SuperAdmin.
    */
@@ -1174,6 +1356,10 @@ export type SuperAdminUpsertArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
+  /**
    * The filter to search for the SuperAdmin to update in case it exists.
    */
   where: Prisma.SuperAdminWhereUniqueInput
@@ -1200,6 +1386,10 @@ export type SuperAdminDeleteArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
+  /**
    * Filter which SuperAdmin to delete.
    */
   where: Prisma.SuperAdminWhereUniqueInput
@@ -1220,6 +1410,30 @@ export type SuperAdminDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.In
 }
 
 /**
+ * SuperAdmin.authTokens
+ */
+export type SuperAdmin$authTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AuthToken
+   */
+  select?: Prisma.AuthTokenSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AuthToken
+   */
+  omit?: Prisma.AuthTokenOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AuthTokenInclude<ExtArgs> | null
+  where?: Prisma.AuthTokenWhereInput
+  orderBy?: Prisma.AuthTokenOrderByWithRelationInput | Prisma.AuthTokenOrderByWithRelationInput[]
+  cursor?: Prisma.AuthTokenWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AuthTokenScalarFieldEnum | Prisma.AuthTokenScalarFieldEnum[]
+}
+
+/**
  * SuperAdmin without action
  */
 export type SuperAdminDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1231,4 +1445,8 @@ export type SuperAdminDefaultArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Omit specific fields from the SuperAdmin
    */
   omit?: Prisma.SuperAdminOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SuperAdminInclude<ExtArgs> | null
 }
