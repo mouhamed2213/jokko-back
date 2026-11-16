@@ -33,9 +33,39 @@ export const AuthService = {
             },
           },
         },
+        primaryShop: {
+          include: {
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              include: {
+                plan: {
+                  include: {
+                    planFeature: {
+                      include: { feature: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    return shop;
+    if (!shop) {
+      throw new NotFoundError("shop not found");
+    }
+
+    // Une boutique secondaire utilise l'abonnement de sa boutique principale.
+    // On expose cet abonnement sous la même propriété pour préserver le contrat API.
+    const inheritedSubscriptions = shop.primaryShop?.subscriptions ?? shop.subscriptions;
+
+    return {
+      ...shop,
+      subscriptions: inheritedSubscriptions,
+      subscriptionInherited: !!shop.primaryShopId,
+      billingShopId: shop.primaryShopId ?? shop.id,
+    };
   },
 };
