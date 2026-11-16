@@ -114,27 +114,14 @@ export const ShopService = {
     shopData: {
       shopName: string;
       ownerName: string;
-      address: string;
+      address?: string;
       phone: string;
       email: string;
-      password: string;
+      manager?: { name: string; email: string; password: string } | null;
     },
   ) => {
-    try {
-      // Actor those who is currently connected. it can be an admin or a Employe
-      const actor = await prisma.user.findUnique({
-        where: { id: actorId },
-        select: { id: true, role: true },
-      });
-
-      if (actor?.role !== "ADMIN") {
-        throw new ForbiddenError(
-          `Seul l'administrateur peut crée une nouvelle boutique`,
-        );
-      }
-
-      // verifiy the shop owner and poermission to create a new shop
-      const shopOwner = await prisma.user.findUnique({
+    const [owner, actor] = await Promise.all([
+      prisma.user.findUnique({
         where: { id: ownerId },
         include: {
           shop: {
@@ -147,94 +134,85 @@ export const ShopService = {
             },
           },
         },
+      }),
+      prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, shopId: true, role: true },
+      }),
+    ]);
+
+    if (!owner) throw new NotFoundError("Propriétaire introuvable");
+    if (!actor || actor.id !== ownerId || actor.shopId !== owner.shopId || actor.role !== "ADMIN") {
+      throw new ForbiddenError("Seul le propriétaire principal peut créer une boutique secondaire");
+    }
+
+    const primarySubscription = owner.shop.subscriptions[0];
+    if (!primarySubscription) {
+      throw new NotFoundError("Abonnement de la boutique principale introuvable");
+    }
+
+    const plan = primarySubscription.plan;
+    if (plan.code !== "PREMIUM" && plan.code !== "PRO") {
+      throw new ForbiddenError("L'abonnement ne comprend pas l'option multi-boutique");
+    }
+    if (primarySubscription.status !== "ACTIVE") {
+      throw new ForbiddenError("L'abonnement de la boutique principale doit être actif");
+    }
+    if (primarySubscription.endDate && primarySubscription.endDate <= new Date()) {
+      throw new ForbiddenError("L'abonnement de la boutique principale a expiré");
+    }
+
+    const [existingShop, existingManager] = await Promise.all([
+      prisma.shop.findUnique({ where: { email: shopData.email } }),
+      shopData.manager
+        ? prisma.user.findUnique({ where: { email: shopData.manager.email } })
+        : Promise.resolve(null),
+    ]);
+    if (existingShop) throw new ConflictError("Une boutique utilise déjà cette adresse email");
+    if (existingManager) throw new ConflictError("L'adresse email du responsable est déjà utilisée");
+
+    const ownedShops = await prisma.shopOwner.count({ where: { userId: ownerId } });
+    const maxStores = plan.maxStores ?? 1;
+    if (ownedShops >= maxStores) {
+      throw new ForbiddenError(`Limite de boutiques atteinte (${maxStores})`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const shop = await tx.shop.create({
+        data: {
+          name: shopData.shopName.trim(),
+          ownerName: shopData.ownerName.trim(),
+          email: shopData.email.trim().toLowerCase(),
+          address: shopData.address?.trim() || null,
+          primaryShopId: owner.shopId,
+          currentShop: CurrentShopType.SECONDARY,
+          phone: shopData.phone.trim(),
+        },
       });
 
-      if (!shopOwner) {
-        throw new NotFoundError("User not found");
-      }
-      const checkIsEmailExist = await prisma.user.findUnique({
-        where: { email: shopData.email },
-      });
-      if (checkIsEmailExist) {
-        throw new ConflictError("Cette address mail exist déja");
-      }
-
-      const primarySubscription = shopOwner.shop.subscriptions[0];
-      if (!primarySubscription) {
-        throw new NotFoundError("Abonnement de la boutique principale introuvable");
-      }
-
-      const plan = primarySubscription.plan;
-      const subcription = primarySubscription.status;
-      const planCode = primarySubscription.plan.code;
-
-      if (planCode !== "PREMIUM" && planCode !== "PRO") {
-        throw new ForbiddenError(
-          `Cette abonnement  ne contient l'option multi-boutique`,
-        );
-      }
-      if (subcription !== "ACTIVE") {
-        throw new ForbiddenError(
-          "L'abonnement de la boutique principale doit être actif pour créer une boutique secondaire",
-        );
-      }
-      if (primarySubscription.endDate && primarySubscription.endDate <= new Date()) {
-        throw new ForbiddenError(
-          "L'abonnement de la boutique principale a expiré",
-        );
-      }
-
-      const ownedShops = await prisma.shopOwner.count({
-        where: { userId: ownerId },
-      });
-
-      const maxStores = plan.maxStores ?? 1;
-      if (ownedShops >= maxStores) {
-        throw new UnauthorizedError(
-          `Limite de boutiques atteinte (${maxStores})`,
-        );
-      }
-
-      //  create
-      const newShop = await prisma.$transaction(async (tx) => {
-        const shop = await tx.shop.create({
-          data: {
-            name: shopData.shopName,
-            ownerName: shopData.ownerName,
-            email: shopData.email,
-            primaryShopId: shopOwner?.shop.id,
-            currentShop: "SECONDARY",
-            phone: shopData.phone,
-          },
-        });
-
+      // Le responsable est facultatif : la boutique reste administrable par son propriétaire.
+      if (shopData.manager) {
         await tx.user.create({
           data: {
             shopId: shop.id,
-            name: shopData.ownerName,
-            email: shopData.email,
-            password: shopData.password, //is already hashed
+            name: shopData.manager.name.trim(),
+            email: shopData.manager.email.trim().toLowerCase(),
+            password: shopData.manager.password,
             role: "ADMIN",
           },
         });
+      }
 
-        // Lier au owner principal pour le switch
-        await tx.shopOwner.create({
-          data: {
-            userId: shopOwner.id,
-            shopId: shop.id,
-            phone: shop.phone,
-          },
-        });
-
-        return shop;
+      await tx.shopOwner.create({
+        data: {
+          userId: ownerId,
+          shopId: shop.id,
+          phone: shop.phone,
+        },
       });
 
-      return newShop;
-    } catch (e) {
-      logger.error(`Error while creating secondarye shop for user xxx`);
-      throw e;
-    }
+      return shop;
+    });
   },
 
   find: async (email: string) => {
