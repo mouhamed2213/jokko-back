@@ -85,7 +85,10 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Boutique archivée (vérifié après le mot de passe pour ne rien révéler avant)
-    if (isBlockedStatus(user.shop.status)) {
+    if (
+      isBlockedStatus(user.shop.status) ||
+      isBlockedStatus(user.shop.primaryShop?.status)
+    ) {
       return res.status(403).json({
         code: "SHOP_ARCHIVED",
         message: "Cette boutique est archivée. Contactez le support pour la réactiver.",
