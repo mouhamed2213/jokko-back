@@ -87,8 +87,13 @@ export const AccountAuthController = {
       return res.status(400).json({ message: "Jeton de vérification manquant." });
     }
     try {
-      await AccountAuthService.verifyEmail(token);
-      return res.status(200).json({ message: "Adresse email vérifiée avec succès." });
+      const result = await AccountAuthService.verifyEmail(token);
+      return res.status(200).json({
+        message: result.alreadyVerified
+          ? "Cette adresse email est déjà vérifiée."
+          : "Adresse email vérifiée avec succès.",
+        alreadyVerified: result.alreadyVerified,
+      });
     } catch (error) {
       return respondWithBadRequest(res, error);
     }
