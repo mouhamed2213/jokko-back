@@ -10,6 +10,8 @@ const escapeHtml = (value: string) =>
     return entities[character];
   });
 
+const supportEmail = "contact@jokko-business.com";
+
 const layout = (title: string, content: string) => `
 <!doctype html>
 <html lang="fr">
@@ -24,7 +26,7 @@ const layout = (title: string, content: string) => `
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;">
           <tr><td style="padding:28px 32px;background:#0f172a;color:#ffffff;font-size:20px;font-weight:700;">Jokko Business</td></tr>
           <tr><td style="padding:32px;line-height:1.6;">${content}</td></tr>
-          <tr><td style="padding:20px 32px;background:#f8fafc;color:#64748b;font-size:12px;">Cet email a été envoyé automatiquement par Jokko Business. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer ce message.</td></tr>
+          <tr><td style="padding:20px 32px;background:#f8fafc;color:#64748b;font-size:12px;">Cet email a été envoyé automatiquement par Jokko Business. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer ce message.<br />Besoin d'aide ? <a href="mailto:${escapeHtml(supportEmail)}" style="color:#047857;">${escapeHtml(supportEmail)}</a></td></tr>
         </table>
       </td></tr>
     </table>
@@ -73,7 +75,7 @@ export const emailTemplates = {
   }),
   passwordChanged: (name: string) => ({
     subject: "Votre mot de passe a été modifié - Jokko Business",
-    text: `Bonjour ${name}, le mot de passe de votre compte Jokko Business vient d'être modifié. Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.`,
+    text: `Bonjour ${name}, le mot de passe de votre compte Jokko Business vient d'être modifié. Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support à ${supportEmail}.`,
     html: layout(
       "Mot de passe modifié",
       `<h1 style="font-size:22px;">Mot de passe modifié</h1>
@@ -97,7 +99,7 @@ export const emailTemplates = {
   }),
   emailChangeRequested: (name: string, newEmail: string) => ({
     subject: "Demande de changement d'adresse email - Jokko Business",
-    text: `Bonjour ${name}, une demande de changement d'adresse email vers ${newEmail} vient d'être effectuée sur votre compte. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le support.`,
+    text: `Bonjour ${name}, une demande de changement d'adresse email vers ${newEmail} vient d'être effectuée sur votre compte. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le support à ${supportEmail}.`,
     html: layout(
       "Demande de changement d'adresse",
       `<h1 style="font-size:22px;">Demande de changement d'adresse</h1>
@@ -109,7 +111,7 @@ export const emailTemplates = {
   }),
   emailChanged: (name: string, newEmail: string) => ({
     subject: "Votre adresse email a été modifiée - Jokko Business",
-    text: `Bonjour ${name}, l'adresse email de votre compte vient d'être remplacée par ${newEmail}. Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.`,
+    text: `Bonjour ${name}, l'adresse email de votre compte vient d'être remplacée par ${newEmail}. Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support à ${supportEmail}.`,
     html: layout(
       "Adresse email modifiée",
       `<h1 style="font-size:22px;">Adresse email modifiée</h1>
