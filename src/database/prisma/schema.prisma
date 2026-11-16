@@ -533,3 +533,13 @@ model AuthToken {
   @@index([superAdminId, type, expiresAt])
   @@map("auth_tokens")
 }
+
+// ── Platform settings ─────────────────────────────────────────
+model PlatformSetting {
+  id                 String   @id @default("global")
+  maintenanceEnabled Boolean  @default(false)
+  maintenanceMessage String   @default("Jokko Business est temporairement indisponible pour maintenance. Nous serons de retour très bientôt.")
+  updatedAt          DateTime @updatedAt
+
+  @@map("platform_settings")
+}

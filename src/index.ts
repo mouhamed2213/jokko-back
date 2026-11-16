@@ -23,6 +23,8 @@ import superAdminRoutes from "./modules/super-admin/super-admin.routes.js";
 import supplierRoutes from "./routes/supplier.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
+import maintenanceRoutes from "./modules/maintenance/maintenance.routes.js";
+import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middleware.js";
 
 const app = express();
 // const PORT = Number(env.PORT) || 5000;
@@ -71,8 +73,13 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/contact", contactRoutes);
 app.use("/api/super-admin", superAdminRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
+
+// Bloque les API applicatives pendant la maintenance, sans bloquer
+// l’authentification ni les routes Super Admin nécessaires à sa désactivation.
+app.use("/api", maintenanceMiddleware);
+app.use("/api/contact", contactRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
