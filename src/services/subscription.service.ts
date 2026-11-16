@@ -57,6 +57,7 @@ export const SubscriptionService = {
           shopId: billingShopId,
           shopOwnerId: billingOwnerId,
         },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: {
           plan: {
             include: {
