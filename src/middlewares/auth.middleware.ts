@@ -76,7 +76,12 @@ export const protect = async (
       select: { id: true, shopId: true, email: true, role: true, isActive: true },
     });
 
-    if (!account || !account.isActive || account.role !== decoded.role) {
+    if (
+      !account ||
+      !account.isActive ||
+      account.role !== decoded.role ||
+      (decoded.email !== undefined && account.email !== decoded.email)
+    ) {
       return res.status(403).json({
         code: "ACCOUNT_DISABLED",
         message: "Ce compte est désactivé ou n'est plus autorisé.",
