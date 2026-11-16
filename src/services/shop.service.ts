@@ -114,27 +114,14 @@ export const ShopService = {
     shopData: {
       shopName: string;
       ownerName: string;
-      address: string;
+      address?: string;
       phone: string;
       email: string;
-      password: string;
+      manager?: { name: string; email: string; password: string } | null;
     },
   ) => {
-    try {
-      // Actor those who is currently connected. it can be an admin or a Employe
-      const actor = await prisma.user.findUnique({
-        where: { id: actorId },
-        select: { id: true, role: true },
-      });
-
-      if (actor?.role !== "ADMIN") {
-        throw new ForbiddenError(
-          `Seul l'administrateur peut crée une nouvelle boutique`,
-        );
-      }
-
-      // verifiy the shop owner and poermission to create a new shop
-      const shopOwner = await prisma.user.findUnique({
+    const [owner, actor] = await Promise.all([
+      prisma.user.findUnique({
         where: { id: ownerId },
         include: {
           shop: {
@@ -147,94 +134,87 @@ export const ShopService = {
             },
           },
         },
+      }),
+      prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, shopId: true, role: true },
+      }),
+    ]);
+
+    if (!owner) throw new NotFoundError("Propriétaire introuvable");
+    if (!actor || actor.id !== ownerId || actor.shopId !== owner.shopId || actor.role !== "ADMIN") {
+      throw new ForbiddenError("Seul le propriétaire principal peut créer une boutique secondaire");
+    }
+
+    const primarySubscription = owner.shop.subscriptions[0];
+    if (!primarySubscription) {
+      throw new NotFoundError("Abonnement de la boutique principale introuvable");
+    }
+
+    const plan = primarySubscription.plan;
+    if (plan.code !== "PREMIUM" && plan.code !== "PRO") {
+      throw new ForbiddenError("L'abonnement ne comprend pas l'option multi-boutique");
+    }
+    if (primarySubscription.status !== "ACTIVE") {
+      throw new ForbiddenError("L'abonnement de la boutique principale doit être actif");
+    }
+    if (primarySubscription.endDate && primarySubscription.endDate <= new Date()) {
+      throw new ForbiddenError("L'abonnement de la boutique principale a expiré");
+    }
+
+    const shopEmail = shopData.email.trim().toLowerCase();
+    const managerEmail = shopData.manager?.email.trim().toLowerCase();
+    const [existingShop, existingManager] = await Promise.all([
+      prisma.shop.findUnique({ where: { email: shopEmail } }),
+      managerEmail
+        ? prisma.user.findUnique({ where: { email: managerEmail } })
+        : Promise.resolve(null),
+    ]);
+    if (existingShop) throw new ConflictError("Une boutique utilise déjà cette adresse email");
+    if (existingManager) throw new ConflictError("L'adresse email du responsable est déjà utilisée");
+
+    const ownedShops = await prisma.shopOwner.count({ where: { userId: ownerId } });
+    const maxStores = plan.maxStores ?? 1;
+    if (ownedShops >= maxStores) {
+      throw new ForbiddenError(`Limite de boutiques atteinte (${maxStores})`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const shop = await tx.shop.create({
+        data: {
+          name: shopData.shopName.trim(),
+          ownerName: shopData.ownerName.trim(),
+          email: shopEmail,
+          address: shopData.address?.trim() || null,
+          primaryShopId: owner.shopId,
+          currentShop: CurrentShopType.SECONDARY,
+          phone: shopData.phone.trim(),
+        },
       });
 
-      if (!shopOwner) {
-        throw new NotFoundError("User not found");
-      }
-      const checkIsEmailExist = await prisma.user.findUnique({
-        where: { email: shopData.email },
-      });
-      if (checkIsEmailExist) {
-        throw new ConflictError("Cette address mail exist déja");
-      }
-
-      const primarySubscription = shopOwner.shop.subscriptions[0];
-      if (!primarySubscription) {
-        throw new NotFoundError("Abonnement de la boutique principale introuvable");
-      }
-
-      const plan = primarySubscription.plan;
-      const subcription = primarySubscription.status;
-      const planCode = primarySubscription.plan.code;
-
-      if (planCode !== "PREMIUM" && planCode !== "PRO") {
-        throw new ForbiddenError(
-          `Cette abonnement  ne contient l'option multi-boutique`,
-        );
-      }
-      if (subcription !== "ACTIVE") {
-        throw new ForbiddenError(
-          "L'abonnement de la boutique principale doit être actif pour créer une boutique secondaire",
-        );
-      }
-      if (primarySubscription.endDate && primarySubscription.endDate <= new Date()) {
-        throw new ForbiddenError(
-          "L'abonnement de la boutique principale a expiré",
-        );
-      }
-
-      const ownedShops = await prisma.shopOwner.count({
-        where: { userId: ownerId },
-      });
-
-      const maxStores = plan.maxStores ?? 1;
-      if (ownedShops >= maxStores) {
-        throw new UnauthorizedError(
-          `Limite de boutiques atteinte (${maxStores})`,
-        );
-      }
-
-      //  create
-      const newShop = await prisma.$transaction(async (tx) => {
-        const shop = await tx.shop.create({
-          data: {
-            name: shopData.shopName,
-            ownerName: shopData.ownerName,
-            email: shopData.email,
-            primaryShopId: shopOwner?.shop.id,
-            currentShop: "SECONDARY",
-            phone: shopData.phone,
-          },
-        });
-
+      // Le responsable est facultatif : la boutique reste administrable par son propriétaire.
+      if (shopData.manager) {
         await tx.user.create({
           data: {
             shopId: shop.id,
-            name: shopData.ownerName,
-            email: shopData.email,
-            password: shopData.password, //is already hashed
+            name: shopData.manager.name.trim(),
+            email: managerEmail!,
+            password: shopData.manager.password,
             role: "ADMIN",
           },
         });
+      }
 
-        // Lier au owner principal pour le switch
-        await tx.shopOwner.create({
-          data: {
-            userId: shopOwner.id,
-            shopId: shop.id,
-            phone: shop.phone,
-          },
-        });
-
-        return shop;
+      await tx.shopOwner.create({
+        data: {
+          userId: ownerId,
+          shopId: shop.id,
+          phone: shop.phone,
+        },
       });
 
-      return newShop;
-    } catch (e) {
-      logger.error(`Error while creating secondarye shop for user xxx`);
-      throw e;
-    }
+      return shop;
+    });
   },
 
   find: async (email: string) => {
@@ -308,111 +288,88 @@ export const ShopService = {
     return shops;
   },
 
-  // Switch to another shop
+  // Le propriétaire principal change de contexte avec ses propres identifiants.
   switchShop: async (
     shopOwnerId: number,
-    shopData: {
-      password: string;
-      targetShopId: number;
-    },
+    shopData: { password: string; targetShopId: number },
   ) => {
-    // owner verification
-    const ownership = await prisma.shopOwner.findFirst({
-      where: {
-        userId: shopOwnerId,
-        shopId: shopData.targetShopId,
-      },
+    const owner = await prisma.user.findUnique({
+      where: { id: shopOwnerId },
+      select: { id: true, shopId: true, name: true, email: true, password: true, role: true, isActive: true },
     });
 
-    if (!ownership) {
-      throw new ForbiddenError("Accée non autorisé");
+    if (!owner || !owner.isActive || owner.role !== "ADMIN") {
+      throw new ForbiddenError("Compte propriétaire non autorisé");
     }
-    const actor = await prisma.user.findFirst({
-      where: {
-        // id: shopData.userId,
-        shopId: shopData.targetShopId,
-      },
+
+    const targetShop = await prisma.shop.findUnique({
+      where: { id: shopData.targetShopId },
       include: {
-        shop: {
-          select: {
-            status: true,
-            name: true,
-            primaryShop: {
-              select: {
-                status: true,
-                subscriptions: {
-                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-                  take: 1,
-                  select: { plan: { select: { code: true } } },
-                },
-              },
-            },
+        primaryShop: { select: { id: true, status: true } },
+        subscriptions: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 1,
+          select: { plan: { select: { code: true } } },
+        },
+      },
+    });
+    if (!targetShop) throw new NotFoundError("Boutique introuvable");
+    if (targetShop.id !== owner.shopId && targetShop.primaryShopId !== owner.shopId) {
+      throw new ForbiddenError("Cette boutique n'appartient pas à votre réseau");
+    }
+
+    const ownership = await prisma.shopOwner.findFirst({
+      where: { userId: owner.id, shopId: targetShop.id },
+      select: { id: true },
+    });
+    if (!ownership) throw new ForbiddenError("Accès non autorisé");
+
+    if (isBlockedStatus(targetShop.status) || isBlockedStatus(targetShop.primaryShop?.status)) {
+      throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
+    }
+
+    const billingShop = targetShop.primaryShopId
+      ? await prisma.shop.findUnique({
+          where: { id: targetShop.primaryShopId },
+          include: {
             subscriptions: {
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 1,
               select: { plan: { select: { code: true } } },
             },
           },
-        },
-      },
-    });
+        })
+      : targetShop;
+    const inheritedPlanCode = billingShop?.subscriptions[0]?.plan.code;
+    if (!inheritedPlanCode) throw new NotFoundError("Abonnement de la boutique principale introuvable");
 
-    if (!actor) {
-      throw new NotFoundError("Utillsateur non reconnu");
-    }
-
-    if (isBlockedStatus(actor.shop.status) || isBlockedStatus(actor.shop.primaryShop?.status)) {
-      throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
-    }
-
-    const inheritedPlanCode = actor.shop.primaryShop
-      ? actor.shop.primaryShop.subscriptions[0]?.plan.code
-      : actor.shop.subscriptions[0]?.plan.code;
-
-    if (!inheritedPlanCode) {
-      throw new NotFoundError("Abonnement de la boutique principale introuvable");
-    }
-
-
-
-    // if (plan !== "PRO" && plan !== "PREMIUM") {
-    //   throw new UnauthorizedError(
-    //     " Votre abonnment n'inclut pas cette fonctionnalitée",
-    //   );
-    // }
-
-    const isPasswordValid = await bcrypt.compare(
-      shopData.password,
-      actor?.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new ForbiddenError("Mot de passe incorrect");
-    }
+    const isPasswordValid = await bcrypt.compare(shopData.password, owner.password);
+    if (!isPasswordValid) throw new ForbiddenError("Mot de passe incorrect");
 
     const token = jwt.sign(
       {
-        ownerId: ownership.userId, // the shop owner id . it's immuable and is always in every token
-        userId: actor.id, // user who is connected TO A SHOP maybe primary or secondary
-        shopId: actor.shopId,
+        ownerId: owner.id,
+        userId: owner.id,
+        shopId: targetShop.id,
         planType: inheritedPlanCode,
-        role: actor.role,
+        role: owner.role,
+        email: owner.email,
+        ...(targetShop.id !== owner.shopId ? { accessMode: "OWNER" as const } : {}),
       },
       env.secret.jwt,
       { expiresIn: "1d" },
     );
 
-    // });
     return {
       token,
       user: {
-        id: actor.id,
-        name: actor.name,
-        email: actor.email,
-        role: actor.role,
+        id: owner.id,
+        name: owner.name,
+        email: owner.email,
+        role: owner.role,
         plan: inheritedPlanCode,
-        shopId: actor.shopId,
-        shopName: actor.shop.name,
+        shopId: targetShop.id,
+        shopName: targetShop.name,
       },
     };
   },

@@ -2,7 +2,8 @@ import { NextFunction, Response } from "express";
 import { logger } from "../config/logger.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { SubscriptionService } from "../services/subscription.service.js";
-import { AppError, NotFoundError } from "../utils/errors.js";
+import { AppError, ForbiddenError, NotFoundError } from "../utils/errors.js";
+import { prisma } from "../config/prisma.js";
 
 export const SubscriptionController = {
   getCurrentSubs: async (
@@ -42,6 +43,18 @@ export const SubscriptionController = {
         throw new AppError(
           "Impossible d'effectuer le prolongement : utilisateur ou boutique non trouvée",
         );
+      }
+
+      const shop = await prisma.shop.findUnique({
+        where: { id: user.shopId },
+        select: { primaryShopId: true },
+      });
+      if (
+        !shop ||
+        shop.primaryShopId !== null ||
+        user.userId !== user.ownerId
+      ) {
+        throw new ForbiddenError("La gestion de l'abonnement est réservée au propriétaire depuis la boutique principale.");
       }
 
       const subscription = await SubscriptionService.extendSubscription({

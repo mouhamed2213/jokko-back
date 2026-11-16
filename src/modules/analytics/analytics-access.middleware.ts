@@ -79,6 +79,9 @@ export const requireMultiStoreAnalytics = async (
   try {
   const user = req.user;
   if (!user) throw new ForbiddenError("Accès Analytics non autorisé.");
+  if (user.userId !== user.ownerId) {
+    throw new ForbiddenError("L'analyse multi-boutique est réservée au propriétaire principal.");
+  }
 
   const subscription = await SubscriptionService.currentSubscription(
     user.shopId,
