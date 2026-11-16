@@ -162,10 +162,12 @@ export const ShopService = {
       throw new ForbiddenError("L'abonnement de la boutique principale a expiré");
     }
 
+    const shopEmail = shopData.email.trim().toLowerCase();
+    const managerEmail = shopData.manager?.email.trim().toLowerCase();
     const [existingShop, existingManager] = await Promise.all([
-      prisma.shop.findUnique({ where: { email: shopData.email } }),
-      shopData.manager
-        ? prisma.user.findUnique({ where: { email: shopData.manager.email } })
+      prisma.shop.findUnique({ where: { email: shopEmail } }),
+      managerEmail
+        ? prisma.user.findUnique({ where: { email: managerEmail } })
         : Promise.resolve(null),
     ]);
     if (existingShop) throw new ConflictError("Une boutique utilise déjà cette adresse email");
@@ -182,7 +184,7 @@ export const ShopService = {
         data: {
           name: shopData.shopName.trim(),
           ownerName: shopData.ownerName.trim(),
-          email: shopData.email.trim().toLowerCase(),
+          email: shopEmail,
           address: shopData.address?.trim() || null,
           primaryShopId: owner.shopId,
           currentShop: CurrentShopType.SECONDARY,
@@ -196,7 +198,7 @@ export const ShopService = {
           data: {
             shopId: shop.id,
             name: shopData.manager.name.trim(),
-            email: shopData.manager.email.trim().toLowerCase(),
+            email: managerEmail!,
             password: shopData.manager.password,
             role: "ADMIN",
           },
