@@ -125,6 +125,7 @@ export const protectSuperAdmin = async (
     };
 
     if (
+      typeof decoded.userId !== "number" ||
       !Number.isSafeInteger(decoded.userId) ||
       typeof decoded.email !== "string" ||
       decoded.email.length === 0
