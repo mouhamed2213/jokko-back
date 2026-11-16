@@ -177,7 +177,10 @@ export const SuperAdminOwnerService = {
                   status: true,
                   primaryShopId: true,
                   primaryShop: {
-                    select: { subscriptions: currentSubscriptionSelect },
+                    select: {
+                      status: true,
+                      subscriptions: currentSubscriptionSelect,
+                    },
                   },
                   subscriptions: currentSubscriptionSelect,
                 },
@@ -192,7 +195,11 @@ export const SuperAdminOwnerService = {
 
     const owners = users.map((u) => {
       const shops = u.ownedShops.map((o) => o.shop);
-      const live = shops.filter((s) => s.status !== SHOP_STATUS.ARCHIVED);
+      const live = shops.filter(
+        (s) =>
+          s.status !== SHOP_STATUS.ARCHIVED &&
+          (!s.primaryShop || s.primaryShop.status !== SHOP_STATUS.ARCHIVED),
+      );
       const subs = live.map((s) => s.primaryShop?.subscriptions[0] ?? s.subscriptions[0]).filter(Boolean);
       const expiries = subs
         .map((s) => s.endDate)
@@ -252,6 +259,7 @@ export const SuperAdminOwnerService = {
                   select: {
                     id: true,
                     name: true,
+                    status: true,
                     subscriptions: currentSubscriptionSelect,
                   },
                 },
@@ -324,6 +332,12 @@ export const SuperAdminOwnerService = {
       const alerts: Alert[] = [];
       if (archived) {
         alerts.push({ level: "info", code: "ARCHIVED", message: "Boutique archivée" });
+      } else if (shop.primaryShop?.status === SHOP_STATUS.ARCHIVED) {
+        alerts.push({
+          level: "danger",
+          code: "PRIMARY_SHOP_ARCHIVED",
+          message: `Boutique inaccessible : la boutique principale « ${shop.primaryShop.name} » est archivée`,
+        });
       } else {
         if (!sub) {
           alerts.push({ level: "danger", code: "NO_SUBSCRIPTION", message: "Aucun abonnement" });
@@ -371,7 +385,11 @@ export const SuperAdminOwnerService = {
         isPrimary: !shop.primaryShopId,
         primaryShopId: shop.primaryShopId,
         primaryShop: shop.primaryShop
-          ? { id: shop.primaryShop.id, name: shop.primaryShop.name }
+          ? {
+              id: shop.primaryShop.id,
+              name: shop.primaryShop.name,
+              status: shop.primaryShop.status,
+            }
           : null,
         subscriptionInherited,
         createdAt: shop.createdAt,
@@ -405,7 +423,11 @@ export const SuperAdminOwnerService = {
       diagnostics.push({ level: "warning", code: "STORES_OVER_LIMIT", message: `Le réseau dépasse la limite du plan (${storesUsage.used}/${storesUsage.limit} boutiques secondaires)` });
     }
 
-    const live = shops.filter((s) => s.status !== SHOP_STATUS.ARCHIVED);
+    const live = shops.filter(
+      (s) =>
+        s.status !== SHOP_STATUS.ARCHIVED &&
+        (!s.primaryShop || s.primaryShop.status !== SHOP_STATUS.ARCHIVED),
+    );
     const sum = (f: (s: (typeof shops)[number]) => number, list = shops) =>
       list.reduce((acc, s) => acc + f(s), 0);
 
