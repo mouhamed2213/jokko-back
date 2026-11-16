@@ -124,6 +124,7 @@ export const login = async (req: Request, res: Response) => {
         plan: billingSubscription.plan.code,
         shopId: user.shopId,
         shopName: user.shop.name,
+        emailVerifiedAt: user.emailVerifiedAt,
       },
     });
   } catch (error) {
@@ -171,6 +172,7 @@ export const loginSuperAdmin = async (req: Request, res: Response) => {
         name: admin.name,
         email: admin.email,
         role: "SUPER_ADMIN",
+        emailVerifiedAt: admin.emailVerifiedAt,
       },
     });
   } catch (error) {
