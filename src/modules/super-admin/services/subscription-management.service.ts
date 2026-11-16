@@ -182,6 +182,44 @@ export const SubscriptionManagementService = {
     });
   },
 
+  cancelPendingPayment: async (paymentId: number, actor: { actorId: number; actorName: string }) => {
+    if (!Number.isSafeInteger(paymentId) || paymentId <= 0) {
+      throw new BadRequestError("Identifiant de paiement invalide");
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: { subscription: true },
+      });
+      if (!payment) throw new NotFoundError("Paiement introuvable");
+      if (payment.paymentType !== "SUBSCRIPTION" || payment.status !== "PENDING") {
+        throw new BadRequestError("Seul un paiement d'abonnement en attente peut être annulé");
+      }
+
+      const cancelled = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.PENDING },
+        data: { status: PaymentStatus.CANCELLED },
+      });
+      if (cancelled.count !== 1) {
+        throw new BadRequestError("Ce paiement vient d'être traité par un autre administrateur");
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.actorId,
+          actorName: actor.actorName,
+          action: "CANCEL_SUBSCRIPTION_PAYMENT",
+          targetType: "Subscription",
+          targetId: payment.subscription.shopId,
+          details: { paymentId: payment.id, planCode: payment.planCode, amount: payment.amount },
+        },
+      });
+
+      return tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
+    });
+  },
+
   updateStatus: async (shopId: number, status: SubscriptionStatus) => {
     const validStatuses = ["TRIAL", "ACTIVE", "EXPIRED", "TRIAL_EXPIRED", "SUSPENDED"];
     if (!validStatuses.includes(status)) throw new ForbiddenError(`Statut invalide: ${status}`);
