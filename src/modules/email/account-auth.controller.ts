@@ -1,5 +1,6 @@
 import type { Response, Request } from "express";
 import { logger } from "../../config/logger.js";
+import { AppError } from "../../utils/errors.js";
 import { prisma } from "../../config/prisma.js";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
 import { AccountAuthService } from "./account-auth.service.js";
@@ -13,10 +14,12 @@ const isValidEmail = (value: unknown): value is string =>
 const isValidPassword = (value: unknown): value is string =>
   typeof value === "string" && value.length >= 8;
 
-const respondWithBadRequest = (res: Response, error: unknown) =>
-  res.status(400).json({
+const respondWithBadRequest = (res: Response, error: unknown) => {
+  const statusCode = error instanceof AppError ? error.statusCode : 400;
+  return res.status(statusCode).json({
     message: error instanceof Error ? error.message : "Demande invalide",
   });
+};
 
 export const AccountAuthController = {
   forgotPassword: async (req: Request, res: Response) => {
