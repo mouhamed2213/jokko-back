@@ -14,6 +14,25 @@ const isValidEmail = (value: unknown): value is string =>
 const isValidPassword = (value: unknown): value is string =>
   typeof value === "string" && value.length >= 8;
 
+const publicRequestCounts = new Map<string, { count: number; resetAt: number }>();
+
+const isPublicRateLimited = (req: Request, action: string, maxRequests = 10) => {
+  const now = Date.now();
+  const key = `${action}:${req.ip || "unknown"}`;
+  const current = publicRequestCounts.get(key);
+  if (!current || current.resetAt <= now) {
+    publicRequestCounts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return false;
+  }
+  current.count += 1;
+  if (publicRequestCounts.size > 5000) {
+    for (const [storedKey, value] of publicRequestCounts) {
+      if (value.resetAt <= now) publicRequestCounts.delete(storedKey);
+    }
+  }
+  return current.count > maxRequests;
+};
+
 const respondWithBadRequest = (res: Response, error: unknown) => {
   const statusCode = error instanceof AppError ? error.statusCode : 400;
   return res.status(statusCode).json({
@@ -24,6 +43,11 @@ const respondWithBadRequest = (res: Response, error: unknown) => {
 export const AccountAuthController = {
   forgotPassword: async (req: Request, res: Response) => {
     const email = req.body?.email;
+    if (isPublicRateLimited(req, "forgot-password", 5)) {
+      return res.status(200).json({
+        message: "Si cette adresse correspond à un compte, un lien de réinitialisation sera envoyé.",
+      });
+    }
     if (isValidEmail(email)) {
       await AccountAuthService.requestPasswordReset(email).catch((error) => {
         logger.error("Erreur pendant la demande de réinitialisation", {
@@ -37,6 +61,9 @@ export const AccountAuthController = {
   },
 
   resetPassword: async (req: Request, res: Response) => {
+    if (isPublicRateLimited(req, "password-reset", 10)) {
+      return res.status(429).json({ message: "Trop de tentatives. Réessayez plus tard." });
+    }
     const { token, password } = req.body ?? {};
     if (typeof token !== "string" || !token || !isValidPassword(password)) {
       return res.status(400).json({
@@ -52,6 +79,9 @@ export const AccountAuthController = {
   },
 
   verifyEmail: async (req: Request, res: Response) => {
+    if (isPublicRateLimited(req, "email-verification", 15)) {
+      return res.status(429).json({ message: "Trop de tentatives. Réessayez plus tard." });
+    }
     const token = req.body?.token;
     if (typeof token !== "string" || !token) {
       return res.status(400).json({ message: "Jeton de vérification manquant." });
@@ -65,6 +95,9 @@ export const AccountAuthController = {
   },
 
   confirmEmailChange: async (req: Request, res: Response) => {
+    if (isPublicRateLimited(req, "email-change-confirm", 10)) {
+      return res.status(429).json({ message: "Trop de tentatives. Réessayez plus tard." });
+    }
     const token = req.body?.token;
     if (typeof token !== "string" || !token) {
       return res.status(400).json({ message: "Jeton de confirmation manquant." });
