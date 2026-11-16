@@ -115,7 +115,7 @@ export const protect = async (
       });
     }
 
-    req.user = decoded;
+    req.user = { ...decoded, email: account.email };
     return next();
   } catch {
     return res.status(401).json({ message: "Token invalide ou expiré" });
