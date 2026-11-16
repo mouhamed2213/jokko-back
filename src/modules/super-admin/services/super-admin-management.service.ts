@@ -9,6 +9,18 @@ const INVITATION_TTL_MS = 48 * 60 * 60 * 1000;
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 const createInvitation = async (adminId: number) => {
+  const recentInvitation = await prisma.authToken.findFirst({
+    where: {
+      superAdminId: adminId,
+      type: "SUPER_ADMIN_INVITATION",
+      createdAt: { gt: new Date(Date.now() - 60 * 1000) },
+    },
+    select: { id: true },
+  });
+  if (recentInvitation) {
+    throw new Error("Veuillez patienter une minute avant de renvoyer une invitation.");
+  }
+
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
