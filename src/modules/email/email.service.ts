@@ -1,5 +1,5 @@
-import Nodemailer from "nodemailer";
 import { MailtrapTransport } from "mailtrap";
+import Nodemailer from "nodemailer";
 import { env } from "../../config/env-config.js";
 import { logger } from "../../config/logger.js";
 
@@ -23,7 +23,11 @@ const getTransport = () => {
   }
   if (!transport) {
     transport = Nodemailer.createTransport(
-      MailtrapTransport({ token: env.mail.token }),
+      MailtrapTransport({
+        token: env.mail.token,
+        sandbox: env.mode !== "production" ? true : false,
+        testInboxId: env.mail.textInboxId,
+      }),
     );
   }
   return transport;
