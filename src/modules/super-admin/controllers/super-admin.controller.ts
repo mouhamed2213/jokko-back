@@ -60,7 +60,14 @@ export const SuperAdminShopController = {
       });
 
       // Recent subscriptions (with plan & shop)
+      // Les abonnements des boutiques secondaires ne sont pas des abonnements facturables.
+      // On ne comptabilise que ceux des boutiques principales.
+      const primaryShopFilter = {
+        shop: { is: { primaryShopId: null } },
+      };
+
       const recentSubscriptions = await prisma.subscription.findMany({
+        where: primaryShopFilter,
         orderBy: { createdAt: "desc" },
         take: 10,
         include: {
@@ -69,13 +76,13 @@ export const SuperAdminShopController = {
         },
       });
 
-      // Subscriptions group by status and by plan (plan code)
+      // Abonnements groupés par statut et forfait, uniquement pour les principales.
       const subsGroup = await prisma.subscription.groupBy({
         by: ["status", "planId"],
+        where: primaryShopFilter,
         _count: { _all: true },
       });
 
-      // Fetch involved plans to map ids to codes
       const planIds = Array.from(new Set(subsGroup.map((s: any) => s.planId)));
       const plans =
         planIds.length > 0
@@ -88,9 +95,8 @@ export const SuperAdminShopController = {
       const subscriptionsByPlan: Record<string, number> = {};
 
       subsGroup.forEach((g: any) => {
-        const status = g.status;
-        subscriptionsByStatus[status] =
-          (subscriptionsByStatus[status] || 0) + g._count._all;
+        subscriptionsByStatus[g.status] =
+          (subscriptionsByStatus[g.status] || 0) + g._count._all;
 
         const plan = planById[g.planId];
         const planCode = plan ? plan.code : String(g.planId);
@@ -98,9 +104,9 @@ export const SuperAdminShopController = {
           (subscriptionsByPlan[planCode] || 0) + g._count._all;
       });
 
-      // MRR estimate: sum of plan.price for ACTIVE subscriptions (excluding FREE)
+      // MRR estimé : uniquement les abonnements actifs des boutiques principales.
       const activeSubs = await prisma.subscription.findMany({
-        where: { status: "ACTIVE" },
+        where: { ...primaryShopFilter, status: "ACTIVE" },
         include: { plan: { select: { code: true, price: true } } },
       });
 
