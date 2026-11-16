@@ -34,6 +34,7 @@ export const login = async (req: Request, res: Response) => {
             },
             primaryShop: {
               select: {
+                id: true,
                 status: true,
                 subscriptions: {
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -53,9 +54,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const shopOwner = await prisma.shopOwner.findFirst({
-      where: {
-        shopId: user.shopId,
-      },
+      where: { shopId: user.shopId },
     });
 
     if (!shopOwner) {
@@ -103,6 +102,7 @@ export const login = async (req: Request, res: Response) => {
         shopId: user.shopId,
         planType: billingSubscription.plan.code,
         role: user.role,
+        email: user.email,
       },
       env.secret.jwt ,
       { expiresIn: "3d" },
