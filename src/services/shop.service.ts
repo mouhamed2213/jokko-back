@@ -151,9 +151,14 @@ export const ShopService = {
         throw new ConflictError("Cette address mail exist déja");
       }
 
-      const plan = shopOwner.shop.subscriptions[0].plan;
-      const subcription = shopOwner.shop.subscriptions[0].status;
-      const planCode = shopOwner.shop.subscriptions[0].plan.code;
+      const primarySubscription = shopOwner.shop.subscriptions[0];
+      if (!primarySubscription) {
+        throw new NotFoundError("Abonnement de la boutique principale introuvable");
+      }
+
+      const plan = primarySubscription.plan;
+      const subcription = primarySubscription.status;
+      const planCode = primarySubscription.plan.code;
 
       if (planCode !== "PREMIUM" && planCode !== "PRO") {
         throw new ForbiddenError(
@@ -268,7 +273,11 @@ export const ShopService = {
     }
 
     const shops = ownership
-      .filter((s) => !isBlockedStatus(s.shop.status))
+      .filter(
+        (s) =>
+          !isBlockedStatus(s.shop.status) &&
+          !isBlockedStatus(s.shop.primaryShop?.status),
+      )
       .map((s) => ({
       id: s.shop.id,
       shopOwner: ownerId,
