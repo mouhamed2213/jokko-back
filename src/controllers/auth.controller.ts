@@ -34,6 +34,7 @@ export const login = async (req: Request, res: Response) => {
             },
             primaryShop: {
               select: {
+                id: true,
                 status: true,
                 subscriptions: {
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -52,9 +53,10 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 
+    const billingShopId = user.shop.primaryShop?.id ?? user.shopId;
     const shopOwner = await prisma.shopOwner.findFirst({
       where: {
-        shopId: user.shopId,
+        shopId: billingShopId,
       },
     });
 
@@ -103,6 +105,7 @@ export const login = async (req: Request, res: Response) => {
         shopId: user.shopId,
         planType: billingSubscription.plan.code,
         role: user.role,
+        email: user.email,
       },
       env.secret.jwt ,
       { expiresIn: "3d" },
