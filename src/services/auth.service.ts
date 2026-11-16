@@ -59,7 +59,9 @@ export const AuthService = {
 
     // Une boutique secondaire utilise l'abonnement de sa boutique principale.
     // On expose cet abonnement sous la même propriété pour préserver le contrat API.
-    const inheritedSubscriptions = shop.primaryShop?.subscriptions ?? shop.subscriptions;
+    const inheritedSubscriptions = shop.primaryShopId
+      ? shop.primaryShop?.subscriptions ?? []
+      : shop.subscriptions;
 
     return {
       ...shop,
