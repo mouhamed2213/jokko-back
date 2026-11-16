@@ -168,8 +168,9 @@ export const SuperAdminShopService = {
     throw new NotFoundError("Shop not found");
   }
 
-  const subscription =
-    shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
+  const subscription = shop.primaryShopId
+    ? shop.primaryShop?.subscriptions[0] ?? null
+    : shop.subscriptions[0] ?? null;
   const subscriptionInherited = !!shop.primaryShopId;
 
   const [salesRevenue, payments, auditLogs] = await Promise.all([
