@@ -151,10 +151,17 @@ export const getShopSettings = async (req: AuthRequest, res: Response) => {
       where: { id: shopId },
       include: {
         subscriptions: {
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 1,
+          include: { plan: true },
+        },
+        primaryShop: {
           include: {
-            plan: true,
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              include: { plan: true },
+            },
           },
         },
         _count: {
@@ -163,12 +170,15 @@ export const getShopSettings = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    if (!shopData) return res.status(404).json({ message: "Boutique introuvable" });
+
     const shop = {
       ...shopData,
-      logoUrl: getFullStorageUrl(LOGO_BUCKET, shopData?.logoUrl as string),
+      subscriptions: shopData.primaryShop?.subscriptions ?? shopData.subscriptions,
+      subscriptionInherited: !!shopData.primaryShopId,
+      billingShopId: shopData.primaryShopId ?? shopData.id,
+      logoUrl: getFullStorageUrl(LOGO_BUCKET, shopData.logoUrl as string),
     };
-
-    if (!shop) return res.status(404).json({ message: "Boutique introuvable" });
 
     return res.status(200).json(shop);
   } catch (error) {
