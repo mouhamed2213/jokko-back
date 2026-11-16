@@ -53,11 +53,8 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 
-    const billingShopId = user.shop.primaryShop?.id ?? user.shopId;
     const shopOwner = await prisma.shopOwner.findFirst({
-      where: {
-        shopId: billingShopId,
-      },
+      where: { shopId: user.shopId },
     });
 
     if (!shopOwner) {
