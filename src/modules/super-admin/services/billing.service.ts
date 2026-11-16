@@ -45,10 +45,22 @@ export const BillingService = {
       getShopOwner.shopId,
       getShopOwner.userId,
     );
-
+    const billingOwner = await prisma.shopOwner.findFirst({
+      where: {
+        userId: getShopOwner.userId,
+        shopId: (await prisma.shop.findUniqueOrThrow({
+          where: { id: getShopOwner.shopId },
+          select: { primaryShopId: true },
+        })).primaryShopId ?? getShopOwner.shopId,
+      },
+      select: { id: true },
+    });
+    if (!billingOwner) {
+      throw new NotFoundError("Propriétaire de la boutique principale introuvable");
+    }
 
     const paymentData: CreatePaymentOptions = {
-      shopOwnerId: getShopOwner.shopId,
+      shopOwnerId: billingOwner.id,
       subscriptionId: currentSubscription.id,
       planId: selectedPlan.id,
       planCode: selectedPlan.code,
