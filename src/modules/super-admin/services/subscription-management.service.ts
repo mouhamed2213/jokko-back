@@ -1,95 +1,180 @@
 import { prisma } from "../../../config/prisma.js";
-import { SubscriptionStatus } from "../../../database/prisma/generated/prisma/enums.js";
-import { PaymentService } from "../../../services/payment.service.js";
-import { SubscriptionService } from "../../../services/subscription.service.js";
-import { ForbiddenError, NotFoundError } from "../../../utils/errors.js";
+import { PaymentMethod, PaymentStatus, SubscriptionStatus } from "../../../database/prisma/generated/prisma/enums.js";
+import { dateManagement } from "../../../helpers/dates.js";
 import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../../../utils/errors.js";
+
+const paymentMethods = ["WAVE", "ORANGE_MONEY", "OTHER"] as const;
+
+type ManualPaymentInput = {
+  shopId: number;
+  planCode: string;
+  provider: (typeof paymentMethods)[number];
+  amount?: number;
+  transactionReference?: string;
+};
 
 export const SubscriptionManagementService = {
   /**
-   * Change a shop's subscription plan
-   * Creates a Payment record and updates subscription via renewal
+   * A paid plan change first creates a PENDING payment.
+   * The current subscription is intentionally left unchanged until verification.
    */
-  changePlan: async (
-    shopId: number,
-    planCode: string,
-    paymentReference?: string,
-  ) => {
-    // Find shop and verify it exists
-    const shop = await prisma.shop.findUnique({ where: { id: shopId } });
+  changePlan: async ({ shopId, planCode, provider, amount, transactionReference }: ManualPaymentInput) => {
+    if (!Number.isSafeInteger(shopId) || shopId <= 0) {
+      throw new BadRequestError("Identifiant de boutique invalide");
+    }
+
+    const normalizedPlanCode = String(planCode || "").trim().toUpperCase();
+    const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { id: true } });
     if (!shop) throw new NotFoundError("Boutique introuvable");
 
-    // Find shop owner (latest one)
     const shopOwner = await prisma.shopOwner.findFirst({
       where: { shopId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
     });
-    if (!shopOwner)
-      throw new NotFoundError("Propriétaire boutique introuvable");
+    if (!shopOwner) throw new NotFoundError("Propriétaire boutique introuvable");
 
-    // Get current subscription
     const currentSub = await prisma.subscription.findFirst({
-      where: { shopId },
+      where: { shopId, shopOwnerId: shopOwner.id },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
       include: { plan: true },
     });
     if (!currentSub) throw new NotFoundError("Abonnement introuvable");
 
-    // Get new plan
-    const newPlan = await prisma.plan.findUnique({
-      where: { code: planCode as any },
-    });
-    if (!newPlan) throw new NotFoundError(`Plan ${planCode} introuvable`);
-
-    // If new plan is FREE, special handling (end trial, no payment)
-    if (newPlan.code === "FREE") {
-      const freeSub = await SubscriptionService.downgradeToFree(
-        currentSub as any,
-        shopOwner.userId,
-      );
-      return { subscription: freeSub, payment: null };
+    const newPlan = await prisma.plan.findUnique({ where: { code: normalizedPlanCode as any } });
+    if (!newPlan) throw new NotFoundError(`Plan ${normalizedPlanCode} introuvable`);
+    if (newPlan.code === currentSub.plan.code) {
+      throw new BadRequestError("Cette boutique utilise déjà ce forfait");
     }
 
-    // Create Payment record (status SUCCESS, manual payment)
-    const payment = await PaymentService.createPayment({
-      shopOwnerId: shopOwner.id,
-      subscriptionId: currentSub.id,
-      planId: newPlan.id,
-      planCode: newPlan.code,
-      planName: newPlan.name,
-      provider: "IN_APP" as any,
-      amount: newPlan.price,
+    if (newPlan.code === "FREE") {
+      const freeSub = await prisma.$transaction(async (tx) => {
+        const freePlan = await tx.plan.findUnique({ where: { code: "FREE" } });
+        if (!freePlan) throw new NotFoundError("Plan gratuit introuvable");
+        return tx.subscription.update({
+          where: { id: currentSub.id, shopOwnerId: shopOwner.id },
+          data: {
+            planId: freePlan.id,
+            status: currentSub.status === "TRIAL" ? "TRIAL_EXPIRED" : "EXPIRED",
+            startDate: new Date(),
+            endDate: null,
+          },
+          include: { plan: { include: { planFeature: { include: { feature: true } } } } },
+        });
+      });
+      return { subscription: freeSub, payment: null, requiresPayment: false };
+    }
+
+    if (!paymentMethods.includes(provider)) {
+      throw new BadRequestError("Moyen de paiement invalide");
+    }
+    const paymentAmount = amount === undefined ? newPlan.price : Number(amount);
+    if (!Number.isSafeInteger(paymentAmount) || paymentAmount <= 0) {
+      throw new BadRequestError("Le montant doit être un entier positif en FCFA");
+    }
+
+    const reference = transactionReference?.trim() || undefined;
+    if (reference && reference.length > 120) {
+      throw new BadRequestError("La référence de transaction est trop longue");
+    }
+
+    const payment = await prisma.$transaction(async (tx) => {
+      const existingPending = await tx.payment.findFirst({
+        where: { subscriptionId: currentSub.id, status: "PENDING", paymentType: "SUBSCRIPTION" },
+        select: { id: true },
+      });
+      if (existingPending) {
+        throw new BadRequestError("Un paiement est déjà en attente pour cette boutique. Vérifiez-le ou annulez-le avant d'en créer un autre.");
+      }
+
+      return tx.payment.create({
+        data: {
+          shopOwnerId: shopOwner.id,
+          subscriptionId: currentSub.id,
+          planId: newPlan.id,
+          planCode: newPlan.code,
+          planName: newPlan.name,
+          provider: provider as PaymentMethod,
+          amount: paymentAmount,
+          status: PaymentStatus.PENDING,
+          paymentType: "SUBSCRIPTION",
+          transactionReference: reference,
+        },
+      });
     });
 
-    // Mark payment as SUCCESS (manual payment handled outside)
-    await PaymentService.updatePayment(payment.id, "SUCCESS");
-
-    // Update subscription via renewal service
-    const updatedSub = await SubscriptionService.renewal(
-      currentSub.id,
-      shopOwner.userId,
-      newPlan.id,
-    );
-
-    return {
-      subscription: updatedSub,
-      payment: await prisma.payment.findUnique({ where: { id: payment.id } }),
-    };
+    return { subscription: currentSub, payment, requiresPayment: true };
   },
 
   /**
-   * Update subscription status manually
+   * Confirmation is the only operation that activates the purchased plan.
+   * Payment and subscription updates, plus the audit entry, commit atomically.
    */
-  updateStatus: async (shopId: number, status: SubscriptionStatus) => {
-    const validStatuses = [
-      "TRIAL",
-      "ACTIVE",
-      "EXPIRED",
-      "TRIAL_EXPIRED",
-      "SUSPENDED",
-    ];
-    if (!validStatuses.includes(status)) {
-      throw new ForbiddenError(`Statut invalide: ${status}`);
+  confirmPayment: async (paymentId: number, actor: { actorId: number; actorName: string }) => {
+    if (!Number.isSafeInteger(paymentId) || paymentId <= 0) {
+      throw new BadRequestError("Identifiant de paiement invalide");
     }
+
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: { subscription: true, plan: true, shopOwner: { include: { shop: true } } },
+      });
+      if (!payment) throw new NotFoundError("Paiement introuvable");
+      if (payment.status !== "PENDING") {
+        throw new BadRequestError("Ce paiement n'est plus en attente");
+      }
+      if (payment.paymentType !== "SUBSCRIPTION") {
+        throw new BadRequestError("Ce paiement ne concerne pas un abonnement");
+      }
+      if (payment.subscription.shopId !== payment.shopOwner.shopId) {
+        throw new ForbiddenError("Le paiement ne correspond pas à la boutique de l'abonnement");
+      }
+
+      const now = new Date();
+      const dates = dateManagement();
+      const subscription = await tx.subscription.update({
+        where: { id: payment.subscriptionId, shopOwnerId: payment.shopOwnerId },
+        data: {
+          planId: payment.planId,
+          status: SubscriptionStatus.ACTIVE,
+          startDate: dates.startDate,
+          endDate: dates.endSubscriptionSate,
+        },
+        include: { plan: { include: { planFeature: { include: { feature: true } } } } },
+      });
+
+      const confirmedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.SUCCESS, paidAt: now },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.actorId,
+          actorName: actor.actorName,
+          action: "CONFIRM_SUBSCRIPTION_PAYMENT",
+          targetType: "Payment",
+          targetId: payment.id,
+          details: {
+            shopId: payment.shopOwner.shopId,
+            subscriptionId: payment.subscriptionId,
+            planCode: payment.planCode,
+            amount: payment.amount,
+            provider: payment.provider,
+            transactionReference: payment.transactionReference,
+          },
+        },
+      });
+
+      return { subscription, payment: confirmedPayment };
+    });
+  },
+
+  updateStatus: async (shopId: number, status: SubscriptionStatus) => {
+    const validStatuses = ["TRIAL", "ACTIVE", "EXPIRED", "TRIAL_EXPIRED", "SUSPENDED"];
+    if (!validStatuses.includes(status)) throw new ForbiddenError(`Statut invalide: ${status}`);
 
     const subscription = await prisma.subscription.findFirst({
       where: { shopId },
@@ -97,44 +182,32 @@ export const SubscriptionManagementService = {
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
 
-    const updated = await prisma.subscription.update({
+    return prisma.subscription.update({
       where: { id: subscription.id },
-      data: { status: status as any },
+      data: { status },
       include: { plan: true, shop: true },
     });
-
-    return updated;
   },
 
-  /**
-   * Extend the trial/subscription period by adding days to endDate
-   */
   extendPeriod: async (shopId: number, daysToAdd: number) => {
-    if (daysToAdd <= 0) {
-      throw new ForbiddenError("Nombre de jours doit être > 0");
-    }
+    if (daysToAdd <= 0) throw new ForbiddenError("Nombre de jours doit être > 0");
 
     const subscription = await prisma.subscription.findFirst({
       where: { shopId },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
-
     if (!subscription.endDate) {
-      throw new ForbiddenError(
-        "Impossible de prolonger: cette abonnement n'a pas de date d'expiration (plan FREE)",
-      );
+      throw new ForbiddenError("Impossible de prolonger: cet abonnement n'a pas de date d'expiration (plan FREE)");
     }
 
     const newEndDate = new Date(subscription.endDate);
     newEndDate.setDate(newEndDate.getDate() + daysToAdd);
 
-    const update = await prisma.subscription.update({
+    return prisma.subscription.update({
       where: { id: subscription.id },
       data: { endDate: newEndDate },
       include: { plan: true, shop: true },
     });
-
-    return update;
   },
 };
