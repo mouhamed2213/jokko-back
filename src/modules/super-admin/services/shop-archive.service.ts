@@ -21,6 +21,7 @@ export const ShopArchiveService = {
         name: true,
         email: true,
         status: true,
+        secondaryShops: { select: { id: true } },
       },
     });
     if (!shop) throw new NotFoundError("Boutique introuvable");
@@ -42,6 +43,9 @@ export const ShopArchiveService = {
     }
 
     invalidateShopStatusCache(shopId);
+    for (const secondary of shop.secondaryShops) {
+      invalidateShopStatusCache(secondary.id);
+    }
 
     await logAuditAction({
       ...actor,
