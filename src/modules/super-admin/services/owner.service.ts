@@ -176,6 +176,9 @@ export const SuperAdminOwnerService = {
                   name: true,
                   status: true,
                   primaryShopId: true,
+                  primaryShop: {
+                    select: { subscriptions: currentSubscriptionSelect },
+                  },
                   subscriptions: currentSubscriptionSelect,
                 },
               },
@@ -190,7 +193,7 @@ export const SuperAdminOwnerService = {
     const owners = users.map((u) => {
       const shops = u.ownedShops.map((o) => o.shop);
       const live = shops.filter((s) => s.status !== SHOP_STATUS.ARCHIVED);
-      const subs = live.map((s) => s.subscriptions[0]).filter(Boolean);
+      const subs = live.map((s) => s.primaryShop?.subscriptions[0] ?? s.subscriptions[0]).filter(Boolean);
       const expiries = subs
         .map((s) => s.endDate)
         .filter((d): d is Date => !!d)
@@ -245,6 +248,13 @@ export const SuperAdminOwnerService = {
                 primaryShopId: true,
                 currentShop: true,
                 createdAt: true,
+                primaryShop: {
+                  select: {
+                    id: true,
+                    name: true,
+                    subscriptions: currentSubscriptionSelect,
+                  },
+                },
                 subscriptions: currentSubscriptionSelect,
               },
             },
@@ -268,6 +278,7 @@ export const SuperAdminOwnerService = {
 
     // Anomalie : l'abonnement doit pointer vers le ShopOwner de SA boutique
     const subOwnerIds = shopsRaw
+      .filter((s) => !s.primaryShopId)
       .map((s) => s.subscriptions[0]?.shopOwnerId)
       .filter((id): id is number => typeof id === "number");
     const subOwners = await prisma.shopOwner.findMany({
@@ -280,9 +291,19 @@ export const SuperAdminOwnerService = {
 
     const shops = shopsRaw.map((shop, i) => {
       const stats = statsList[i];
-      const sub = shop.subscriptions[0] ?? null;
+      const ownSubscription = shop.subscriptions[0] ?? null;
+      const sub = shop.primaryShop?.subscriptions[0] ?? ownSubscription;
+      const subscriptionInherited = !!shop.primaryShopId;
       const archived = shop.status === SHOP_STATUS.ARCHIVED;
       const plan = sub?.plan ?? null;
+
+      if (subscriptionInherited && ownSubscription) {
+        diagnostics.push({
+          level: "warning",
+          code: "SECONDARY_OWN_SUBSCRIPTION",
+          message: `«${shop.name}» : un ancien abonnement propre existe encore sur cette boutique secondaire ; l'abonnement de la boutique principale est appliqué.`,
+        });
+      }
 
       const usage = plan
         ? [
@@ -331,8 +352,8 @@ export const SuperAdminOwnerService = {
         }
       }
 
-      // Diagnostic de cohérence des données
-      if (sub) {
+      // Le contrôle de cohérence porte uniquement sur l'abonnement de la boutique principale.
+      if (sub && !subscriptionInherited) {
         const linked = subOwnerById.get(sub.shopOwnerId);
         if (!linked) {
           diagnostics.push({ level: "danger", code: "SUBSCRIPTION_OWNER_MISSING", message: `«${shop.name}» : l'abonnement pointe vers un propriétaire inexistant (#${sub.shopOwnerId})` });
@@ -349,6 +370,10 @@ export const SuperAdminOwnerService = {
         logoUrl: shop.logoUrl,
         isPrimary: !shop.primaryShopId,
         primaryShopId: shop.primaryShopId,
+        primaryShop: shop.primaryShop
+          ? { id: shop.primaryShop.id, name: shop.primaryShop.name }
+          : null,
+        subscriptionInherited,
         createdAt: shop.createdAt,
         subscription: sub
           ? {
