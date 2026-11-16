@@ -28,7 +28,8 @@ module.exports = {
         // Supabase / Storage
         SUPABASE_URL: 'https://xyz.supabase.co',
         SUPABASE_SECRET_KEY: 'sb_secret_key_production_vault',
-
+        ADMIN_EMAIL: "",
+        ADMIN_PASSWORD: "StrongAdminPassword123",
         // Configuration Mail
         MAIL_HOST: 'smtp.sendgrid.net',
         MAIL_PORT: 587,

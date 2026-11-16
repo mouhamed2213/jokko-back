@@ -1,14 +1,18 @@
-import "dotenv/config";
 import bcrypt from "bcrypt";
-import { prisma } from "../config/prisma.js";
-import { logger } from "../config/logger.js";
+import "dotenv/config";
 import { env } from "../config/env-config.js";
+import { logger } from "../config/logger.js";
+import { prisma } from "../config/prisma.js";
+
 
 export async function seedAdmin() {
   try {
     const email = env.secret.ADMIN_EMAIL;
-    const password = env.secret.ADMIN_PASSWORD
+    const password = env.secret.ADMIN_PASSWORD;
 
+    if (!email || !password) {
+      logger.error("❌ email admin or or password is not missing.");
+    }
     const existing = await prisma.superAdmin.findUnique({ where: { email } });
 
     if (existing) {
