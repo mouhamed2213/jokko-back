@@ -15,6 +15,7 @@ export interface AuthRequest extends Request {
     email: string;
     planType: PlanType;
     role: string;
+    accessMode?: "OWNER";
   };
 }
 
@@ -51,19 +52,67 @@ export const protect = async (
       email: string;
       planType: PlanType;
       role: string;
+      email?: string;
+      accessMode?: "OWNER";
     };
 
-    // Boutique archivée : on coupe aussi les sessions déjà ouvertes.
-    // (isShopBlocked ne lève jamais d'erreur : fail-open en cas de souci base de données)
-    if (decoded.shopId && (await isShopBlocked(decoded.shopId))) {
+    if (
+      !Number.isSafeInteger(decoded.userId) ||
+      !Number.isSafeInteger(decoded.ownerId) ||
+      !Number.isSafeInteger(decoded.shopId)
+    ) {
+      return res.status(401).json({ message: "Token invalide ou expiré" });
+    }
+
+    // Vérifier la boutique cible et sa boutique principale à chaque requête.
+    if (await isShopBlocked(decoded.shopId)) {
       return res.status(403).json({
         code: "ACCOUNT_DISABLED",
         message: "Cette boutique est archivée. Contactez le support.",
       });
     }
 
+    const account = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, shopId: true, email: true, role: true, isActive: true },
+    });
+
+    if (!account || !account.isActive || account.role !== decoded.role) {
+      return res.status(403).json({
+        code: "ACCOUNT_DISABLED",
+        message: "Ce compte est désactivé ou n'est plus autorisé.",
+      });
+    }
+
+    // Un propriétaire peut ouvrir une boutique secondaire avec son propre compte,
+    // sans dépendre du compte du responsable de cette boutique.
+    const isOwnerContext = decoded.accessMode === "OWNER";
+    const validContext = isOwnerContext
+      ? account.id === decoded.ownerId &&
+        account.shopId !== decoded.shopId &&
+        !!(await prisma.shopOwner.findFirst({
+          where: { userId: account.id, shopId: decoded.shopId },
+          select: { id: true },
+        })) &&
+        (await prisma.shop.findUnique({
+          where: { id: decoded.shopId },
+          select: { primaryShopId: true },
+        }))?.primaryShopId === account.shopId
+      : account.shopId === decoded.shopId &&
+        !!(await prisma.shopOwner.findFirst({
+          where: { userId: decoded.ownerId, shopId: decoded.shopId },
+          select: { id: true },
+        }));
+
+    if (!validContext) {
+      return res.status(403).json({
+        code: "SHOP_ACCESS_DENIED",
+        message: "Vous n'avez pas accès à cette boutique.",
+      });
+    }
+
     req.user = decoded;
-    next();
+    return next();
   } catch {
     return res.status(401).json({ message: "Token invalide ou expiré" });
   }
