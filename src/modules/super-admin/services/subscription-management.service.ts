@@ -54,6 +54,17 @@ export const SubscriptionManagementService = {
       const freeSub = await prisma.$transaction(async (tx) => {
         const freePlan = await tx.plan.findUnique({ where: { code: "FREE" } });
         if (!freePlan) throw new NotFoundError("Plan gratuit introuvable");
+
+        // A pending paid-plan request must never be confirmed after a downgrade to FREE.
+        await tx.payment.updateMany({
+          where: {
+            subscriptionId: currentSub.id,
+            paymentType: "SUBSCRIPTION",
+            status: PaymentStatus.PENDING,
+          },
+          data: { status: PaymentStatus.CANCELLED },
+        });
+
         return tx.subscription.update({
           where: { id: currentSub.id, shopOwnerId: shopOwner.id },
           data: {
