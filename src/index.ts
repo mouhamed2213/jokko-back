@@ -73,12 +73,12 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/contact", contactRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 
 // Bloque les API applicatives pendant la maintenance, sans bloquer\n// l’authentification ni les routes Super Admin nécessaires à sa désactivation.
 app.use("/api", maintenanceMiddleware);
+app.use("/api/contact", contactRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
