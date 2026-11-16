@@ -164,6 +164,11 @@ export const AccountAuthService = {
       throw new Error("Lien de vérification invalide ou expiré");
     }
     await prisma.$transaction(async (tx) => {
+      const consumed = await tx.authToken.updateMany({
+        where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new Error("Lien de vérification invalide ou déjà utilisé");
       if (token.userId) {
         await tx.user.update({
           where: { id: token.userId },
@@ -175,10 +180,6 @@ export const AccountAuthService = {
           data: { emailVerifiedAt: new Date() },
         });
       }
-      await tx.authToken.update({
-        where: { id: token.id },
-        data: { consumedAt: new Date() },
-      });
     });
   },
 
@@ -208,12 +209,16 @@ export const AccountAuthService = {
     }
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     await prisma.$transaction(async (tx) => {
+      const consumed = await tx.authToken.updateMany({
+        where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new Error("Lien de réinitialisation invalide ou déjà utilisé");
       if (token.userId) {
         await tx.user.update({ where: { id: token.userId }, data: { password: hashedPassword } });
       } else if (token.superAdminId) {
         await tx.superAdmin.update({ where: { id: token.superAdminId }, data: { password: hashedPassword } });
       }
-      await tx.authToken.update({ where: { id: token.id }, data: { consumedAt: new Date() } });
     });
   },
 
@@ -269,6 +274,16 @@ export const AccountAuthService = {
     }
     const token = await createToken("EMAIL_CHANGE", accountType, accountId, normalizedEmail);
     await sendTokenEmail("EMAIL_CHANGE", account, token, normalizedEmail);
+    try {
+      const notice = emailTemplates.emailChangeRequested(account.name, normalizedEmail);
+      await EmailService.send({ to: account.email, ...notice, category: "email-change-requested" });
+    } catch (error) {
+      logger.error("Demande de changement d'adresse enregistrée, mais notification à l'ancienne adresse non envoyée", {
+        accountType,
+        accountId,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      });
+    }
   },
 
   confirmEmailChange: async (rawToken: string) => {
@@ -282,6 +297,11 @@ export const AccountAuthService = {
     const oldEmail = token.user?.email ?? token.superAdmin?.email;
     const name = token.user?.name ?? token.superAdmin?.name ?? "Utilisateur";
     await prisma.$transaction(async (tx) => {
+      const consumed = await tx.authToken.updateMany({
+        where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new Error("Lien de confirmation invalide ou déjà utilisé");
       if (token.userId) {
         await tx.user.update({
           where: { id: token.userId },
@@ -293,7 +313,6 @@ export const AccountAuthService = {
           data: { email: token.targetEmail!, emailVerifiedAt: new Date() },
         });
       }
-      await tx.authToken.update({ where: { id: token.id }, data: { consumedAt: new Date() } });
     });
     if (oldEmail) {
       try {
