@@ -7,6 +7,7 @@ import { env } from "./config/env-config.js";
 import { logger, morganStream } from "./config/logger.js";
 import { ErrorHandler } from "./middlewares/error-handler.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
+import contactRoutes from "./routes/contact.routes.js";
 import cashRoutes from "./routes/cash.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import clientRoutes from "./routes/client.routes.js";
@@ -70,6 +71,7 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/contact", contactRoutes);
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
