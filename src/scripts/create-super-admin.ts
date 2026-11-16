@@ -12,7 +12,8 @@ export async function seedAdmin() {
     const password = env.secret.ADMIN_PASSWORD;
 
     if (!email || !password) {
-      logger.error("❌ email admin or or password is not missing.");
+      logger.error("Configuration ADMIN_EMAIL ou ADMIN_PASSWORD manquante.");
+      return;
     }
     const existing = await prisma.superAdmin.findUnique({ where: { email } });
 
