@@ -251,6 +251,7 @@ export const ShopService = {
             status: true,
             primaryShop: {
               select: {
+                status: true,
                 subscriptions: {
                   orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                   take: 1,
