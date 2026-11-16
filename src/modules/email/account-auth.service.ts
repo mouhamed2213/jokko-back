@@ -63,6 +63,10 @@ const createToken = async (
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
 
+  await prisma.authToken.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  });
+
   if (accountType === "USER") {
     await prisma.authToken.deleteMany({
       where: { userId: accountId, type, consumedAt: null },
