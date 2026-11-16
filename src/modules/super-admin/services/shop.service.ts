@@ -188,7 +188,7 @@ export const SuperAdminShopService = {
     prisma.auditLog.findMany({
       where: {
         targetType: { in: ["Shop", "Subscription"] },
-        targetId: shopId,
+        targetId: { in: [shopId, shop.primaryShopId ?? shopId] },
       },
       orderBy: { createdAt: "desc" },
       take: 20,
