@@ -25,11 +25,19 @@ export const SubscriptionManagementService = {
     }
 
     const normalizedPlanCode = String(planCode || "").trim().toUpperCase();
-    const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { id: true } });
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, primaryShopId: true },
+    });
     if (!shop) throw new NotFoundError("Boutique introuvable");
+    if (shop.primaryShopId) {
+      throw new ForbiddenError(
+        "Cette boutique secondaire hérite de l'abonnement de sa boutique principale. Modifiez le forfait depuis la boutique principale.",
+      );
+    }
 
     const currentSub = await prisma.subscription.findFirst({
-      where: { shopId },
+      where: { shopId: shop.id },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
       include: { plan: true },
     });
@@ -235,8 +243,17 @@ export const SubscriptionManagementService = {
     const validStatuses = ["TRIAL", "ACTIVE", "EXPIRED", "TRIAL_EXPIRED", "SUSPENDED"];
     if (!validStatuses.includes(status)) throw new ForbiddenError(`Statut invalide: ${status}`);
 
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, primaryShopId: true },
+    });
+    if (!shop) throw new NotFoundError("Boutique introuvable");
+    if (shop.primaryShopId) {
+      throw new ForbiddenError("Le statut d'abonnement se gère depuis la boutique principale");
+    }
+
     const subscription = await prisma.subscription.findFirst({
-      where: { shopId },
+      where: { shopId: shop.id },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
@@ -251,8 +268,17 @@ export const SubscriptionManagementService = {
   extendPeriod: async (shopId: number, daysToAdd: number) => {
     if (daysToAdd <= 0) throw new ForbiddenError("Nombre de jours doit être > 0");
 
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, primaryShopId: true },
+    });
+    if (!shop) throw new NotFoundError("Boutique introuvable");
+    if (shop.primaryShopId) {
+      throw new ForbiddenError("L'abonnement se prolonge depuis la boutique principale");
+    }
+
     const subscription = await prisma.subscription.findFirst({
-      where: { shopId },
+      where: { shopId: shop.id },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
     });
     if (!subscription) throw new NotFoundError("Abonnement introuvable");
