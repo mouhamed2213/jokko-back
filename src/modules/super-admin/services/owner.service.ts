@@ -200,7 +200,13 @@ export const SuperAdminOwnerService = {
           s.status !== SHOP_STATUS.ARCHIVED &&
           (!s.primaryShop || s.primaryShop.status !== SHOP_STATUS.ARCHIVED),
       );
-      const subs = live.map((s) => s.primaryShop?.subscriptions[0] ?? s.subscriptions[0]).filter(Boolean);
+      const subs = live
+        .map((s) =>
+          s.primaryShopId
+            ? s.primaryShop?.subscriptions[0]
+            : s.subscriptions[0],
+        )
+        .filter(Boolean);
       const expiries = subs
         .map((s) => s.endDate)
         .filter((d): d is Date => !!d)
