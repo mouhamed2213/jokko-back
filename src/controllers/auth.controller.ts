@@ -62,8 +62,9 @@ export const login = async (req: Request, res: Response) => {
       throw new NotFoundError("Propriétaire non retrouvé");
     }
 
-    const billingSubscription =
-      user.shop.primaryShop?.subscriptions[0] ?? user.shop.subscriptions[0];
+    const billingSubscription = user.shop.primaryShop
+      ? user.shop.primaryShop.subscriptions[0]
+      : user.shop.subscriptions[0];
 
     if (!billingSubscription) {
       throw new NotFoundError("Abonnement de la boutique principale introuvable");
