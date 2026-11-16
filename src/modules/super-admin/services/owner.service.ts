@@ -306,7 +306,9 @@ export const SuperAdminOwnerService = {
     const shops = shopsRaw.map((shop, i) => {
       const stats = statsList[i];
       const ownSubscription = shop.subscriptions[0] ?? null;
-      const sub = shop.primaryShop?.subscriptions[0] ?? ownSubscription;
+      const sub = shop.primaryShopId
+        ? shop.primaryShop?.subscriptions[0] ?? null
+        : ownSubscription;
       const subscriptionInherited = !!shop.primaryShopId;
       const archived = shop.status === SHOP_STATUS.ARCHIVED;
       const plan = sub?.plan ?? null;
