@@ -4,6 +4,7 @@ import { dateManagement } from "../helpers/dates.js";
 import {
   AppError,
   BadRequestError,
+  ForbiddenError,
   NotFoundError,
   UnprocessableEntity,
 } from "../utils/errors.js";
@@ -30,6 +31,14 @@ const resolveBillingOwner = async (shopId: number, ownerUserId: number) => {
 
   if (!shop) {
     throw new NotFoundError("Boutique introuvable");
+  }
+
+  const ownership = await prisma.shopOwner.findFirst({
+    where: { userId: ownerUserId, shopId },
+    select: { id: true },
+  });
+  if (!ownership) {
+    throw new ForbiddenError("Cette boutique ne vous appartient pas");
   }
 
   const billingShopId = shop.primaryShopId ?? shop.id;
