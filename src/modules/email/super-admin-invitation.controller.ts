@@ -5,7 +5,24 @@ import { prisma } from "../../config/prisma.js";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
+const attempts = new Map<string, { count: number; resetAt: number }>();
+const isRateLimited = (req: Request) => {
+  const now = Date.now();
+  const key = req.ip || "unknown";
+  const current = attempts.get(key);
+  if (!current || current.resetAt <= now) {
+    attempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return false;
+  }
+  current.count += 1;
+  return current.count > 10;
+};
+
 export const acceptSuperAdminInvitation = async (req: Request, res: Response) => {
+  if (isRateLimited(req)) {
+    return res.status(429).json({ message: "Trop de tentatives. Réessayez dans quelques minutes." });
+  }
+
   const tokenValue = req.body?.token;
   const password = req.body?.password;
   if (typeof tokenValue !== "string" || tokenValue.length < 32 || tokenValue.length > 256) {
