@@ -206,7 +206,7 @@ export const SuperAdminOwnerService = {
             ? s.primaryShop?.subscriptions[0]
             : s.subscriptions[0],
         )
-        .filter(Boolean);
+        .filter((s): s is NonNullable<typeof s> => s !== undefined);
       const expiries = subs
         .map((s) => s.endDate)
         .filter((d): d is Date => !!d)

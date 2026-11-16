@@ -3,19 +3,29 @@ import { NotFoundError } from "../utils/errors.js";
 
 export const AuthService = {
   getMe: async (userId: number, shopId: number) => {
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-        AND: {
-          shopId: shopId,
-        },
-      },
-      select: { id: true },
+    const targetShop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, primaryShopId: true },
     });
 
-    if (!user) {
-      throw new NotFoundError("not found");
-    }
+    if (!targetShop) throw new NotFoundError("shop not found");
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, shopId: true, isActive: true },
+    });
+
+    const hasShopAccess =
+      !!user &&
+      user.isActive &&
+      (user.shopId === shopId ||
+        (user.shopId === targetShop.primaryShopId &&
+          !!(await prisma.shopOwner.findFirst({
+            where: { userId, shopId },
+            select: { id: true },
+          }))));
+
+    if (!hasShopAccess) throw new NotFoundError("not found");
 
     const shop = await prisma.shop.findUnique({
       where: { id: shopId },

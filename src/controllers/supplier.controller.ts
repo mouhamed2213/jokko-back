@@ -303,6 +303,9 @@ export const getConsolidatedSuppliers = async (
   res: Response,
 ) => {
   try {
+    if (req.user!.userId !== req.user!.ownerId) {
+      throw new ForbiddenError("La vue consolidée est réservée au propriétaire principal.");
+    }
     const ownerId = req.user!.ownerId;
 
     const ownerships = await prisma.shopOwner.findMany({

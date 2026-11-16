@@ -23,22 +23,31 @@ export const createSecondShop = async (
 ) => {
   try {
     const { user } = req;
-    const { password, ...shopData } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const shopPayload = {
-      ...shopData,
-      password: hashedPassword,
-    };
-
     if (!user) {
-      throw new UnauthorizedError("Token invalid ou à éxpiré");
+      throw new UnauthorizedError("Token invalide ou expiré");
+    }
+
+    const { manager, ...shopData } = req.body;
+    if (!shopData.shopName || !shopData.ownerName || !shopData.phone || !shopData.email) {
+      return res.status(400).json({ message: "Nom, propriétaire, téléphone et email de la boutique sont obligatoires" });
+    }
+
+    let managerPayload: { name: string; email: string; password: string } | null = null;
+    if (manager) {
+      if (!manager.name || !manager.email || !manager.password || String(manager.password).length < 8) {
+        return res.status(400).json({ message: "Nom, email et mot de passe d'au moins 8 caractères obligatoires pour le responsable" });
+      }
+      managerPayload = {
+        name: String(manager.name).trim(),
+        email: String(manager.email).trim().toLowerCase(),
+        password: await bcrypt.hash(String(manager.password), 10),
+      };
     }
 
     const newShop = await ShopService.createSecondaryShop(
-      user?.ownerId,
-      user?.userId, // actor
-      shopPayload,
+      user.ownerId,
+      user.userId,
+      { ...shopData, manager: managerPayload },
     );
 
     logger.warn(`User ${user.userId}  has created a new shop`);
@@ -65,7 +74,10 @@ export const getShops = async (
       throw new UnauthorizedError("Accée non autorisé");
     }
 
-    const shops = await ShopService.getShops(user?.ownerId);
+    if (user.userId !== user.ownerId) {
+      return res.status(200).json({ message: "Liste des boutiques", shops: [] });
+    }
+    const shops = await ShopService.getShops(user.ownerId);
     return res.status(200).json({ message: "Liste des boutiques", shops });
   } catch (e) {
     logger.warn("Cannot get shops");
@@ -80,10 +92,12 @@ export const switchShop = async (
   next: NextFunction,
 ) => {
   try {
+    if (!req.user || req.user.userId !== req.user.ownerId) {
+      throw new UnauthorizedError("Seul le propriétaire principal peut changer de boutique");
+    }
     const shopData = req.body;
-    const ownerId = req.user?.ownerId;
     const { token, user } = await ShopService.switchShop(
-      ownerId as number,
+      req.user.ownerId,
       shopData,
     );
 
