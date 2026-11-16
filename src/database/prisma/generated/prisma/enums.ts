@@ -49,6 +49,7 @@ export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus]
 export const PaymentMethod = {
   WAVE: 'WAVE',
   ORANGE_MONEY: 'ORANGE_MONEY',
+  OTHER: 'OTHER',
   IN_APP: 'IN_APP'
 } as const
 
