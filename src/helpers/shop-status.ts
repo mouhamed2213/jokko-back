@@ -38,9 +38,14 @@ export const isShopBlocked = async (shopId: number): Promise<boolean> => {
   try {
     const shop = await prisma.shop.findUnique({
       where: { id: shopId },
-      select: { status: true },
+      select: {
+        status: true,
+        primaryShop: { select: { status: true } },
+      },
     });
-    const blocked = isBlockedStatus(shop?.status);
+    const blocked =
+      isBlockedStatus(shop?.status) ||
+      isBlockedStatus(shop?.primaryShop?.status);
     cache.set(shopId, { blocked, expiresAt: now + TTL_MS });
     return blocked;
   } catch (error) {
