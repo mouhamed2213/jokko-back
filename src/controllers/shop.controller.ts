@@ -32,7 +32,7 @@ export const createSecondShop = async (
       return res.status(400).json({ message: "Nom, propriétaire, téléphone et email de la boutique sont obligatoires" });
     }
 
-    let managerPayload = null;
+    let managerPayload: { name: string; email: string; password: string } | null = null;
     if (manager) {
       if (!manager.name || !manager.email || !manager.password || String(manager.password).length < 8) {
         return res.status(400).json({ message: "Nom, email et mot de passe d'au moins 8 caractères obligatoires pour le responsable" });
