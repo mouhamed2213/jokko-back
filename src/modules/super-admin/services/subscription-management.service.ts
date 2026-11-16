@@ -140,7 +140,11 @@ export const SubscriptionManagementService = {
     return prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({
         where: { id: paymentId },
-        include: { subscription: true, plan: true, shopOwner: { include: { shop: true } } },
+        include: {
+          subscription: { include: { shop: true } },
+          plan: true,
+          shopOwner: { include: { shop: true } },
+        },
       });
       if (!payment) throw new NotFoundError("Paiement introuvable");
       if (payment.status !== "PENDING") {
@@ -151,6 +155,11 @@ export const SubscriptionManagementService = {
       }
       if (payment.subscription.shopId !== payment.shopOwner.shopId) {
         throw new ForbiddenError("Le paiement ne correspond pas à la boutique de l'abonnement");
+      }
+      if (payment.subscription.shop.primaryShopId) {
+        throw new ForbiddenError(
+          "Un paiement ne peut pas activer un abonnement propre à une boutique secondaire",
+        );
       }
 
       // Conditional transition prevents two concurrent admins from activating the same payment twice.
