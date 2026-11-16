@@ -28,19 +28,21 @@ export const SubscriptionManagementService = {
     const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { id: true } });
     if (!shop) throw new NotFoundError("Boutique introuvable");
 
-    const shopOwner = await prisma.shopOwner.findFirst({
-      where: { shopId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    if (!shopOwner) throw new NotFoundError("Propriétaire boutique introuvable");
-
     const currentSub = await prisma.subscription.findFirst({
-      where: { shopId, shopOwnerId: shopOwner.id },
+      where: { shopId },
       orderBy: LATEST_SUBSCRIPTION_ORDER,
       include: { plan: true },
     });
     if (!currentSub) throw new NotFoundError("Abonnement introuvable");
+
+    // Subscription.shopOwnerId references ShopOwner.id, never User.id.
+    const shopOwner = await prisma.shopOwner.findUnique({
+      where: { id: currentSub.shopOwnerId },
+      select: { id: true, shopId: true },
+    });
+    if (!shopOwner || shopOwner.shopId !== shopId) {
+      throw new NotFoundError("Propriétaire associé à l'abonnement introuvable");
+    }
 
     const newPlan = await prisma.plan.findUnique({ where: { code: normalizedPlanCode as any } });
     if (!newPlan) throw new NotFoundError(`Plan ${normalizedPlanCode} introuvable`);
