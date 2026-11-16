@@ -26,9 +26,14 @@ export const SuperAdminShopService = {
         orderBy: [{ shopId: "asc" }, ...LATEST_SUBSCRIPTION_ORDER],
         select: { shopId: true, plan: { select: { code: true } } },
       });
-      planShopIds = latestPerShop
+      const billingShopIds = latestPerShop
         .filter((sub) => sub.plan.code === filters.plan)
         .map((sub) => sub.shopId);
+      const secondaryShops = await prisma.shop.findMany({
+        where: { primaryShopId: { in: billingShopIds } },
+        select: { id: true },
+      });
+      planShopIds = [...billingShopIds, ...secondaryShops.map((shop) => shop.id)];
     }
 
     const where: Prisma.ShopWhereInput = {
@@ -66,7 +71,9 @@ export const SuperAdminShopService = {
     ]);
 
     const data = shops.map((shop) => {
-      const subscription = shop.subscriptions[0] ?? null;
+      const subscription =
+    shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
+  const subscriptionInherited = !!shop.primaryShopId;
 
       return {
         id: shop.id,
@@ -112,7 +119,18 @@ export const SuperAdminShopService = {
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
     include: {
-      primaryShop: { select: { id: true, name: true } },
+      primaryShop: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          subscriptions: {
+            include: { plan: true },
+            orderBy: LATEST_SUBSCRIPTION_ORDER,
+            take: 1,
+          },
+        },
+      },
       secondaryShops: { select: { id: true, name: true, status: true } },
       subscriptions: {
         include: { plan: true },
@@ -172,8 +190,12 @@ export const SuperAdminShopService = {
     status: shop.status,
     currentShop: shop.currentShop,
     createdAt: shop.createdAt,
-    primaryShop: shop.primaryShop,
+    primaryShop: shop.primaryShop
+      ? { id: shop.primaryShop.id, name: shop.primaryShop.name }
+      : null,
     secondaryShops: shop.secondaryShops,
+    subscriptionInherited,
+    billingShopId: shop.primaryShopId ?? shop.id,
     subscription: subscription
       ? {
           id: subscription.id,
