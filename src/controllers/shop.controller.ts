@@ -74,7 +74,10 @@ export const getShops = async (
       throw new UnauthorizedError("Accée non autorisé");
     }
 
-    const shops = await ShopService.getShops(user?.ownerId);
+    if (user.userId !== user.ownerId) {
+      return res.status(200).json({ message: "Liste des boutiques", shops: [] });
+    }
+    const shops = await ShopService.getShops(user.ownerId);
     return res.status(200).json({ message: "Liste des boutiques", shops });
   } catch (e) {
     logger.warn("Cannot get shops");
@@ -89,10 +92,12 @@ export const switchShop = async (
   next: NextFunction,
 ) => {
   try {
+    if (!req.user || req.user.userId !== req.user.ownerId) {
+      throw new UnauthorizedError("Seul le propriétaire principal peut changer de boutique");
+    }
     const shopData = req.body;
-    const ownerId = req.user?.ownerId;
     const { token, user } = await ShopService.switchShop(
-      ownerId as number,
+      req.user.ownerId,
       shopData,
     );
 
