@@ -149,23 +149,33 @@ export const AccountAuthController = {
   emailStatus: async (req: AuthRequest, res: Response) => {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
-    const account = await prisma.user.findUnique({
-      where: { id: accountId },
-      select: { email: true, emailVerifiedAt: true },
-    });
-    if (!account) return res.status(404).json({ message: "Compte introuvable." });
-    return res.status(200).json(account);
+    try {
+      const account = await prisma.user.findUnique({
+        where: { id: accountId },
+        select: { email: true, emailVerifiedAt: true },
+      });
+      if (!account) return res.status(404).json({ message: "Compte introuvable." });
+      return res.status(200).json(account);
+    } catch (error) {
+      logger.error("Erreur de lecture du statut de vérification email", { accountId, error });
+      return res.status(500).json({ message: "Impossible de récupérer le statut email." });
+    }
   },
 
   superAdminEmailStatus: async (req: AuthRequest, res: Response) => {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
-    const account = await prisma.superAdmin.findUnique({
-      where: { id: accountId },
-      select: { email: true, emailVerifiedAt: true },
-    });
-    if (!account) return res.status(404).json({ message: "Compte introuvable." });
-    return res.status(200).json(account);
+    try {
+      const account = await prisma.superAdmin.findUnique({
+        where: { id: accountId },
+        select: { email: true, emailVerifiedAt: true },
+      });
+      if (!account) return res.status(404).json({ message: "Compte introuvable." });
+      return res.status(200).json(account);
+    } catch (error) {
+      logger.error("Erreur de lecture du statut email Super Admin", { accountId, error });
+      return res.status(500).json({ message: "Impossible de récupérer le statut email." });
+    }
   },
 
   requestEmailChange: async (req: AuthRequest, res: Response) => {
