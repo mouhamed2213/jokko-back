@@ -82,6 +82,9 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       if (typeof isActive !== "boolean") {
         return res.status(400).json({ message: "Le statut doit être un booléen" });
       }
+      if (id === req.user!.userId && isActive === false) {
+        return res.status(400).json({ message: "Vous ne pouvez pas désactiver votre propre compte" });
+      }
       data.isActive = isActive;
     }
     if (password) data.password = await bcrypt.hash(password, 10);
