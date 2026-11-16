@@ -3,12 +3,12 @@ import { NotFoundError } from "../utils/errors.js";
 
 export const AuthService = {
   getMe: async (userId: number, shopId: number) => {
-    const shop = await prisma.shop.findUnique({
+    const targetShop = await prisma.shop.findUnique({
       where: { id: shopId },
       select: { id: true, primaryShopId: true },
     });
 
-    if (!shop) throw new NotFoundError("shop not found");
+    if (!targetShop) throw new NotFoundError("shop not found");
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -19,7 +19,7 @@ export const AuthService = {
       !!user &&
       user.isActive &&
       (user.shopId === shopId ||
-        (user.shopId === shop.primaryShopId &&
+        (user.shopId === targetShop.primaryShopId &&
           !!(await prisma.shopOwner.findFirst({
             where: { userId, shopId },
             select: { id: true },
