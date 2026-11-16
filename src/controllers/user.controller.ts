@@ -4,6 +4,8 @@ import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { UserService } from "../services/user.service.js";
 import { UnauthorizedError } from "../utils/errors.js";
+import { AccountAuthService } from "../modules/email/account-auth.service.js";
+import { logger } from "../config/logger.js";
 
 export const getUsers = async (req: AuthRequest, res: Response , next : NextFunction) => {
   try {
@@ -50,7 +52,15 @@ export const createUser = async (req: AuthRequest, res: Response , next  : NextF
       hashedPassword,
       role,
     );
-    return res.status(201).json({ message: "Utilisateur créé", user });
+    try {
+      await AccountAuthService.requestEmailVerification("USER", user.id);
+    } catch (emailError) {
+      logger.error("Compte créé, mais email de vérification non envoyé", {
+        userId: user.id,
+        error: emailError instanceof Error ? emailError.message : "Erreur inconnue",
+      });
+    }
+    return res.status(201).json({ message: "Utilisateur créé. Un email de vérification sera envoyé.", user });
 }catch (e) {
   next(e)
 }
