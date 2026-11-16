@@ -137,7 +137,15 @@ export const ShopService = {
       const shopOwner = await prisma.user.findUnique({
         where: { id: ownerId },
         include: {
-          shop: { include: { subscriptions: { include: { plan: true } } } },
+          shop: {
+            include: {
+              subscriptions: {
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                take: 1,
+                include: { plan: true },
+              },
+            },
+          },
         },
       });
 
@@ -165,9 +173,14 @@ export const ShopService = {
           `Cette abonnement  ne contient l'option multi-boutique`,
         );
       }
-      if (subcription === "TRIAL") {
+      if (subcription !== "ACTIVE") {
         throw new ForbiddenError(
-          `Le plan d'essai ne permet  pas de créer une nouvelle boutique`,
+          "L'abonnement de la boutique principale doit être actif pour créer une boutique secondaire",
+        );
+      }
+      if (primarySubscription.endDate && primarySubscription.endDate <= new Date()) {
+        throw new ForbiddenError(
+          "L'abonnement de la boutique principale a expiré",
         );
       }
 
@@ -206,7 +219,7 @@ export const ShopService = {
         });
 
         // Lier au owner principal pour le switch
-        const owner = await tx.shopOwner.create({
+        await tx.shopOwner.create({
           data: {
             userId: shopOwner.id,
             shopId: shop.id,
