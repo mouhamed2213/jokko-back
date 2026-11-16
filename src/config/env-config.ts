@@ -28,6 +28,7 @@ export const env = {
     token: data.MAILTRAP_TOKEN,
     fromEmail: data.MAILTRAP_FROM_EMAIL || data.MAIL_FROM,
     fromName: data.MAILTRAP_FROM_NAME || "Jokko Business",
+    contactEmail: data.MAILTRAP_CONTACT_EMAIL || data.ADMIN_EMAIL,
   },
   log: {
     LogLevel: data.LOG_LEVEL,
