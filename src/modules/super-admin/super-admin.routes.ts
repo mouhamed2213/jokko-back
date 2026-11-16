@@ -12,6 +12,10 @@ router.get("/stats", SuperAdminShopController.getStats);
 router.get("/shops", SuperAdminShopController.listShops);
 router.get("/shops/:id", SuperAdminShopController.getShopDetail);
 
+// Propriétaires (lecture seule)
+router.get("/owners", SuperAdminShopController.listOwners);
+router.get("/owners/:id", SuperAdminShopController.getOwnerDetail);
+
 // Archivage (suppression douce, réversible)
 router.patch("/shops/:id/archive", SuperAdminShopController.archiveShop);
 router.patch("/shops/:id/restore", SuperAdminShopController.restoreShop);
