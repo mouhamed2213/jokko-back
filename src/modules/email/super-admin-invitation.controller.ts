@@ -15,6 +15,11 @@ const isRateLimited = (req: Request) => {
     return false;
   }
   current.count += 1;
+  if (attempts.size > 5000) {
+    for (const [storedKey, value] of attempts) {
+      if (value.resetAt <= now) attempts.delete(storedKey);
+    }
+  }
   return current.count > 10;
 };
 
