@@ -183,14 +183,6 @@ export const loginSuperAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// ── Mot de passe oublié ───────────────────────────────────────
-export const forgotPassword = async (req: Request, res: Response) => {
-  // TODO: implémenter l'envoi d'email avec nodemailer
-  return res.status(200).json({
-    message: "Si cet email existe, un lien de réinitialisation a été envoyé.",
-  });
-};
-
 export const me = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const shopId = req.user!.shopId;
