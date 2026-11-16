@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env-config.js";
 import { logger } from "../config/logger.js";
+import { prisma } from "../config/prisma.js";
 import { PlanType } from "../database/prisma/generated/prisma/enums.js";
 import { UnauthorizedError } from "../utils/errors.js";
 import { isShopBlocked } from "../helpers/shop-status.js";
@@ -82,8 +83,10 @@ export const authorizeRoles = (...roles: string[]) => {
   };
 };
 
-// Middleware pour le Super Admin (JWT séparé)
-export const protectSuperAdmin = (
+// Middleware pour le Super Admin (JWT séparé).
+// Le compte est relu en base à chaque requête protégée afin de révoquer
+// immédiatement les sessions dont le compte a été supprimé ou dont l'email a changé.
+export const protectSuperAdmin = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
@@ -107,11 +110,30 @@ export const protectSuperAdmin = (
       });
     }
 
-    const decoded = jwt.verify(token, env.secret.jwt) as {
-      userId: number;
-      email: string;
-      role: string;
+    const verified = jwt.verify(token, env.secret.jwt);
+    if (typeof verified === "string") {
+      logger.warn("Tentative d'accès Super Admin avec un payload JWT invalide");
+      return res.status(401).json({
+        message: "Token invalide ou expiré",
+      });
+    }
+
+    const decoded = verified as jwt.JwtPayload & {
+      userId?: unknown;
+      email?: unknown;
+      role?: unknown;
     };
+
+    if (
+      !Number.isSafeInteger(decoded.userId) ||
+      typeof decoded.email !== "string" ||
+      decoded.email.length === 0
+    ) {
+      logger.warn("Tentative d'accès Super Admin avec une identité JWT invalide");
+      return res.status(401).json({
+        message: "Token invalide ou expiré",
+      });
+    }
 
     if (decoded.role !== "SUPER_ADMIN") {
       logger.warn("Tentative d'accès Super Admin avec un rôle invalide");
@@ -120,25 +142,44 @@ export const protectSuperAdmin = (
       });
     }
 
+    // Ne pas se fier uniquement au JWT : le compte peut avoir été supprimé
+    // depuis l'émission du token. L'email est aussi comparé pour invalider
+    // les anciennes sessions après une modification de l'identifiant.
+    const admin = await prisma.superAdmin.findUnique({
+      where: { id: decoded.userId as number },
+      select: { id: true, email: true },
+    });
+
+    if (!admin || admin.email !== decoded.email) {
+      logger.warn("Accès refusé : compte Super Admin absent ou identité modifiée", {
+        userId: decoded.userId,
+      });
+      return res.status(401).json({
+        message: "Session Super Admin invalide. Veuillez vous reconnecter.",
+      });
+    }
+
     req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
+      userId: admin.id,
+      email: admin.email,
+      role: "SUPER_ADMIN",
       shopId: 0,
     } as AuthRequest["user"];
 
-    next();
-  } catch (e) {
-    if (e instanceof jwt.JsonWebTokenError || e instanceof jwt.TokenExpiredError) {
+    return next();
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
       logger.warn("Tentative d'accès Super Admin avec un token invalide ou expiré");
       return res.status(401).json({
         message: "Token invalide ou expiré",
       });
     }
 
-    logger.error("Erreur lors de la vérification du token Super Admin", e);
-    return res.status(500).json({
-      message: "Erreur lors de l'authentification Super Admin",
+    // Une panne de base de données ne doit jamais être interprétée comme
+    // un compte inexistant, ni laisser passer la requête (fail-closed).
+    logger.error("Erreur lors de la vérification du compte Super Admin", error);
+    return res.status(503).json({
+      message: "Service d'authentification temporairement indisponible",
     });
   }
 };
