@@ -3,6 +3,7 @@ import "dotenv/config";
 import { env } from "../config/env-config.js";
 import { logger } from "../config/logger.js";
 import { prisma } from "../config/prisma.js";
+import { AccountAuthService } from "../modules/email/account-auth.service.js";
 
 
 export async function seedAdmin() {
@@ -11,7 +12,8 @@ export async function seedAdmin() {
     const password = env.secret.ADMIN_PASSWORD;
 
     if (!email || !password) {
-      logger.error("❌ email admin or or password is not missing.");
+      logger.error("Configuration ADMIN_EMAIL ou ADMIN_PASSWORD manquante.");
+      return;
     }
     const existing = await prisma.superAdmin.findUnique({ where: { email } });
 
@@ -31,9 +33,20 @@ export async function seedAdmin() {
     });
 
     logger.info("✅ Super Admin créé avec succès !");
-    logger.info("✅ Email    :", email);
-    logger.info("✅ Password :", password);
-    logger.info("⚠️  Changez ce mot de passe en production !");
+    const createdAdmin = await prisma.superAdmin.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (createdAdmin) {
+      try {
+        await AccountAuthService.requestEmailVerification("SUPER_ADMIN", createdAdmin.id);
+      } catch (emailError) {
+        logger.error("Super Admin créé, mais email de vérification non envoyé", {
+          error: emailError instanceof Error ? emailError.message : "Erreur inconnue",
+        });
+      }
+    }
+    logger.info("⚠️  Le Super Admin doit confirmer son adresse email.");
   } catch (e) {
     logger.error(" ❌ Seed admin Error");
   }

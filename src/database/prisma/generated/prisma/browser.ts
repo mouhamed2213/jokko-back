@@ -132,3 +132,8 @@ export type Payment = Prisma.PaymentModel
  * 
  */
 export type AuditLog = Prisma.AuditLogModel
+/**
+ * Model AuthToken
+ * 
+ */
+export type AuthToken = Prisma.AuthTokenModel

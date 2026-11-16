@@ -1,7 +1,7 @@
-import { Prisma } from "../../../database/prisma/generated/prisma/client.js";
 import { prisma } from "../../../config/prisma.js";
-import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
+import { Prisma } from "../../../database/prisma/generated/prisma/client.js";
 import { SHOP_STATUS } from "../../../helpers/shop-status.js";
+import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
 import { NotFoundError } from "../../../utils/errors.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -132,7 +132,11 @@ const getShopStats = async (shopId: number) => {
 
 export const SuperAdminOwnerService = {
   /** Liste paginée des propriétaires avec un résumé de leur réseau. */
-  listOwners: async (filters: { page?: number; limit?: number; q?: string }) => {
+  listOwners: async (filters: {
+    page?: number;
+    limit?: number;
+    q?: string;
+  }) => {
     const page = Math.max(1, filters.page ?? 1);
     const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
 
@@ -146,7 +150,9 @@ export const SuperAdminOwnerService = {
               {
                 ownedShops: {
                   some: {
-                    shop: { name: { contains: filters.q, mode: "insensitive" } },
+                    shop: {
+                      name: { contains: filters.q, mode: "insensitive" },
+                    },
                   },
                 },
               },
@@ -208,7 +214,7 @@ export const SuperAdminOwnerService = {
         )
         .filter((s): s is NonNullable<typeof s> => s !== undefined);
       const expiries = subs
-        .map((s) => s.endDate)
+        .map((s: any) => s.endDate)
         .filter((d): d is Date => !!d)
         .map((d) => d.getTime());
 
@@ -222,10 +228,10 @@ export const SuperAdminOwnerService = {
         shopsCount: shops.length,
         activeShops: live.length,
         archivedShops: shops.length - live.length,
-        plans: [...new Set(subs.map((s) => s.plan.code))],
+        plans: [...new Set(subs.map((s: any) => s.plan.code))],
         nextExpiry: expiries.length ? new Date(Math.min(...expiries)) : null,
         expiredShops: subs.filter(
-          (s) =>
+          (s: any) =>
             ["EXPIRED", "TRIAL_EXPIRED"].includes(s.status) ||
             (!!s.endDate && s.endDate.getTime() < now),
         ).length,
@@ -288,7 +294,9 @@ export const SuperAdminOwnerService = {
           a.createdAt.getTime() - b.createdAt.getTime(),
       );
 
-    const statsList = await Promise.all(shopsRaw.map((s) => getShopStats(s.id)));
+    const statsList = await Promise.all(
+      shopsRaw.map((s) => getShopStats(s.id)),
+    );
 
     // Anomalie : l'abonnement doit pointer vers le ShopOwner de SA boutique
     const subOwnerIds = shopsRaw
@@ -307,7 +315,7 @@ export const SuperAdminOwnerService = {
       const stats = statsList[i];
       const ownSubscription = shop.subscriptions[0] ?? null;
       const sub = shop.primaryShopId
-        ? shop.primaryShop?.subscriptions[0] ?? null
+        ? (shop.primaryShop?.subscriptions[0] ?? null)
         : ownSubscription;
       const subscriptionInherited = !!shop.primaryShopId;
       const archived = shop.status === SHOP_STATUS.ARCHIVED;
@@ -323,10 +331,30 @@ export const SuperAdminOwnerService = {
 
       const usage = plan
         ? [
-            usageItem("sales", "Ventes ce mois", stats.salesThisMonth, plan.maxSalesPerMonth),
-            usageItem("products", "Produits", stats.counts.products, plan.maxProducts),
-            usageItem("clients", "Clients", stats.counts.clients, plan.maxCustomers),
-            usageItem("users", "Utilisateurs", stats.counts.users, plan.maxUsers),
+            usageItem(
+              "sales",
+              "Ventes ce mois",
+              stats.salesThisMonth,
+              plan.maxSalesPerMonth,
+            ),
+            usageItem(
+              "products",
+              "Produits",
+              stats.counts.products,
+              plan.maxProducts,
+            ),
+            usageItem(
+              "clients",
+              "Clients",
+              stats.counts.clients,
+              plan.maxCustomers,
+            ),
+            usageItem(
+              "users",
+              "Utilisateurs",
+              stats.counts.users,
+              plan.maxUsers,
+            ),
           ]
         : [];
 
@@ -339,7 +367,11 @@ export const SuperAdminOwnerService = {
 
       const alerts: Alert[] = [];
       if (archived) {
-        alerts.push({ level: "info", code: "ARCHIVED", message: "Boutique archivée" });
+        alerts.push({
+          level: "info",
+          code: "ARCHIVED",
+          message: "Boutique archivée",
+        });
       } else if (shop.primaryShop?.status === SHOP_STATUS.ARCHIVED) {
         alerts.push({
           level: "danger",
@@ -348,29 +380,64 @@ export const SuperAdminOwnerService = {
         });
       } else {
         if (!sub) {
-          alerts.push({ level: "danger", code: "NO_SUBSCRIPTION", message: "Aucun abonnement" });
+          alerts.push({
+            level: "danger",
+            code: "NO_SUBSCRIPTION",
+            message: "Aucun abonnement",
+          });
         } else {
           if (["EXPIRED", "TRIAL_EXPIRED", "SUSPENDED"].includes(sub.status)) {
-            alerts.push({ level: "danger", code: "SUBSCRIPTION_" + sub.status, message: `Abonnement ${sub.status}` });
+            alerts.push({
+              level: "danger",
+              code: "SUBSCRIPTION_" + sub.status,
+              message: `Abonnement ${sub.status}`,
+            });
           } else if (daysRemaining !== null && daysRemaining <= 0) {
-            alerts.push({ level: "danger", code: "SUBSCRIPTION_ENDED", message: "Date de fin d'abonnement dépassée" });
-          } else if (daysRemaining !== null && daysRemaining <= EXPIRING_SOON_DAYS) {
-            alerts.push({ level: "warning", code: "EXPIRING_SOON", message: `Abonnement : ${daysRemaining} jour(s) restant(s)` });
+            alerts.push({
+              level: "danger",
+              code: "SUBSCRIPTION_ENDED",
+              message: "Date de fin d'abonnement dépassée",
+            });
+          } else if (
+            daysRemaining !== null &&
+            daysRemaining <= EXPIRING_SOON_DAYS
+          ) {
+            alerts.push({
+              level: "warning",
+              code: "EXPIRING_SOON",
+              message: `Abonnement : ${daysRemaining} jour(s) restant(s)`,
+            });
           }
         }
         for (const u of usage) {
           if (u.percent === null) continue;
           if (u.percent >= 100) {
-            alerts.push({ level: "danger", code: "LIMIT_REACHED_" + u.key, message: `${u.label} : limite atteinte (${u.used}/${u.limit})` });
+            alerts.push({
+              level: "danger",
+              code: "LIMIT_REACHED_" + u.key,
+              message: `${u.label} : limite atteinte (${u.used}/${u.limit})`,
+            });
           } else if (u.percent >= 80) {
-            alerts.push({ level: "warning", code: "LIMIT_NEAR_" + u.key, message: `${u.label} : ${u.percent}% de la limite` });
+            alerts.push({
+              level: "warning",
+              code: "LIMIT_NEAR_" + u.key,
+              message: `${u.label} : ${u.percent}% de la limite`,
+            });
           }
         }
         if (inactiveDays >= INACTIVE_DAYS) {
-          alerts.push({ level: "warning", code: "INACTIVE", message: `Aucune activité depuis ${inactiveDays} jours` });
+          alerts.push({
+            level: "warning",
+            code: "INACTIVE",
+            message: `Aucune activité depuis ${inactiveDays} jours`,
+          });
         }
         if (stats.lowStockCount > 0) {
-          alerts.push({ level: "info", code: "LOW_STOCK", message: `${stats.lowStockCount} produit(s) en stock bas` });
+          alerts.push({
+            level: "info",
+            code: "LOW_STOCK",
+            message: `${stats.lowStockCount} produit(s) en stock bas`,
+          });
         }
       }
 
@@ -378,9 +445,17 @@ export const SuperAdminOwnerService = {
       if (sub && !subscriptionInherited) {
         const linked = subOwnerById.get(sub.shopOwnerId);
         if (!linked) {
-          diagnostics.push({ level: "danger", code: "SUBSCRIPTION_OWNER_MISSING", message: `«${shop.name}» : l'abonnement pointe vers un propriétaire inexistant (#${sub.shopOwnerId})` });
+          diagnostics.push({
+            level: "danger",
+            code: "SUBSCRIPTION_OWNER_MISSING",
+            message: `«${shop.name}» : l'abonnement pointe vers un propriétaire inexistant (#${sub.shopOwnerId})`,
+          });
         } else if (linked.shopId !== shop.id) {
-          diagnostics.push({ level: "danger", code: "SUBSCRIPTION_OWNER_MISMATCH", message: `«${shop.name}» : l'abonnement est rattaché au propriétaire d'une autre boutique (ShopOwner #${linked.id})` });
+          diagnostics.push({
+            level: "danger",
+            code: "SUBSCRIPTION_OWNER_MISMATCH",
+            message: `«${shop.name}» : l'abonnement est rattaché au propriétaire d'une autre boutique (ShopOwner #${linked.id})`,
+          });
         }
       }
 
@@ -422,13 +497,23 @@ export const SuperAdminOwnerService = {
 
     // Usage réseau : nombre de boutiques secondaires vs limite du plan de la principale
     const primary = shops.find((s) => s.isPrimary);
-    const primaryPlan = shopsRaw.find((s) => !s.primaryShopId)?.subscriptions[0]?.plan;
+    const primaryPlan = shopsRaw.find((s) => !s.primaryShopId)?.subscriptions[0]
+      ?.plan;
     const secondariesActive = shops.filter(
       (s) => !s.isPrimary && s.status !== SHOP_STATUS.ARCHIVED,
     ).length;
-    const storesUsage = usageItem("stores", "Boutiques secondaires", secondariesActive, primaryPlan?.maxStores ?? null);
+    const storesUsage = usageItem(
+      "stores",
+      "Boutiques secondaires",
+      secondariesActive,
+      primaryPlan?.maxStores ?? null,
+    );
     if (storesUsage.percent !== null && storesUsage.percent > 100) {
-      diagnostics.push({ level: "warning", code: "STORES_OVER_LIMIT", message: `Le réseau dépasse la limite du plan (${storesUsage.used}/${storesUsage.limit} boutiques secondaires)` });
+      diagnostics.push({
+        level: "warning",
+        code: "STORES_OVER_LIMIT",
+        message: `Le réseau dépasse la limite du plan (${storesUsage.used}/${storesUsage.limit} boutiques secondaires)`,
+      });
     }
 
     const live = shops.filter(
@@ -460,7 +545,10 @@ export const SuperAdminOwnerService = {
         users: sum((s) => s.stats.counts.users, live),
         products: sum((s) => s.stats.counts.products, live),
         lowStockCount: sum((s) => s.stats.lowStockCount, live),
-        alertsCount: sum((s) => s.alerts.filter((a) => a.level !== "info").length, live),
+        alertsCount: sum(
+          (s) => s.alerts.filter((a) => a.level !== "info").length,
+          live,
+        ),
       },
       storesUsage,
       shops,

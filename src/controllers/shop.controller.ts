@@ -14,6 +14,7 @@ import {
   validateFile,
 } from "../utils/file-upload.js";
 import { LOGO_BUCKET } from "../config/storage.config.js";
+import { AccountAuthService } from "../modules/email/account-auth.service.js";
 
 // Create seconday shop
 export const createSecondShop = async (
@@ -49,6 +50,23 @@ export const createSecondShop = async (
       user.userId,
       { ...shopData, manager: managerPayload },
     );
+
+    if (managerPayload) {
+      const managerAccount = await prisma.user.findUnique({
+        where: { email: managerPayload.email },
+        select: { id: true },
+      });
+      if (managerAccount) {
+        try {
+          await AccountAuthService.requestEmailVerification("USER", managerAccount.id);
+        } catch (emailError) {
+          logger.error("Boutique secondaire créée, mais email de vérification du responsable non envoyé", {
+            userId: managerAccount.id,
+            error: emailError instanceof Error ? emailError.message : "Erreur inconnue",
+          });
+        }
+      }
+    }
 
     logger.warn(`User ${user.userId}  has created a new shop`);
 
@@ -146,6 +164,21 @@ export const createShop = async (req: Request, res: Response) => {
       hashedPassword,
       planType,
     );
+
+    const ownerAccount = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (ownerAccount) {
+      try {
+        await AccountAuthService.requestEmailVerification("USER", ownerAccount.id);
+      } catch (emailError) {
+        logger.error("Boutique créée, mais email de vérification du propriétaire non envoyé", {
+          userId: ownerAccount.id,
+          error: emailError instanceof Error ? emailError.message : "Erreur inconnue",
+        });
+      }
+    }
 
     logger.info(`🏪 Nouvelle boutique créée — "${shopName}" — Email: ${email}`);
     return res

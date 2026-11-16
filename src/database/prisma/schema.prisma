@@ -17,7 +17,9 @@ model SuperAdmin {
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt       DateTime     @updatedAt
+  emailVerifiedAt DateTime?
+  authTokens      AuthToken[]
 
   @@map("super_admins")
 }
@@ -154,7 +156,9 @@ model User {
   role      String   @default("EMPLOYEE")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt       DateTime     @updatedAt
+  emailVerifiedAt DateTime?
+  authTokens      AuthToken[]
 
   shop           Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
   cashRegisters  CashRegister[]
@@ -502,4 +506,30 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+model AuthToken {
+  id            Int           @id @default(autoincrement())
+  tokenHash     String        @unique
+  type          AuthTokenType
+  userId        Int?
+  superAdminId  Int?
+  targetEmail   String?
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  superAdmin SuperAdmin? @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, expiresAt])
+  @@index([superAdminId, type, expiresAt])
+  @@map("auth_tokens")
 }

@@ -124,6 +124,7 @@ export const login = async (req: Request, res: Response) => {
         plan: billingSubscription.plan.code,
         shopId: user.shopId,
         shopName: user.shop.name,
+        emailVerifiedAt: user.emailVerifiedAt,
       },
     });
   } catch (error) {
@@ -171,6 +172,7 @@ export const loginSuperAdmin = async (req: Request, res: Response) => {
         name: admin.name,
         email: admin.email,
         role: "SUPER_ADMIN",
+        emailVerifiedAt: admin.emailVerifiedAt,
       },
     });
   } catch (error) {
@@ -179,14 +181,6 @@ export const loginSuperAdmin = async (req: Request, res: Response) => {
       .status(500)
       .json({ message: "Erreur lors de la connexion", error });
   }
-};
-
-// ── Mot de passe oublié ───────────────────────────────────────
-export const forgotPassword = async (req: Request, res: Response) => {
-  // TODO: implémenter l'envoi d'email avec nodemailer
-  return res.status(200).json({
-    message: "Si cet email existe, un lien de réinitialisation a été envoyé.",
-  });
 };
 
 export const me = async (req: AuthRequest, res: Response, next: NextFunction) => {
