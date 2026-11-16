@@ -6,11 +6,13 @@ import {
 } from "../controllers/auth.controller.js";
 import { authorizeRoles, protect, protectSuperAdmin } from "../middlewares/auth.middleware.js";
 import { AccountAuthController } from "../modules/email/account-auth.controller.js";
+import { acceptSuperAdminInvitation } from "../modules/email/super-admin-invitation.controller.js";
 
 const router = Router();
 
 router.post("/login", login);
 router.post("/super-admin/login", loginSuperAdmin);
+router.post("/super-admin/invitation/accept", acceptSuperAdminInvitation);
 
 // Public account recovery and confirmation routes.
 router.post("/forgot-password", AccountAuthController.forgotPassword);

@@ -19,6 +19,8 @@ model SuperAdmin {
   createdAt DateTime @default(now())
   updatedAt       DateTime     @updatedAt
   emailVerifiedAt DateTime?
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
   authTokens      AuthToken[]
 
   @@map("super_admins")
@@ -513,6 +515,7 @@ enum AuthTokenType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
   EMAIL_CHANGE
+  SUPER_ADMIN_INVITATION
 }
 
 model AuthToken {
