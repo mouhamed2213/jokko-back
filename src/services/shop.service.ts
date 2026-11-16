@@ -365,9 +365,9 @@ export const ShopService = {
       throw new ForbiddenError("Cette boutique ou sa boutique principale est archivée");
     }
 
-    const inheritedPlanCode =
-      actor.shop.primaryShop?.subscriptions[0]?.plan.code ??
-      actor.shop.subscriptions[0]?.plan.code;
+    const inheritedPlanCode = actor.shop.primaryShop
+      ? actor.shop.primaryShop.subscriptions[0]?.plan.code
+      : actor.shop.subscriptions[0]?.plan.code;
 
     if (!inheritedPlanCode) {
       throw new NotFoundError("Abonnement de la boutique principale introuvable");
