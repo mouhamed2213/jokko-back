@@ -27,7 +27,21 @@ export const login = async (req: Request, res: Response) => {
           select: {
             status: true,
             name: true,
-            subscriptions: { select: { plan: { select: { code: true } } } },
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              select: { plan: { select: { code: true } } },
+            },
+            primaryShop: {
+              select: {
+                status: true,
+                subscriptions: {
+                  orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+                  take: 1,
+                  select: { plan: { select: { code: true } } },
+                },
+              },
+            },
           },
         },
       },
@@ -46,6 +60,13 @@ export const login = async (req: Request, res: Response) => {
 
     if (!shopOwner) {
       throw new NotFoundError("Propriétaire non retrouvé");
+    }
+
+    const billingSubscription =
+      user.shop.primaryShop?.subscriptions[0] ?? user.shop.subscriptions[0];
+
+    if (!billingSubscription) {
+      throw new NotFoundError("Abonnement de la boutique principale introuvable");
     }
 
     if (!user.isActive) {
@@ -76,7 +97,7 @@ export const login = async (req: Request, res: Response) => {
         ownerId: shopOwner.userId, //  it for having th context of the owner , and use it to check if shops belons to a user
         userId: user.id, // user who is connected
         shopId: user.shopId,
-        planType: user.shop.subscriptions[0].plan.code,
+        planType: billingSubscription.plan.code,
         role: user.role,
       },
       env.secret.jwt ,
@@ -85,7 +106,7 @@ export const login = async (req: Request, res: Response) => {
 
 
     logger.info(
-      `✅ Connexion réussie — ${user.email} (${user.role}) — Boutique: ${user.shop.name} — Plan: ${user.shop.subscriptions[0].plan.code}`,
+      `✅ Connexion réussie — ${user.email} (${user.role}) — Boutique: ${user.shop.name} — Plan: ${billingSubscription.plan.code}`,
     );
 
     return res.status(200).json({
@@ -96,7 +117,7 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        plan: user.shop.subscriptions[0].plan.code,
+        plan: billingSubscription.plan.code,
         shopId: user.shopId,
         shopName: user.shop.name,
       },
