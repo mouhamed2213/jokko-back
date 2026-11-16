@@ -49,10 +49,9 @@ export const protect = async (
 
       userId: number;
       shopId: number;
-      email: string;
+      email?: string;
       planType: PlanType;
       role: string;
-      email?: string;
       accessMode?: "OWNER";
     };
 
