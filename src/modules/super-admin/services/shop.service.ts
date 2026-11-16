@@ -22,6 +22,7 @@ export const SuperAdminShopService = {
     let planShopIds: number[] | undefined;
     if (filters.plan) {
       const latestPerShop = await prisma.subscription.findMany({
+        where: { shop: { is: { primaryShopId: null } } },
         distinct: ["shopId"],
         orderBy: [{ shopId: "asc" }, ...LATEST_SUBSCRIPTION_ORDER],
         select: { shopId: true, plan: { select: { code: true } } },
