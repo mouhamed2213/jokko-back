@@ -1,8 +1,8 @@
-import type { NextFunction, Response, Request } from "express";
+import type { Response, Request } from "express";
 import { logger } from "../../config/logger.js";
 import { prisma } from "../../config/prisma.js";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
-import { AccountAuthService, type AccountType } from "./account-auth.service.js";
+import { AccountAuthService } from "./account-auth.service.js";
 
 const getAccountId = (req: AuthRequest) => req.user?.userId;
 
