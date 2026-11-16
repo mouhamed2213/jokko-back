@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { protectSuperAdmin } from "../../middlewares/auth.middleware.js";
 import { SuperAdminShopController } from "./controllers/super-admin.controller.js";
+import { SuperAdminManagementController } from "./controllers/super-admin-management.controller.js";
 
 const router = Router();
 
@@ -8,6 +9,12 @@ const router = Router();
 router.use(protectSuperAdmin);
 
 router.get("/me", SuperAdminShopController.me);
+
+// Gestion des comptes Super Admin (toutes ces routes sont protégées par le middleware global).
+router.get("/admins", SuperAdminManagementController.list);
+router.post("/admins/invitations", SuperAdminManagementController.invite);
+router.post("/admins/:id/invitation/resend", SuperAdminManagementController.resendInvitation);
+router.patch("/admins/:id/status", SuperAdminManagementController.setActive);
 router.get("/stats", SuperAdminShopController.getStats);
 router.get("/shops", SuperAdminShopController.listShops);
 router.get("/shops/:id", SuperAdminShopController.getShopDetail);
