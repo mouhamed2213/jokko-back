@@ -80,8 +80,9 @@ export const SuperAdminShopService = {
     ]);
 
     const data = shops.map((shop) => {
-      const subscription =
-        shop.primaryShop?.subscriptions[0] ?? shop.subscriptions[0] ?? null;
+      const subscription = shop.primaryShopId
+        ? shop.primaryShop?.subscriptions[0] ?? null
+        : shop.subscriptions[0] ?? null;
       const subscriptionInherited = !!shop.primaryShop;
 
       return {
