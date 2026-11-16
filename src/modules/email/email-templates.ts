@@ -82,6 +82,19 @@ export const emailTemplates = {
       <p><strong>Si vous n'êtes pas à l'origine de cette action, contactez immédiatement le support.</strong></p>`,
     ),
   }),
+  contactMessage: (name: string, email: string, subject: string, message: string) => ({
+    subject: `Contact Jokko Business : ${subject}`,
+    text: `Nom : ${name}\nEmail : ${email}\nSujet : ${subject}\n\n${message}`,
+    html: layout(
+      "Nouveau message de contact",
+      `<h1 style="font-size:22px;">Nouveau message de contact</h1>
+      <p><strong>Nom :</strong> ${escapeHtml(name)}</p>
+      <p><strong>Email :</strong> ${escapeHtml(email)}</p>
+      <p><strong>Sujet :</strong> ${escapeHtml(subject)}</p>
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0;" />
+      <p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>`,
+    ),
+  }),
   emailChangeRequested: (name: string, newEmail: string) => ({
     subject: "Demande de changement d'adresse email - Jokko Business",
     text: `Bonjour ${name}, une demande de changement d'adresse email vers ${newEmail} vient d'être effectuée sur votre compte. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le support.`,
