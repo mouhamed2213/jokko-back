@@ -174,7 +174,9 @@ export const getShopSettings = async (req: AuthRequest, res: Response) => {
 
     const shop = {
       ...shopData,
-      subscriptions: shopData.primaryShop?.subscriptions ?? shopData.subscriptions,
+      subscriptions: shopData.primaryShopId
+        ? shopData.primaryShop?.subscriptions ?? []
+        : shopData.subscriptions,
       subscriptionInherited: !!shopData.primaryShopId,
       billingShopId: shopData.primaryShopId ?? shopData.id,
       logoUrl: getFullStorageUrl(LOGO_BUCKET, shopData.logoUrl as string),
