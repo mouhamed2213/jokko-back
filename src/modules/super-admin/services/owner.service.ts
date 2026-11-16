@@ -315,9 +315,9 @@ export const SuperAdminOwnerService = {
 
       if (subscriptionInherited && ownSubscription) {
         diagnostics.push({
-          level: "warning",
-          code: "SECONDARY_OWN_SUBSCRIPTION",
-          message: `«${shop.name}» : un ancien abonnement propre existe encore sur cette boutique secondaire ; l'abonnement de la boutique principale est appliqué.`,
+          level: "info",
+          code: "LEGACY_SECONDARY_SUBSCRIPTION",
+          message: `«${shop.name}» : un ancien abonnement secondaire est conservé dans l'historique et n'est pas appliqué.`,
         });
       }
 
