@@ -65,6 +65,16 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
     const existing = await prisma.user.findFirst({ where: { id, shopId } });
     if (!existing) return res.status(404).json({ message: "Utilisateur introuvable" });
 
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { currentShop: true },
+    });
+    if (shop?.currentShop === "SECONDARY" && existing.role === "ADMIN" && role && role !== "ADMIN") {
+      return res.status(409).json({
+        message: "Le rôle du responsable principal de cette boutique ne peut pas être rétrogradé.",
+      });
+    }
+
     const data: any = {};
     if (name) data.name = name;
     if (role) data.role = role === "ADMIN" ? "ADMIN" : "EMPLOYEE";
