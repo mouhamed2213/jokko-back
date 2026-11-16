@@ -246,6 +246,20 @@ export const SuperAdminShopController = {
     }
   },
 
+  cancelSubscriptionPayment: async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const paymentId = Number(req.params.paymentId);
+      const payment = await SubscriptionManagementService.cancelPendingPayment(paymentId, {
+        actorId: req.user!.userId,
+        actorName: req.user!.email,
+      });
+      return res.status(200).json({ message: "Paiement en attente annulé", payment });
+    } catch (e) {
+      logger.warn(`Error cannot cancel subscription payment ${e}`);
+      next(e);
+    }
+  },
+
   // extendTrialPeriod
 updateSubscriptionStatus: async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
