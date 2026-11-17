@@ -10,7 +10,59 @@ type SubscriptionLifecycleInput = {
   planId: number;
   status: string;
   endDate: Date | null;
+  gracePeriodEndsAt: Date | null;
   plan: { code: string };
+};
+
+const initializeGraceDeadline = async (
+  subscription: SubscriptionLifecycleInput,
+  gracePeriodDays: number,
+): Promise<Date | null> => {
+  if (subscription.gracePeriodEndsAt) {
+    return subscription.gracePeriodEndsAt;
+  }
+  if (!subscription.endDate) return null;
+
+  const deadline = new Date(
+    subscription.endDate.getTime() + gracePeriodDays * DAY_MS,
+  );
+  const initialized = await prisma.subscription.updateMany({
+    where: {
+      id: subscription.id,
+      shopOwnerId: subscription.shopOwnerId,
+      planId: subscription.planId,
+      status: subscription.status as "ACTIVE" | "TRIAL",
+      endDate: subscription.endDate,
+      gracePeriodEndsAt: null,
+    },
+    data: { gracePeriodEndsAt: deadline },
+  });
+
+  if (initialized.count === 1) return deadline;
+
+  // Une autre requête a pu initialiser la date ou renouveler l'abonnement.
+  const latest = await prisma.subscription.findUnique({
+    where: { id: subscription.id },
+    select: {
+      shopOwnerId: true,
+      planId: true,
+      status: true,
+      endDate: true,
+      gracePeriodEndsAt: true,
+    },
+  });
+
+  if (
+    !latest ||
+    latest.shopOwnerId !== subscription.shopOwnerId ||
+    latest.planId !== subscription.planId ||
+    latest.status !== subscription.status ||
+    latest.endDate?.getTime() !== subscription.endDate.getTime()
+  ) {
+    return null;
+  }
+
+  return latest.gracePeriodEndsAt;
 };
 
 const applyDowngrade = async (
@@ -24,6 +76,7 @@ const applyDowngrade = async (
       planId: subscription.planId,
       status: subscription.status as "ACTIVE" | "TRIAL",
       endDate: subscription.endDate,
+      gracePeriodEndsAt: subscription.gracePeriodEndsAt,
     },
     data: {
       planId: freePlanId,
@@ -68,11 +121,14 @@ export const SubscriptionLifecycleService = {
   },
 
   getLifecycleInfo: (
-    subscription: Pick<SubscriptionLifecycleInput, "status" | "endDate" | "plan">,
+    subscription: Pick<
+      SubscriptionLifecycleInput,
+      "status" | "endDate" | "gracePeriodEndsAt" | "plan"
+    >,
     gracePeriodDays: number,
     now = new Date(),
   ) => {
-    const { status, endDate, plan } = subscription;
+    const { status, endDate, gracePeriodEndsAt, plan } = subscription;
     const eligible =
       plan.code !== "FREE" &&
       !!endDate &&
@@ -86,9 +142,9 @@ export const SubscriptionLifecycleService = {
       };
     }
 
-    const gracePeriodEndsAt = new Date(
-      endDate.getTime() + gracePeriodDays * DAY_MS,
-    );
+    const deadline =
+      gracePeriodEndsAt ??
+      new Date(endDate.getTime() + gracePeriodDays * DAY_MS);
 
     if (now.getTime() < endDate.getTime()) {
       return {
@@ -98,13 +154,16 @@ export const SubscriptionLifecycleService = {
       };
     }
 
-    if (gracePeriodDays > 0 && now.getTime() < gracePeriodEndsAt.getTime()) {
+    if (
+      deadline.getTime() > endDate.getTime() &&
+      now.getTime() < deadline.getTime()
+    ) {
       return {
         status: "GRACE_PERIOD",
-        gracePeriodEndsAt,
+        gracePeriodEndsAt: deadline,
         gracePeriodDaysRemaining: Math.max(
           1,
-          Math.ceil((gracePeriodEndsAt.getTime() - now.getTime()) / DAY_MS),
+          Math.ceil((deadline.getTime() - now.getTime()) / DAY_MS),
         ),
       };
     }
@@ -126,12 +185,11 @@ export const SubscriptionLifecycleService = {
     }
 
     const gracePeriodDays = await SubscriptionLifecycleService.getGracePeriodDays();
-    const now = new Date();
-    const gracePeriodEndsAt = new Date(
-      subscription.endDate.getTime() + gracePeriodDays * DAY_MS,
+    const deadline = await initializeGraceDeadline(
+      subscription,
+      gracePeriodDays,
     );
-
-    if (now.getTime() < gracePeriodEndsAt.getTime()) {
+    if (!deadline || new Date().getTime() < deadline.getTime()) {
       return false;
     }
 
@@ -143,7 +201,10 @@ export const SubscriptionLifecycleService = {
       throw new Error("Le forfait Essentielle (FREE) est introuvable.");
     }
 
-    return applyDowngrade(subscription, freePlan.id);
+    return applyDowngrade(
+      { ...subscription, gracePeriodEndsAt: deadline },
+      freePlan.id,
+    );
   },
 
   processExpiredSubscriptions: async () => {
@@ -160,18 +221,24 @@ export const SubscriptionLifecycleService = {
         planId: true,
         status: true,
         endDate: true,
+        gracePeriodEndsAt: true,
         plan: { select: { code: true } },
       },
     });
 
     const gracePeriodDays = await SubscriptionLifecycleService.getGracePeriodDays();
-    const due = candidates.filter((subscription) => {
-      if (subscription.plan.code === "FREE" || !subscription.endDate) return false;
-      const gracePeriodEndsAt = new Date(
-        subscription.endDate.getTime() + gracePeriodDays * DAY_MS,
+    const due: SubscriptionLifecycleInput[] = [];
+
+    for (const subscription of candidates) {
+      if (subscription.plan.code === "FREE" || !subscription.endDate) continue;
+      const deadline = await initializeGraceDeadline(
+        subscription,
+        gracePeriodDays,
       );
-      return now.getTime() >= gracePeriodEndsAt.getTime();
-    });
+      if (deadline && now.getTime() >= deadline.getTime()) {
+        due.push({ ...subscription, gracePeriodEndsAt: deadline });
+      }
+    }
 
     if (due.length === 0) {
       return { checked: candidates.length, downgraded: 0 };
