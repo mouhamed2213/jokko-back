@@ -7,7 +7,7 @@ import { SubscriptionService } from "./subscription.service.js";
 
 export type SubscriptionDTO = {
   id: number;
-  status: "ACTIVE" | "EXPIRED" | "SUSPENDED" | "TRIAL" | "TRIAL_EXPIRED";
+  status: "ACTIVE" | "EXPIRED" | "SUSPENDED" | "TRIAL" | "TRIAL_EXPIRED" | "GRACE_PERIOD";
   plan: {
     code: PlanType;
     name: string;
