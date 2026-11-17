@@ -144,6 +144,7 @@ export const SubscriptionLifecycleService = {
     const now = new Date();
     const candidates = await prisma.subscription.findMany({
       where: {
+        shop: { is: { primaryShopId: null } },
         status: { in: ["ACTIVE", "TRIAL"] },
         endDate: { not: null, lte: now },
       },
