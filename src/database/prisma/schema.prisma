@@ -59,7 +59,7 @@ model Shop {
 
 model ShopOwner {
   id           Int            @id @default(autoincrement())
-  userId       Int //  shoop ownerId 
+  userId       Int
   shopId       Int
   subscription Subscription[]
   phone        String
@@ -172,7 +172,6 @@ model User {
   @@map("users")
 }
 
-// ── Category ─────────────────────────────────────────────────
 model Category {
   id        Int      @id @default(autoincrement())
   shopId    Int
@@ -185,7 +184,6 @@ model Category {
   @@map("categories")
 }
 
-// ── Product ───────────────────────────────────────────────────
 model Product {
   id                  Int      @id @default(autoincrement())
   shopId              Int
@@ -214,7 +212,6 @@ model Product {
   @@map("products")
 }
 
-// ── Client ────────────────────────────────────────────────────
 model Client {
   id        Int      @id @default(autoincrement())
   shopId    Int
@@ -231,7 +228,6 @@ model Client {
   @@map("clients")
 }
 
-// ── Supplier ──────────────────────────────────────────────────
 model Supplier {
   id        Int      @id @default(autoincrement())
   shopId    Int
@@ -249,7 +245,6 @@ model Supplier {
   @@map("suppliers")
 }
 
-// ── SupplierDebt ──────────────────────────────────────────────
 model SupplierDebt {
   id          Int      @id @default(autoincrement())
   supplierId  Int
@@ -267,7 +262,6 @@ model SupplierDebt {
   @@map("supplier_debts")
 }
 
-// ── SupplierPayment ───────────────────────────────────────────
 model SupplierPayment {
   id            Int      @id @default(autoincrement())
   debtId        Int
@@ -281,7 +275,6 @@ model SupplierPayment {
   @@map("supplier_payments")
 }
 
-// ── StockMovement ─────────────────────────────────────────────
 model StockMovement {
   id         Int      @id @default(autoincrement())
   shopId     Int
@@ -302,7 +295,6 @@ model StockMovement {
   @@map("stock_movements")
 }
 
-// ── Sale ──────────────────────────────────────────────────────
 model Sale {
   id            Int      @id @default(autoincrement())
   shopId        Int
@@ -327,7 +319,6 @@ model Sale {
   @@map("sales")
 }
 
-// ── SaleItem ──────────────────────────────────────────────────
 model SaleItem {
   id              Int     @id @default(autoincrement())
   saleId          Int
@@ -344,7 +335,6 @@ model SaleItem {
   @@map("sale_items")
 }
 
-// ── SalePayment ───────────────────────────────────────────────
 model SalePayment {
   id            Int      @id @default(autoincrement())
   saleId        Int
@@ -358,7 +348,6 @@ model SalePayment {
   @@map("sale_payments")
 }
 
-// ── CashRegister ─────────────────────────────────────────────
 model CashRegister {
   id            Int       @id @default(autoincrement())
   shopId        Int
@@ -380,7 +369,6 @@ model CashRegister {
   @@map("cash_registers")
 }
 
-// ── CashTransaction ───────────────────────────────────────────
 model CashTransaction {
   id             Int      @id @default(autoincrement())
   cashRegisterId Int
@@ -421,13 +409,10 @@ model Payment {
   currency Currency @default(FCFA)
 
   transactionReference String?
-
-  providerReference String?
-
-  paidAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  providerReference    String?
+  paidAt                DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   @@map("payments")
 }
@@ -441,9 +426,7 @@ enum PaymentType {
 
 enum Currency {
   FCFA
-
   EUR
-
   USD
 }
 
@@ -499,17 +482,16 @@ enum UsageMetric {
 
 model AuditLog {
   id         Int      @id @default(autoincrement())
-  actorId    Int // ID of the SuperAdmin
-  actorName  String // Name of the SuperAdmin
-  action     String // e.g., "UPDATE_SUBSCRIPTION_PLAN", "CHANGE_SHOP_STATUS"
-  targetType String // e.g., "Shop", "Subscription"
-  targetId   Int // ID of the entity that was changed
-  details    Json? // Optional: store before/after values
+  actorId    Int
+  actorName  String
+  action     String
+  targetType String
+  targetId   Int
+  details    Json?
   createdAt  DateTime @default(now())
 
   @@map("audit_logs")
 }
-
 
 enum AuthTokenType {
   EMAIL_VERIFICATION
@@ -537,11 +519,11 @@ model AuthToken {
   @@map("auth_tokens")
 }
 
-// ── Platform settings ─────────────────────────────────────────
 model PlatformSetting {
   id                 String   @id @default("global")
   maintenanceEnabled Boolean  @default(false)
   maintenanceMessage String   @default("Jokko Business est temporairement indisponible pour maintenance. Nous serons de retour très bientôt.")
+  gracePeriodDays    Int      @default(5)
   updatedAt          DateTime @updatedAt
 
   @@map("platform_settings")
