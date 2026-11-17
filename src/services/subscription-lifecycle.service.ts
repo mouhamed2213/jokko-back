@@ -179,7 +179,8 @@ export const SubscriptionLifecycleService = {
     if (
       subscription.plan.code === "FREE" ||
       !subscription.endDate ||
-      (subscription.status !== "ACTIVE" && subscription.status !== "TRIAL")
+      (subscription.status !== "ACTIVE" && subscription.status !== "TRIAL") ||
+      subscription.endDate.getTime() > Date.now()
     ) {
       return false;
     }
