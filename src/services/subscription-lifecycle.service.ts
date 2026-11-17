@@ -13,6 +13,27 @@ type SubscriptionLifecycleInput = {
   plan: { code: string };
 };
 
+const applyDowngrade = async (
+  subscription: SubscriptionLifecycleInput,
+  freePlanId: number,
+) => {
+  const result = await prisma.subscription.updateMany({
+    where: {
+      id: subscription.id,
+      shopOwnerId: subscription.shopOwnerId,
+      planId: subscription.planId,
+      status: subscription.status as "ACTIVE" | "TRIAL",
+      endDate: subscription.endDate,
+    },
+    data: {
+      planId: freePlanId,
+      status: subscription.status === "TRIAL" ? "TRIAL_EXPIRED" : "EXPIRED",
+      endDate: null,
+    },
+  });
+  return result.count === 1;
+};
+
 export const SubscriptionLifecycleService = {
   getGracePeriodDays: async (): Promise<number> => {
     const settings = await prisma.platformSetting.findUnique({
@@ -122,22 +143,7 @@ export const SubscriptionLifecycleService = {
       throw new Error("Le forfait Essentielle (FREE) est introuvable.");
     }
 
-    const result = await prisma.subscription.updateMany({
-      where: {
-        id: subscription.id,
-        shopOwnerId: subscription.shopOwnerId,
-        planId: subscription.planId,
-        status: subscription.status as "ACTIVE" | "TRIAL",
-        endDate: subscription.endDate,
-      },
-      data: {
-        planId: freePlan.id,
-        status: subscription.status === "TRIAL" ? "TRIAL_EXPIRED" : "EXPIRED",
-        endDate: null,
-      },
-    });
-
-    return result.count === 1;
+    return applyDowngrade(subscription, freePlan.id);
   },
 
   processExpiredSubscriptions: async () => {
@@ -158,10 +164,30 @@ export const SubscriptionLifecycleService = {
       },
     });
 
+    const gracePeriodDays = await SubscriptionLifecycleService.getGracePeriodDays();
+    const due = candidates.filter((subscription) => {
+      if (subscription.plan.code === "FREE" || !subscription.endDate) return false;
+      const gracePeriodEndsAt = new Date(
+        subscription.endDate.getTime() + gracePeriodDays * DAY_MS,
+      );
+      return now.getTime() >= gracePeriodEndsAt.getTime();
+    });
+
+    if (due.length === 0) {
+      return { checked: candidates.length, downgraded: 0 };
+    }
+
+    const freePlan = await prisma.plan.findUnique({
+      where: { code: "FREE" },
+      select: { id: true },
+    });
+    if (!freePlan) {
+      throw new Error("Le forfait Essentielle (FREE) est introuvable.");
+    }
+
     let downgraded = 0;
-    for (const subscription of candidates) {
-      if (subscription.plan.code === "FREE" || !subscription.endDate) continue;
-      if (await SubscriptionLifecycleService.processSubscription(subscription)) {
+    for (const subscription of due) {
+      if (await applyDowngrade(subscription, freePlan.id)) {
         downgraded += 1;
       }
     }
