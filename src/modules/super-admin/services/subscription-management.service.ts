@@ -54,7 +54,13 @@ export const SubscriptionManagementService = {
 
     const newPlan = await prisma.plan.findUnique({ where: { code: normalizedPlanCode as any } });
     if (!newPlan) throw new NotFoundError(`Plan ${normalizedPlanCode} introuvable`);
-    if (newPlan.code === currentSub.plan.code) {
+    const samePlanRenewal =
+      newPlan.code === currentSub.plan.code &&
+      !!currentSub.endDate &&
+      currentSub.endDate.getTime() <= Date.now() &&
+      (currentSub.status === "ACTIVE" || currentSub.status === "TRIAL");
+
+    if (newPlan.code === currentSub.plan.code && !samePlanRenewal) {
       throw new BadRequestError("Cette boutique utilise déjà ce forfait");
     }
 
