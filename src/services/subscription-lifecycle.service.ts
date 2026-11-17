@@ -1,7 +1,7 @@
 import { prisma } from "../config/prisma.js";
 
 export const DEFAULT_GRACE_PERIOD_DAYS = 5;
-export const MAX_GRACE_PERIOD_DAYS = 30;
+export const MAX_GRACE_PERIOD_DAYS = 365;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type SubscriptionLifecycleInput = {
