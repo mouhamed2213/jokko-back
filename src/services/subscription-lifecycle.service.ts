@@ -199,7 +199,7 @@ export const SubscriptionLifecycleService = {
       select: { id: true },
     });
     if (!freePlan) {
-      throw new Error("Le forfait Essentielle (FREE) est introuvable.");
+      throw new Error("Le forfait gratuit (FREE) est introuvable.");
     }
 
     return applyDowngrade(
@@ -250,7 +250,7 @@ export const SubscriptionLifecycleService = {
       select: { id: true },
     });
     if (!freePlan) {
-      throw new Error("Le forfait Essentielle (FREE) est introuvable.");
+      throw new Error("Le forfait gratuit (FREE) est introuvable.");
     }
 
     let downgraded = 0;
