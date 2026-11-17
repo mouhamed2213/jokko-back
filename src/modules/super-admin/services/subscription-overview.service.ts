@@ -145,8 +145,11 @@ export const SubscriptionOverviewService = {
       TRIAL_EXPIRED: 0,
       SUSPENDED: 0,
     };
+    const subscriptionsByPlan: Record<string, number> = {};
     let mrr = 0;
     for (const subscription of subscriptions) {
+      subscriptionsByPlan[subscription.plan.code] =
+        (subscriptionsByPlan[subscription.plan.code] ?? 0) + 1;
       const status = SubscriptionLifecycleService.getLifecycleInfo(
         subscription,
         gracePeriodDays,
@@ -169,6 +172,7 @@ export const SubscriptionOverviewService = {
 
     return {
       subscriptionsByStatus: counts,
+      subscriptionsByPlan,
       gracePeriodCount: counts.GRACE_PERIOD,
       expiredCount: counts.EXPIRED + counts.TRIAL_EXPIRED,
       pendingSubscriptionPayments: pendingPayments,
