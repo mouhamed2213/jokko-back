@@ -72,7 +72,7 @@ export const SubscriptionLifecycleService = {
     if (now.getTime() < endDate.getTime()) {
       return {
         status,
-        gracePeriodEndsAt,
+        gracePeriodEndsAt: null as Date | null,
         gracePeriodDaysRemaining: 0,
       };
     }
@@ -90,7 +90,7 @@ export const SubscriptionLifecycleService = {
 
     return {
       status: status === "TRIAL" ? "TRIAL_EXPIRED" : "EXPIRED",
-      gracePeriodEndsAt,
+      gracePeriodEndsAt: null as Date | null,
       gracePeriodDaysRemaining: 0,
     };
   },
