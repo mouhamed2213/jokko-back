@@ -8,6 +8,7 @@ import {
   NotFoundError,
   UnprocessableEntity,
 } from "../utils/errors.js";
+import { SubscriptionLifecycleService } from "./subscription-lifecycle.service.js";
 
 type SubscriptionWithPlan = Prisma.SubscriptionGetPayload<{
   include: {
@@ -54,31 +55,33 @@ const resolveBillingOwner = async (shopId: number, ownerUserId: number) => {
   return { billingShopId, billingOwnerId: billingOwner.id };
 };
 
+const subscriptionInclude = {
+  plan: {
+    include: {
+      planFeature: {
+        include: {
+          feature: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.SubscriptionInclude;
+
 export const SubscriptionService = {
   currentSubscription: async (shopId: number, ownerUserId: number) => {
     const { billingShopId, billingOwnerId } = await resolveBillingOwner(
       shopId,
       ownerUserId,
     );
-    let subscription: SubscriptionWithPlan | null =
-      await prisma.subscription.findFirst({
-        where: {
-          shopId: billingShopId,
-          shopOwnerId: billingOwnerId,
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        include: {
-          plan: {
-            include: {
-              planFeature: {
-                include: {
-                  feature: true,
-                },
-              },
-            },
-          },
-        },
-      });
+
+    let subscription = await prisma.subscription.findFirst({
+      where: {
+        shopId: billingShopId,
+        shopOwnerId: billingOwnerId,
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      include: subscriptionInclude,
+    });
 
     if (!subscription) {
       throw new NotFoundError("No active subscription");
@@ -89,16 +92,25 @@ export const SubscriptionService = {
       billingOwnerId,
     );
 
+    const gracePeriodDays =
+      await SubscriptionLifecycleService.getGracePeriodDays();
+    const lifecycle = SubscriptionLifecycleService.getLifecycleInfo(
+      subscription,
+      gracePeriodDays,
+    );
+
     return {
       id: subscription.id,
-      status: subscription.status,
-      endDate: subscription?.endDate,
-
+      status: lifecycle.status,
+      endDate: subscription.endDate,
+      gracePeriodDays,
+      gracePeriodEndsAt: lifecycle.gracePeriodEndsAt,
+      gracePeriodDaysRemaining: lifecycle.gracePeriodDaysRemaining,
+      isInGracePeriod: lifecycle.status === "GRACE_PERIOD",
       plan: {
         code: subscription.plan.code,
         name: subscription.plan.name,
       },
-
       limits: {
         sales: subscription.plan.maxSalesPerMonth,
         products: subscription.plan.maxProducts,
@@ -107,7 +119,6 @@ export const SubscriptionService = {
         stores: subscription.plan.maxStores,
         suppliers: subscription.plan.maxSuppliers,
       },
-
       features: subscription.plan.planFeature.map((pf) => pf.feature.code),
     };
   },
@@ -116,73 +127,36 @@ export const SubscriptionService = {
     subscription: SubscriptionWithPlan,
     shopOwnerId: number,
   ): Promise<SubscriptionWithPlan> => {
-    if (subscription.plan.code === "FREE") {
+    if (
+      subscription.plan.code === "FREE" ||
+      !subscription.endDate ||
+      (subscription.status !== "ACTIVE" && subscription.status !== "TRIAL")
+    ) {
       return subscription;
     }
 
-    if (!subscription.endDate) {
-      return subscription;
-    }
-
-    // const now = new Date("2026-09-07T18:44:35.348Z");
-    const now = new Date();
-    // Trial still active
-    if (subscription.endDate > now) {
-      return subscription;
-    }
-
-    // Downgrade if endDate
-    return SubscriptionService.downgradeToFree(subscription, shopOwnerId);
-  },
-
-  downgradeToFree: async (
-    subscription: SubscriptionWithPlan,
-    shopOwnerId: number,
-  ): Promise<SubscriptionWithPlan> => {
-    const freePlan = await prisma.plan.findUnique({
-      where: {
-        code: "FREE",
-      },
-    });
-
-    if (!freePlan) {
-      throw new NotFoundError("Free plan not found");
-    }
-
-    const subcriptionStatus = subscription.status;
-    // end subscripton status condtion
-    const status =
-      subcriptionStatus === "TRIAL"
-        ? "TRIAL_EXPIRED"
-        : subcriptionStatus === "ACTIVE"
-          ? "EXPIRED"
-          : "EXPIRED";
-
-    return prisma.subscription.update({
-      where: {
+    const wasDowngraded =
+      await SubscriptionLifecycleService.processSubscription({
         id: subscription.id,
         shopOwnerId,
-        // status : "EXPIRED"
-      },
-      data: {
-        planId: freePlan.id,
-        status,
-        endDate: null,
-      },
-      include: {
-        shop: true,
-        shopOwner: true,
-        plan: {
-          include: {
-            planFeature: {
-              include: {
-                feature: true,
-              },
-            },
-          },
-        },
-      },
+        planId: subscription.planId,
+        status: subscription.status,
+        endDate: subscription.endDate,
+        plan: { code: subscription.plan.code },
+      });
+
+    if (!wasDowngraded) {
+      return subscription;
+    }
+
+    // Recharger l'abonnement pour retourner les limites et fonctionnalités
+    // du forfait gratuit, sans toucher aux données métier de la boutique.
+    const refreshed = await prisma.subscription.findUnique({
+      where: { id: subscription.id },
+      include: subscriptionInclude,
     });
+
+    return refreshed ?? subscription;
   },
 
   renewal: async (
@@ -191,7 +165,7 @@ export const SubscriptionService = {
     selectedPlanId: number,
   ) => {
     const dateFn = dateManagement();
-    const update = await prisma.subscription.update({
+    return prisma.subscription.update({
       where: { id: subscriptionId, shopOwnerId },
       data: {
         planId: selectedPlanId,
@@ -199,34 +173,19 @@ export const SubscriptionService = {
         startDate: dateFn.startDate,
         endDate: dateFn.endSubscriptionSate,
       },
-      include: {
-        plan: {
-          include: {
-            planFeature: {
-              include: {
-                feature: true,
-              },
-            },
-          },
-        },
-      },
+      include: subscriptionInclude,
     });
-
-    return update;
   },
 
   /**
-   * Prolonge la date de fin d'un abonnement actif (ex : geste commercial,
-   * correction manuelle par un admin). Ne s'applique qu'aux abonnements
-   * payants actifs ; un abonnement expiré doit être renouvelé (`renewal`),
-   * et le plan FREE n'a pas de date de fin à prolonger.
+   * Prolonge la date de fin d'un abonnement actif ou en période de grâce.
+   * Le plan FREE n'a pas de date de fin à prolonger.
    */
   extendSubscription: async (data: {
     shopOwnerId: number;
     extendToDate: string | Date;
     shopId: number;
   }) => {
-    // 1. La nouvelle date de fin doit être fournie
     if (!data.extendToDate) {
       throw new BadRequestError(
         "La date de prolongement n'est pas fournie ou est incorrecte",
@@ -247,26 +206,25 @@ export const SubscriptionService = {
       data.shopOwnerId,
     );
 
-    // 2. Le plan FREE n'a pas d'abonnement payant à prolonger
     if (subscription.plan.code === "FREE") {
       throw new BadRequestError(
         "Le plan gratuit ne peut pas être prolongé. Souscrivez à un plan payant.",
       );
     }
 
-    // 3. Seul un abonnement actif peut être prolongé (sinon : renouvellement)
-    if (subscription.status !== "ACTIVE") {
+    if (!["ACTIVE", "GRACE_PERIOD"].includes(subscription.status)) {
       throw new UnprocessableEntity(
-        "Seul un abonnement actif peut être prolongé. Renouvelez l'abonnement s'il est expiré.",
+        "Seul un abonnement actif ou en période de grâce peut être prolongé. Renouvelez l'abonnement s'il est expiré.",
       );
     }
 
     const endDate = subscription.endDate;
     if (!endDate) {
-      throw new AppError("Erreur de prolongement : aucune date de fin définie pour cet abonnement.");
+      throw new AppError(
+        "Erreur de prolongement : aucune date de fin définie pour cet abonnement.",
+      );
     }
 
-    // 4. La nouvelle date doit être postérieure à la date de fin actuelle
     if (parsedExtendToDate.getTime() <= endDate.getTime()) {
       throw new BadRequestError(
         "La nouvelle date doit être postérieure à la date de fin actuelle de l'abonnement.",
@@ -276,17 +234,7 @@ export const SubscriptionService = {
     return prisma.subscription.update({
       where: { id: subscription.id, shopOwnerId: billingOwnerId },
       data: { endDate: parsedExtendToDate },
-      include: {
-        plan: {
-          include: {
-            planFeature: {
-              include: {
-                feature: true,
-              },
-            },
-          },
-        },
-      },
+      include: subscriptionInclude,
     });
   },
 };
