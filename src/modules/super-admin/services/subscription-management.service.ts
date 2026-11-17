@@ -80,6 +80,7 @@ export const SubscriptionManagementService = {
             status: currentSub.status === "TRIAL" ? "TRIAL_EXPIRED" : "EXPIRED",
             startDate: new Date(),
             endDate: null,
+            gracePeriodEndsAt: null,
           },
           include: { plan: { include: { planFeature: { include: { feature: true } } } } },
         });
@@ -180,6 +181,7 @@ export const SubscriptionManagementService = {
           status: SubscriptionStatus.ACTIVE,
           startDate: dates.startDate,
           endDate: dates.endSubscriptionSate,
+          gracePeriodEndsAt: null,
         },
         include: { plan: { include: { planFeature: { include: { feature: true } } } } },
       });
@@ -300,7 +302,7 @@ export const SubscriptionManagementService = {
 
     return prisma.subscription.update({
       where: { id: subscription.id },
-      data: { endDate: newEndDate },
+      data: { endDate: newEndDate, gracePeriodEndsAt: null },
       include: { plan: true, shop: true },
     });
   },
