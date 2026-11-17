@@ -133,7 +133,7 @@ export const SubscriptionOverviewService = {
       select: {
         status: true,
         endDate: true,
-        plan: { select: { code: true } },
+        plan: { select: { code: true, price: true } },
       },
     });
 
@@ -145,19 +145,25 @@ export const SubscriptionOverviewService = {
       TRIAL_EXPIRED: 0,
       SUSPENDED: 0,
     };
+    let mrr = 0;
     for (const subscription of subscriptions) {
       const status = SubscriptionLifecycleService.getLifecycleInfo(
         subscription,
         gracePeriodDays,
       ).status;
       counts[status] = (counts[status] ?? 0) + 1;
+      if (status === "ACTIVE" && subscription.plan.code !== "FREE") {
+        mrr += subscription.plan.price;
+      }
     }
 
     const pendingPayments = await prisma.payment.count({
       where: {
         status: "PENDING",
         paymentType: "SUBSCRIPTION",
-        subscription: { shop: { is: { primaryShopId: null } } },
+        subscription: {
+          is: { shop: { is: { primaryShopId: null } } },
+        },
       },
     });
 
@@ -167,6 +173,7 @@ export const SubscriptionOverviewService = {
       expiredCount: counts.EXPIRED + counts.TRIAL_EXPIRED,
       pendingSubscriptionPayments: pendingPayments,
       gracePeriodDays,
+      mrr,
     };
   },
 };
