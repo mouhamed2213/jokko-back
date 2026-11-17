@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { env } from "./config/env-config.js";
 import { logger, morganStream } from "./config/logger.js";
 import { ErrorHandler } from "./middlewares/error-handler.middleware.js";
+import { apiRateLimiter } from "./middlewares/rate-limit.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import contactRoutes from "./routes/contact.routes.js";
 import cashRoutes from "./routes/cash.routes.js";
@@ -28,9 +29,13 @@ import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middlew
 import { SubscriptionLifecycleService } from "./services/subscription-lifecycle.service.js";
 
 const app = express();
-// const PORT = Number(env.PORT) || 5000;
 
- 
+// À configurer uniquement si l'API est derrière un reverse proxy connu.
+// Ne pas utiliser "true" : cela ferait confiance à toutes les adresses proxy.
+if (env.trustProxyHops > 0) {
+  app.set("trust proxy", env.trustProxyHops);
+}
+
 app.use(express.json());
 const origins = [
   'https://jokko-business.com',
@@ -72,6 +77,9 @@ app.use(
 app.get("/", (_req: Request, res: Response) => {
   res.json({ message: "Jokko Business API v1.0", status: "running" });
 });
+
+// Limite globale : toutes les routes /api sont protégées, y compris auth et maintenance.
+app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/super-admin", superAdminRoutes);
