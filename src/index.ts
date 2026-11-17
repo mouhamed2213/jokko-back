@@ -25,6 +25,7 @@ import userRoutes from "./routes/user.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes.js";
 import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middleware.js";
+import { SubscriptionLifecycleService } from "./services/subscription-lifecycle.service.js";
 
 const app = express();
 // const PORT = Number(env.PORT) || 5000;
@@ -102,6 +103,20 @@ app.use((req: Request, res: Response) => {
 
 // Global Error handler
 app.use(ErrorHandler);
+
+const runSubscriptionExpirationJob = () => {
+  SubscriptionLifecycleService.processExpiredSubscriptions()
+    .then(({ checked, downgraded }) => {
+      if (downgraded > 0) {
+        logger.info(`Subscription expiration job: ${downgraded}/${checked} boutique(s) rétrogradée(s) vers Essentielle.`);
+      }
+    })
+    .catch((error) => logger.error("Subscription expiration job failed", error));
+};
+
+// Rattrapage au démarrage, puis vérification périodique toutes les 15 minutes.
+runSubscriptionExpirationJob();
+setInterval(runSubscriptionExpirationJob, 15 * 60 * 1000);
 
 app.listen(env.port, () => {
   logger.info(`✅ Jokko Business API démarrée sur ${env.server}:${env.port}`);
