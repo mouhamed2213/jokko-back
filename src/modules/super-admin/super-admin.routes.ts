@@ -2,6 +2,7 @@ import { Router } from "express";
 import { protectSuperAdmin } from "../../middlewares/auth.middleware.js";
 import { SuperAdminShopController } from "./controllers/super-admin.controller.js";
 import { SuperAdminManagementController } from "./controllers/super-admin-management.controller.js";
+import { SubscriptionOverviewController } from "./controllers/subscription-overview.controller.js";
 
 const router = Router();
 
@@ -16,6 +17,10 @@ router.post("/admins/invitations", SuperAdminManagementController.invite);
 router.post("/admins/:id/invitation/resend", SuperAdminManagementController.resendInvitation);
 router.patch("/admins/:id/status", SuperAdminManagementController.setActive);
 router.get("/stats", SuperAdminShopController.getStats);
+router.get("/subscriptions/overview", SubscriptionOverviewController.getStats);
+router.get("/subscriptions", SubscriptionOverviewController.list);
+router.get("/subscription-grace-period", SubscriptionOverviewController.getGracePeriod);
+router.patch("/subscription-grace-period", SubscriptionOverviewController.updateGracePeriod);
 router.get("/shops", SuperAdminShopController.listShops);
 router.get("/shops/:id", SuperAdminShopController.getShopDetail);
 
