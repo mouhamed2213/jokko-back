@@ -2,6 +2,7 @@ import { prisma } from "../../../config/prisma.js";
 import { Prisma } from "../../../database/prisma/generated/prisma/client.js";
 import { NotFoundError } from "../../../utils/errors.js";
 import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
+import { SubscriptionLifecycleService } from "../../../services/subscription-lifecycle.service.js";
 
 type ShopListFilters = {
   page?: number;
@@ -13,6 +14,8 @@ type ShopListFilters = {
 
 export const SuperAdminShopService = {
   listShops: async (filters: ShopListFilters) => {
+    await SubscriptionLifecycleService.processExpiredSubscriptions();
+    const gracePeriodDays = await SubscriptionLifecycleService.getGracePeriodDays();
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 20;
     const skip = (page - 1) * limit;
@@ -85,6 +88,9 @@ export const SuperAdminShopService = {
         ? shop.primaryShop?.subscriptions[0] ?? null
         : shop.subscriptions[0] ?? null;
       const subscriptionInherited = !!shop.primaryShop;
+      const lifecycle = subscription
+        ? SubscriptionLifecycleService.getLifecycleInfo(subscription, gracePeriodDays)
+        : null;
 
       return {
         id: shop.id,
@@ -98,8 +104,10 @@ export const SuperAdminShopService = {
         billingShopId: shop.primaryShopId ?? shop.id,
         subscription: subscription
           ? {
-              status: subscription.status,
+              status: lifecycle?.status ?? subscription.status,
               endDate: subscription.endDate,
+              gracePeriodEndsAt: lifecycle?.gracePeriodEndsAt ?? null,
+              gracePeriodDaysRemaining: lifecycle?.gracePeriodDaysRemaining ?? 0,
               plan: {
                 code: subscription.plan.code,
                 name: subscription.plan.name,
@@ -129,6 +137,8 @@ export const SuperAdminShopService = {
 
 // shop details
   getShopDetail: async (shopId: number) => {
+  await SubscriptionLifecycleService.processExpiredSubscriptions();
+  const gracePeriodDays = await SubscriptionLifecycleService.getGracePeriodDays();
   const shop = await prisma.shop.findUnique({
     where: { id: shopId },
     include: {
@@ -173,6 +183,9 @@ export const SuperAdminShopService = {
     ? shop.primaryShop?.subscriptions[0] ?? null
     : shop.subscriptions[0] ?? null;
   const subscriptionInherited = !!shop.primaryShopId;
+  const lifecycle = subscription
+    ? SubscriptionLifecycleService.getLifecycleInfo(subscription, gracePeriodDays)
+    : null;
 
   const [salesRevenue, payments, auditLogs] = await Promise.all([
     prisma.sale.aggregate({
@@ -219,9 +232,11 @@ export const SuperAdminShopService = {
     subscription: subscription
       ? {
           id: subscription.id,
-          status: subscription.status,
+          status: lifecycle?.status ?? subscription.status,
           startDate: subscription.startDate,
           endDate: subscription.endDate,
+          gracePeriodEndsAt: lifecycle?.gracePeriodEndsAt ?? null,
+          gracePeriodDaysRemaining: lifecycle?.gracePeriodDaysRemaining ?? 0,
           plan: {
             code: subscription.plan.code,
             name: subscription.plan.name,
