@@ -142,6 +142,7 @@ export const SubscriptionService = {
         planId: subscription.planId,
         status: subscription.status,
         endDate: subscription.endDate,
+        gracePeriodEndsAt: subscription.gracePeriodEndsAt,
         plan: { code: subscription.plan.code },
       });
 
@@ -172,6 +173,7 @@ export const SubscriptionService = {
         status: "ACTIVE",
         startDate: dateFn.startDate,
         endDate: dateFn.endSubscriptionSate,
+        gracePeriodEndsAt: null,
       },
       include: subscriptionInclude,
     });
@@ -233,7 +235,7 @@ export const SubscriptionService = {
 
     return prisma.subscription.update({
       where: { id: subscription.id, shopOwnerId: billingOwnerId },
-      data: { endDate: parsedExtendToDate },
+      data: { endDate: parsedExtendToDate, gracePeriodEndsAt: null },
       include: subscriptionInclude,
     });
   },
