@@ -21,10 +21,11 @@ const initializeGraceDeadline = async (
   if (subscription.gracePeriodEndsAt) {
     return subscription.gracePeriodEndsAt;
   }
-  if (!subscription.endDate) return null;
+  const endDate = subscription.endDate;
+  if (!endDate) return null;
 
   const deadline = new Date(
-    subscription.endDate.getTime() + gracePeriodDays * DAY_MS,
+    endDate.getTime() + gracePeriodDays * DAY_MS,
   );
   const initialized = await prisma.subscription.updateMany({
     where: {
@@ -57,7 +58,7 @@ const initializeGraceDeadline = async (
     latest.shopOwnerId !== subscription.shopOwnerId ||
     latest.planId !== subscription.planId ||
     latest.status !== subscription.status ||
-    latest.endDate?.getTime() !== subscription.endDate.getTime()
+    latest.endDate?.getTime() !== endDate.getTime()
   ) {
     return null;
   }
