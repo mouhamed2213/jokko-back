@@ -32,7 +32,7 @@ export const PlanChecker = {
   plan: async (shopId: number , shopOwnerId: number): Promise<SubscriptionDTO> => {
     const shop = await SubscriptionService.currentSubscription(shopId, shopOwnerId);
     if (!shop) throw new NotFoundError("Shop not found");
-    return shop;
+    return shop as SubscriptionDTO;
   },
 
   //  What are the limits

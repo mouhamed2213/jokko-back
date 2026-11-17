@@ -18,14 +18,24 @@ router.get("/status", async (_req, res, next) => {
 router.patch("/", protectSuperAdmin, async (req, res, next) => {
   try {
     const { enabled, message } = req.body ?? {};
-    if (typeof enabled !== "boolean" || (message !== undefined && typeof message !== "string")) {
-      return res.status(400).json({ message: "Paramètres de maintenance invalides." });
+    if (
+      typeof enabled !== "boolean" ||
+      (message !== undefined && typeof message !== "string")
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Paramètres de maintenance invalides." });
     }
     if (typeof message === "string" && message.trim().length > 1000) {
-      return res.status(400).json({ message: "Le message ne doit pas dépasser 1000 caractères." });
+      return res
+        .status(400)
+        .json({ message: "Le message ne doit pas dépasser 1000 caractères." });
     }
-    const status = await MaintenanceService.update(enabled, typeof message === "string" ? message : "");
-    return res.status(200).json({ message: "Paramètres de maintenance enregistrés.", ...status });
+    const status = await MaintenanceService.update(
+      enabled,
+      typeof message === "string" ? message : "",
+    );
+    return res.status(200).json({ ...status });
   } catch (error) {
     return next(error);
   }
