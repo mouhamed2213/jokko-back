@@ -86,6 +86,7 @@ model Subscription {
   status       SubscriptionStatus @default(TRIAL)
   startDate    DateTime           @default(now())
   endDate      DateTime?
+  gracePeriodEndsAt DateTime?
   createdAt    DateTime           @default(now())
   shop         Shop               @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopOwner    ShopOwner          @relation(fields: [shopOwnerId], references: [id])
