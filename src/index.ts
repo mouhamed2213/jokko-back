@@ -31,10 +31,12 @@ import { SubscriptionLifecycleService } from "./services/subscription-lifecycle.
 const app = express();
 
 // À configurer uniquement si l'API est derrière un reverse proxy connu.
-// Ne pas utiliser "true" : cela ferait confiance à toutes les adresses proxy.
 if (env.trustProxyHops > 0) {
   app.set("trust proxy", env.trustProxyHops);
 }
+
+// Limite globale avant le parsing JSON pour protéger aussi les ressources serveur.
+app.use("/api", apiRateLimiter);
 
 app.use(express.json());
 const origins = [
@@ -77,9 +79,6 @@ app.use(
 app.get("/", (_req: Request, res: Response) => {
   res.json({ message: "Jokko Business API v1.0", status: "running" });
 });
-
-// Limite globale : toutes les routes /api sont protégées, y compris auth et maintenance.
-app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/super-admin", superAdminRoutes);
