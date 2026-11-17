@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { SubscriptionLifecycleService, MAX_GRACE_PERIOD_DAYS } from "../../../services/subscription-lifecycle.service.js";
+import { SubscriptionLifecycleService, DEFAULT_GRACE_PERIOD_DAYS, MAX_GRACE_PERIOD_DAYS } from "../../../services/subscription-lifecycle.service.js";
 import { SubscriptionOverviewService } from "../services/subscription-overview.service.js";
 import { BadRequestError } from "../../../utils/errors.js";
 
@@ -33,7 +33,7 @@ export const SubscriptionOverviewController = {
       const days = await SubscriptionLifecycleService.getGracePeriodDays();
       return res.status(200).json({
         days,
-        defaultDays: 5,
+        defaultDays: DEFAULT_GRACE_PERIOD_DAYS,
         maxDays: MAX_GRACE_PERIOD_DAYS,
       });
     } catch (error) {
