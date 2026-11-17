@@ -4,6 +4,7 @@ type RateLimitOptions = {
   windowMs: number;
   max: number;
   message: string;
+  keyByPath?: boolean;
 };
 
 type WindowEntry = {
@@ -11,27 +12,28 @@ type WindowEntry = {
   resetAt: number;
 };
 
-const windows = new Map<string, WindowEntry>();
+export const createRateLimiter = ({ windowMs, max, message, keyByPath = false }: RateLimitOptions) => {
+  // Chaque limiteur possède son propre compteur : les règles globales et
+  // spécifiques ne se remplacent donc pas mutuellement.
+  const windows = new Map<string, WindowEntry>();
 
-// Nettoyage périodique pour éviter de conserver indéfiniment les anciennes IP.
-const cleanupInterval = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of windows) {
-    if (entry.resetAt <= now) windows.delete(key);
-  }
-}, 60_000);
-cleanupInterval.unref();
+  const cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of windows) {
+      if (entry.resetAt <= now) windows.delete(key);
+    }
+  }, 60_000);
+  cleanupInterval.unref();
 
-export const createRateLimiter = ({ windowMs, max, message }: RateLimitOptions) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Les preflights CORS ne doivent pas consommer le quota de l'utilisateur.
     if (req.method === "OPTIONS") {
       next();
       return;
     }
 
     const now = Date.now();
-    const key = `${req.ip || req.socket.remoteAddress || "unknown"}:${req.baseUrl}${req.path}`;
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const key = keyByPath ? `${ip}:${req.baseUrl}${req.path}` : ip;
     let entry = windows.get(key);
 
     if (!entry || entry.resetAt <= now) {
@@ -49,10 +51,7 @@ export const createRateLimiter = ({ windowMs, max, message }: RateLimitOptions) 
 
     if (entry.count > max) {
       res.setHeader("Retry-After", String(resetSeconds));
-      res.status(429).json({
-        message,
-        retryAfter: resetSeconds,
-      });
+      res.status(429).json({ message, retryAfter: resetSeconds });
       return;
     }
 
@@ -69,41 +68,48 @@ export const apiRateLimiter = createRateLimiter({
 export const loginRateLimiter = createRateLimiter({
   windowMs: 15 * 60_000,
   max: 5,
+  keyByPath: true,
   message: "Trop de tentatives de connexion. Réessayez dans 15 minutes.",
 });
 
 export const passwordRecoveryRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 3,
+  keyByPath: true,
   message: "Trop de demandes de réinitialisation. Réessayez dans une heure.",
 });
 
 export const passwordResetRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 5,
+  keyByPath: true,
   message: "Trop de tentatives de réinitialisation. Réessayez dans une heure.",
 });
 
 export const emailActionRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 5,
+  keyByPath: true,
   message: "Trop de demandes liées à l'e-mail. Réessayez dans une heure.",
 });
 
 export const emailVerificationRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 10,
+  keyByPath: true,
   message: "Trop de tentatives de vérification. Réessayez dans une heure.",
 });
 
 export const invitationRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 5,
+  keyByPath: true,
   message: "Trop de tentatives d'acceptation d'invitation. Réessayez dans une heure.",
 });
 
 export const contactRateLimiter = createRateLimiter({
   windowMs: 60 * 60_000,
   max: 5,
+  keyByPath: true,
   message: "Trop de messages envoyés. Réessayez dans une heure.",
 });
