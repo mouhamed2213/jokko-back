@@ -8,7 +8,7 @@ type SubscriptionLifecycleInput = {
   id: number;
   shopOwnerId: number;
   planId: number;
-  status: string;
+  status: "ACTIVE" | "TRIAL" | "EXPIRED" | "TRIAL_EXPIRED" | "SUSPENDED";
   endDate: Date | null;
   gracePeriodEndsAt: Date | null;
   plan: { code: string };
