@@ -155,6 +155,7 @@ export const SuperAdminShopService = {
         },
       },
       secondaryShops: { select: { id: true, name: true, status: true } },
+      owners: { select: { userId: true }, take: 1 },
       subscriptions: {
         include: { plan: true },
         orderBy: LATEST_SUBSCRIPTION_ORDER,
@@ -211,6 +212,7 @@ export const SuperAdminShopService = {
   return {
     id: shop.id,
     name: shop.name,
+    ownerId: shop.owners[0]?.userId ?? null,
     ownerName: shop.ownerName,
     email: shop.email,
     phone: shop.phone,
