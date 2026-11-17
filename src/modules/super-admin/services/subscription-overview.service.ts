@@ -41,6 +41,7 @@ export const SubscriptionOverviewService = {
         },
         plan: { select: { code: true, name: true, price: true } },
         subsctiption: {
+          where: { paymentType: { in: ["SUBSCRIPTION", "RENEWAL"] } },
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
@@ -163,7 +164,7 @@ export const SubscriptionOverviewService = {
     const pendingPayments = await prisma.payment.count({
       where: {
         status: "PENDING",
-        paymentType: "SUBSCRIPTION",
+        paymentType: { in: ["SUBSCRIPTION", "RENEWAL"] },
         subscription: {
           is: { shop: { is: { primaryShopId: null } } },
         },
