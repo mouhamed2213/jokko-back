@@ -1,7 +1,8 @@
 import { Router } from "express";
+import { contactRateLimiter } from "../middlewares/rate-limit.middleware.js";
 import { ContactController } from "../modules/email/contact.controller.js";
 
 const router = Router();
-router.post("/", ContactController.send);
+router.post("/", contactRateLimiter, ContactController.send);
 
 export default router;
