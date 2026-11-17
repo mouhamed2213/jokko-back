@@ -135,6 +135,7 @@ export const SubscriptionService = {
       return subscription;
     }
 
+    const endDate = subscription.endDate;
     const wasDowngraded =
       await SubscriptionLifecycleService.processSubscription({
         id: subscription.id,
@@ -149,7 +150,7 @@ export const SubscriptionService = {
     // Si la date d'échéance est atteinte, recharger aussi le cas où un
     // renouvellement concurrent vient de modifier l'abonnement pendant le
     // traitement de l'expiration.
-    if (!wasDowngraded && subscription.endDate.getTime() > Date.now()) {
+    if (!wasDowngraded && endDate.getTime() > Date.now()) {
       return subscription;
     }
 
