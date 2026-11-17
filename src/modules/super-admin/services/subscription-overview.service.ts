@@ -149,6 +149,7 @@ export const SubscriptionOverviewService = {
     };
     const subscriptionsByPlan: Record<string, number> = {};
     let mrr = 0;
+    let activePaidCount = 0;
     for (const subscription of subscriptions) {
       subscriptionsByPlan[subscription.plan.code] =
         (subscriptionsByPlan[subscription.plan.code] ?? 0) + 1;
@@ -159,6 +160,7 @@ export const SubscriptionOverviewService = {
       counts[status] = (counts[status] ?? 0) + 1;
       if (status === "ACTIVE" && subscription.plan.code !== "FREE") {
         mrr += subscription.plan.price;
+        activePaidCount += 1;
       }
     }
 
@@ -207,6 +209,7 @@ export const SubscriptionOverviewService = {
       pendingSubscriptionPayments: pendingPayments,
       gracePeriodDays,
       mrr,
+      activePaidCount,
       recentSubscriptions,
     };
   },
