@@ -20,14 +20,25 @@ export type PlatformSettingModel = runtime.Types.Result.DefaultSelection<Prisma.
 
 export type AggregatePlatformSetting = {
   _count: PlatformSettingCountAggregateOutputType | null
+  _avg: PlatformSettingAvgAggregateOutputType | null
+  _sum: PlatformSettingSumAggregateOutputType | null
   _min: PlatformSettingMinAggregateOutputType | null
   _max: PlatformSettingMaxAggregateOutputType | null
+}
+
+export type PlatformSettingAvgAggregateOutputType = {
+  gracePeriodDays: number | null
+}
+
+export type PlatformSettingSumAggregateOutputType = {
+  gracePeriodDays: number | null
 }
 
 export type PlatformSettingMinAggregateOutputType = {
   id: string | null
   maintenanceEnabled: boolean | null
   maintenanceMessage: string | null
+  gracePeriodDays: number | null
   updatedAt: Date | null
 }
 
@@ -35,6 +46,7 @@ export type PlatformSettingMaxAggregateOutputType = {
   id: string | null
   maintenanceEnabled: boolean | null
   maintenanceMessage: string | null
+  gracePeriodDays: number | null
   updatedAt: Date | null
 }
 
@@ -42,15 +54,25 @@ export type PlatformSettingCountAggregateOutputType = {
   id: number
   maintenanceEnabled: number
   maintenanceMessage: number
+  gracePeriodDays: number
   updatedAt: number
   _all: number
 }
 
 
+export type PlatformSettingAvgAggregateInputType = {
+  gracePeriodDays?: true
+}
+
+export type PlatformSettingSumAggregateInputType = {
+  gracePeriodDays?: true
+}
+
 export type PlatformSettingMinAggregateInputType = {
   id?: true
   maintenanceEnabled?: true
   maintenanceMessage?: true
+  gracePeriodDays?: true
   updatedAt?: true
 }
 
@@ -58,6 +80,7 @@ export type PlatformSettingMaxAggregateInputType = {
   id?: true
   maintenanceEnabled?: true
   maintenanceMessage?: true
+  gracePeriodDays?: true
   updatedAt?: true
 }
 
@@ -65,6 +88,7 @@ export type PlatformSettingCountAggregateInputType = {
   id?: true
   maintenanceEnabled?: true
   maintenanceMessage?: true
+  gracePeriodDays?: true
   updatedAt?: true
   _all?: true
 }
@@ -107,6 +131,18 @@ export type PlatformSettingAggregateArgs<ExtArgs extends runtime.Types.Extension
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: PlatformSettingAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: PlatformSettingSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: PlatformSettingMinAggregateInputType
@@ -137,6 +173,8 @@ export type PlatformSettingGroupByArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   _count?: PlatformSettingCountAggregateInputType | true
+  _avg?: PlatformSettingAvgAggregateInputType
+  _sum?: PlatformSettingSumAggregateInputType
   _min?: PlatformSettingMinAggregateInputType
   _max?: PlatformSettingMaxAggregateInputType
 }
@@ -145,8 +183,11 @@ export type PlatformSettingGroupByOutputType = {
   id: string
   maintenanceEnabled: boolean
   maintenanceMessage: string
+  gracePeriodDays: number
   updatedAt: Date
   _count: PlatformSettingCountAggregateOutputType | null
+  _avg: PlatformSettingAvgAggregateOutputType | null
+  _sum: PlatformSettingSumAggregateOutputType | null
   _min: PlatformSettingMinAggregateOutputType | null
   _max: PlatformSettingMaxAggregateOutputType | null
 }
@@ -173,6 +214,7 @@ export type PlatformSettingWhereInput = {
   id?: Prisma.StringFilter<"PlatformSetting"> | string
   maintenanceEnabled?: Prisma.BoolFilter<"PlatformSetting"> | boolean
   maintenanceMessage?: Prisma.StringFilter<"PlatformSetting"> | string
+  gracePeriodDays?: Prisma.IntFilter<"PlatformSetting"> | number
   updatedAt?: Prisma.DateTimeFilter<"PlatformSetting"> | Date | string
 }
 
@@ -180,6 +222,7 @@ export type PlatformSettingOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   maintenanceEnabled?: Prisma.SortOrder
   maintenanceMessage?: Prisma.SortOrder
+  gracePeriodDays?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -190,6 +233,7 @@ export type PlatformSettingWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PlatformSettingWhereInput | Prisma.PlatformSettingWhereInput[]
   maintenanceEnabled?: Prisma.BoolFilter<"PlatformSetting"> | boolean
   maintenanceMessage?: Prisma.StringFilter<"PlatformSetting"> | string
+  gracePeriodDays?: Prisma.IntFilter<"PlatformSetting"> | number
   updatedAt?: Prisma.DateTimeFilter<"PlatformSetting"> | Date | string
 }, "id">
 
@@ -197,10 +241,13 @@ export type PlatformSettingOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   maintenanceEnabled?: Prisma.SortOrder
   maintenanceMessage?: Prisma.SortOrder
+  gracePeriodDays?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.PlatformSettingCountOrderByAggregateInput
+  _avg?: Prisma.PlatformSettingAvgOrderByAggregateInput
   _max?: Prisma.PlatformSettingMaxOrderByAggregateInput
   _min?: Prisma.PlatformSettingMinOrderByAggregateInput
+  _sum?: Prisma.PlatformSettingSumOrderByAggregateInput
 }
 
 export type PlatformSettingScalarWhereWithAggregatesInput = {
@@ -210,6 +257,7 @@ export type PlatformSettingScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"PlatformSetting"> | string
   maintenanceEnabled?: Prisma.BoolWithAggregatesFilter<"PlatformSetting"> | boolean
   maintenanceMessage?: Prisma.StringWithAggregatesFilter<"PlatformSetting"> | string
+  gracePeriodDays?: Prisma.IntWithAggregatesFilter<"PlatformSetting"> | number
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"PlatformSetting"> | Date | string
 }
 
@@ -217,6 +265,7 @@ export type PlatformSettingCreateInput = {
   id?: string
   maintenanceEnabled?: boolean
   maintenanceMessage?: string
+  gracePeriodDays?: number
   updatedAt?: Date | string
 }
 
@@ -224,6 +273,7 @@ export type PlatformSettingUncheckedCreateInput = {
   id?: string
   maintenanceEnabled?: boolean
   maintenanceMessage?: string
+  gracePeriodDays?: number
   updatedAt?: Date | string
 }
 
@@ -231,6 +281,7 @@ export type PlatformSettingUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   maintenanceEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maintenanceMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  gracePeriodDays?: Prisma.IntFieldUpdateOperationsInput | number
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -238,6 +289,7 @@ export type PlatformSettingUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   maintenanceEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maintenanceMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  gracePeriodDays?: Prisma.IntFieldUpdateOperationsInput | number
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -245,6 +297,7 @@ export type PlatformSettingCreateManyInput = {
   id?: string
   maintenanceEnabled?: boolean
   maintenanceMessage?: string
+  gracePeriodDays?: number
   updatedAt?: Date | string
 }
 
@@ -252,6 +305,7 @@ export type PlatformSettingUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   maintenanceEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maintenanceMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  gracePeriodDays?: Prisma.IntFieldUpdateOperationsInput | number
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -259,6 +313,7 @@ export type PlatformSettingUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   maintenanceEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   maintenanceMessage?: Prisma.StringFieldUpdateOperationsInput | string
+  gracePeriodDays?: Prisma.IntFieldUpdateOperationsInput | number
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -266,13 +321,19 @@ export type PlatformSettingCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   maintenanceEnabled?: Prisma.SortOrder
   maintenanceMessage?: Prisma.SortOrder
+  gracePeriodDays?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type PlatformSettingAvgOrderByAggregateInput = {
+  gracePeriodDays?: Prisma.SortOrder
 }
 
 export type PlatformSettingMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   maintenanceEnabled?: Prisma.SortOrder
   maintenanceMessage?: Prisma.SortOrder
+  gracePeriodDays?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -280,7 +341,12 @@ export type PlatformSettingMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   maintenanceEnabled?: Prisma.SortOrder
   maintenanceMessage?: Prisma.SortOrder
+  gracePeriodDays?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type PlatformSettingSumOrderByAggregateInput = {
+  gracePeriodDays?: Prisma.SortOrder
 }
 
 
@@ -289,6 +355,7 @@ export type PlatformSettingSelect<ExtArgs extends runtime.Types.Extensions.Inter
   id?: boolean
   maintenanceEnabled?: boolean
   maintenanceMessage?: boolean
+  gracePeriodDays?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["platformSetting"]>
 
@@ -296,6 +363,7 @@ export type PlatformSettingSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   id?: boolean
   maintenanceEnabled?: boolean
   maintenanceMessage?: boolean
+  gracePeriodDays?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["platformSetting"]>
 
@@ -303,6 +371,7 @@ export type PlatformSettingSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   id?: boolean
   maintenanceEnabled?: boolean
   maintenanceMessage?: boolean
+  gracePeriodDays?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["platformSetting"]>
 
@@ -310,10 +379,11 @@ export type PlatformSettingSelectScalar = {
   id?: boolean
   maintenanceEnabled?: boolean
   maintenanceMessage?: boolean
+  gracePeriodDays?: boolean
   updatedAt?: boolean
 }
 
-export type PlatformSettingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "maintenanceEnabled" | "maintenanceMessage" | "updatedAt", ExtArgs["result"]["platformSetting"]>
+export type PlatformSettingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "maintenanceEnabled" | "maintenanceMessage" | "gracePeriodDays" | "updatedAt", ExtArgs["result"]["platformSetting"]>
 
 export type $PlatformSettingPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "PlatformSetting"
@@ -322,6 +392,7 @@ export type $PlatformSettingPayload<ExtArgs extends runtime.Types.Extensions.Int
     id: string
     maintenanceEnabled: boolean
     maintenanceMessage: string
+    gracePeriodDays: number
     updatedAt: Date
   }, ExtArgs["result"]["platformSetting"]>
   composites: {}
@@ -749,6 +820,7 @@ export interface PlatformSettingFieldRefs {
   readonly id: Prisma.FieldRef<"PlatformSetting", 'String'>
   readonly maintenanceEnabled: Prisma.FieldRef<"PlatformSetting", 'Boolean'>
   readonly maintenanceMessage: Prisma.FieldRef<"PlatformSetting", 'String'>
+  readonly gracePeriodDays: Prisma.FieldRef<"PlatformSetting", 'Int'>
   readonly updatedAt: Prisma.FieldRef<"PlatformSetting", 'DateTime'>
 }
     

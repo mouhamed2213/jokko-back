@@ -146,6 +146,7 @@ export const SubscriptionScalarFieldEnum = {
   status: 'status',
   startDate: 'startDate',
   endDate: 'endDate',
+  gracePeriodEndsAt: 'gracePeriodEndsAt',
   createdAt: 'createdAt'
 } as const
 
@@ -454,6 +455,7 @@ export const PlatformSettingScalarFieldEnum = {
   id: 'id',
   maintenanceEnabled: 'maintenanceEnabled',
   maintenanceMessage: 'maintenanceMessage',
+  gracePeriodDays: 'gracePeriodDays',
   updatedAt: 'updatedAt'
 } as const
 

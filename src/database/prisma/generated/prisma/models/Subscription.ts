@@ -48,6 +48,7 @@ export type SubscriptionMinAggregateOutputType = {
   status: $Enums.SubscriptionStatus | null
   startDate: Date | null
   endDate: Date | null
+  gracePeriodEndsAt: Date | null
   createdAt: Date | null
 }
 
@@ -59,6 +60,7 @@ export type SubscriptionMaxAggregateOutputType = {
   status: $Enums.SubscriptionStatus | null
   startDate: Date | null
   endDate: Date | null
+  gracePeriodEndsAt: Date | null
   createdAt: Date | null
 }
 
@@ -70,6 +72,7 @@ export type SubscriptionCountAggregateOutputType = {
   status: number
   startDate: number
   endDate: number
+  gracePeriodEndsAt: number
   createdAt: number
   _all: number
 }
@@ -97,6 +100,7 @@ export type SubscriptionMinAggregateInputType = {
   status?: true
   startDate?: true
   endDate?: true
+  gracePeriodEndsAt?: true
   createdAt?: true
 }
 
@@ -108,6 +112,7 @@ export type SubscriptionMaxAggregateInputType = {
   status?: true
   startDate?: true
   endDate?: true
+  gracePeriodEndsAt?: true
   createdAt?: true
 }
 
@@ -119,6 +124,7 @@ export type SubscriptionCountAggregateInputType = {
   status?: true
   startDate?: true
   endDate?: true
+  gracePeriodEndsAt?: true
   createdAt?: true
   _all?: true
 }
@@ -217,6 +223,7 @@ export type SubscriptionGroupByOutputType = {
   status: $Enums.SubscriptionStatus
   startDate: Date
   endDate: Date | null
+  gracePeriodEndsAt: Date | null
   createdAt: Date
   _count: SubscriptionCountAggregateOutputType | null
   _avg: SubscriptionAvgAggregateOutputType | null
@@ -251,6 +258,7 @@ export type SubscriptionWhereInput = {
   status?: Prisma.EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
+  gracePeriodEndsAt?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   shop?: Prisma.XOR<Prisma.ShopScalarRelationFilter, Prisma.ShopWhereInput>
   shopOwner?: Prisma.XOR<Prisma.ShopOwnerScalarRelationFilter, Prisma.ShopOwnerWhereInput>
@@ -266,6 +274,7 @@ export type SubscriptionOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   startDate?: Prisma.SortOrder
   endDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  gracePeriodEndsAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   shop?: Prisma.ShopOrderByWithRelationInput
   shopOwner?: Prisma.ShopOwnerOrderByWithRelationInput
@@ -284,6 +293,7 @@ export type SubscriptionWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
+  gracePeriodEndsAt?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   shop?: Prisma.XOR<Prisma.ShopScalarRelationFilter, Prisma.ShopWhereInput>
   shopOwner?: Prisma.XOR<Prisma.ShopOwnerScalarRelationFilter, Prisma.ShopOwnerWhereInput>
@@ -299,6 +309,7 @@ export type SubscriptionOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   startDate?: Prisma.SortOrder
   endDate?: Prisma.SortOrderInput | Prisma.SortOrder
+  gracePeriodEndsAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.SubscriptionCountOrderByAggregateInput
   _avg?: Prisma.SubscriptionAvgOrderByAggregateInput
@@ -318,6 +329,7 @@ export type SubscriptionScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumSubscriptionStatusWithAggregatesFilter<"Subscription"> | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeWithAggregatesFilter<"Subscription"> | Date | string
   endDate?: Prisma.DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+  gracePeriodEndsAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Subscription"> | Date | string
 }
 
@@ -325,6 +337,7 @@ export type SubscriptionCreateInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   shop: Prisma.ShopCreateNestedOneWithoutSubscriptionsInput
   shopOwner: Prisma.ShopOwnerCreateNestedOneWithoutSubscriptionInput
@@ -340,6 +353,7 @@ export type SubscriptionUncheckedCreateInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   subsctiption?: Prisma.PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
 }
@@ -348,6 +362,7 @@ export type SubscriptionUpdateInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   shop?: Prisma.ShopUpdateOneRequiredWithoutSubscriptionsNestedInput
   shopOwner?: Prisma.ShopOwnerUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -363,6 +378,7 @@ export type SubscriptionUncheckedUpdateInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subsctiption?: Prisma.PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
@@ -375,6 +391,7 @@ export type SubscriptionCreateManyInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -382,6 +399,7 @@ export type SubscriptionUpdateManyMutationInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -393,6 +411,7 @@ export type SubscriptionUncheckedUpdateManyInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -414,6 +433,7 @@ export type SubscriptionCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   startDate?: Prisma.SortOrder
   endDate?: Prisma.SortOrder
+  gracePeriodEndsAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -432,6 +452,7 @@ export type SubscriptionMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   startDate?: Prisma.SortOrder
   endDate?: Prisma.SortOrder
+  gracePeriodEndsAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -443,6 +464,7 @@ export type SubscriptionMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   startDate?: Prisma.SortOrder
   endDate?: Prisma.SortOrder
+  gracePeriodEndsAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -606,6 +628,7 @@ export type SubscriptionCreateWithoutShopInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   shopOwner: Prisma.ShopOwnerCreateNestedOneWithoutSubscriptionInput
   plan: Prisma.PlanCreateNestedOneWithoutSubscriptionsInput
@@ -619,6 +642,7 @@ export type SubscriptionUncheckedCreateWithoutShopInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   subsctiption?: Prisma.PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
 }
@@ -660,6 +684,7 @@ export type SubscriptionScalarWhereInput = {
   status?: Prisma.EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFilter<"Subscription"> | Date | string
   endDate?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
+  gracePeriodEndsAt?: Prisma.DateTimeNullableFilter<"Subscription"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Subscription"> | Date | string
 }
 
@@ -667,6 +692,7 @@ export type SubscriptionCreateWithoutShopOwnerInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   shop: Prisma.ShopCreateNestedOneWithoutSubscriptionsInput
   plan: Prisma.PlanCreateNestedOneWithoutSubscriptionsInput
@@ -680,6 +706,7 @@ export type SubscriptionUncheckedCreateWithoutShopOwnerInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   subsctiption?: Prisma.PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
 }
@@ -714,6 +741,7 @@ export type SubscriptionCreateWithoutPlanInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   shop: Prisma.ShopCreateNestedOneWithoutSubscriptionsInput
   shopOwner: Prisma.ShopOwnerCreateNestedOneWithoutSubscriptionInput
@@ -727,6 +755,7 @@ export type SubscriptionUncheckedCreateWithoutPlanInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   subsctiption?: Prisma.PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
 }
@@ -761,6 +790,7 @@ export type SubscriptionCreateWithoutSubsctiptionInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
   shop: Prisma.ShopCreateNestedOneWithoutSubscriptionsInput
   shopOwner: Prisma.ShopOwnerCreateNestedOneWithoutSubscriptionInput
@@ -775,6 +805,7 @@ export type SubscriptionUncheckedCreateWithoutSubsctiptionInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -798,6 +829,7 @@ export type SubscriptionUpdateWithoutSubsctiptionInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   shop?: Prisma.ShopUpdateOneRequiredWithoutSubscriptionsNestedInput
   shopOwner?: Prisma.ShopOwnerUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -812,6 +844,7 @@ export type SubscriptionUncheckedUpdateWithoutSubsctiptionInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -822,6 +855,7 @@ export type SubscriptionCreateManyShopInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -829,6 +863,7 @@ export type SubscriptionUpdateWithoutShopInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   shopOwner?: Prisma.ShopOwnerUpdateOneRequiredWithoutSubscriptionNestedInput
   plan?: Prisma.PlanUpdateOneRequiredWithoutSubscriptionsNestedInput
@@ -842,6 +877,7 @@ export type SubscriptionUncheckedUpdateWithoutShopInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subsctiption?: Prisma.PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
@@ -853,6 +889,7 @@ export type SubscriptionUncheckedUpdateManyWithoutShopInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -863,6 +900,7 @@ export type SubscriptionCreateManyShopOwnerInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -870,6 +908,7 @@ export type SubscriptionUpdateWithoutShopOwnerInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   shop?: Prisma.ShopUpdateOneRequiredWithoutSubscriptionsNestedInput
   plan?: Prisma.PlanUpdateOneRequiredWithoutSubscriptionsNestedInput
@@ -883,6 +922,7 @@ export type SubscriptionUncheckedUpdateWithoutShopOwnerInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subsctiption?: Prisma.PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
@@ -894,6 +934,7 @@ export type SubscriptionUncheckedUpdateManyWithoutShopOwnerInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -904,6 +945,7 @@ export type SubscriptionCreateManyPlanInput = {
   status?: $Enums.SubscriptionStatus
   startDate?: Date | string
   endDate?: Date | string | null
+  gracePeriodEndsAt?: Date | string | null
   createdAt?: Date | string
 }
 
@@ -911,6 +953,7 @@ export type SubscriptionUpdateWithoutPlanInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   shop?: Prisma.ShopUpdateOneRequiredWithoutSubscriptionsNestedInput
   shopOwner?: Prisma.ShopOwnerUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -924,6 +967,7 @@ export type SubscriptionUncheckedUpdateWithoutPlanInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subsctiption?: Prisma.PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
@@ -935,6 +979,7 @@ export type SubscriptionUncheckedUpdateManyWithoutPlanInput = {
   status?: Prisma.EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
   startDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  gracePeriodEndsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -977,6 +1022,7 @@ export type SubscriptionSelect<ExtArgs extends runtime.Types.Extensions.Internal
   status?: boolean
   startDate?: boolean
   endDate?: boolean
+  gracePeriodEndsAt?: boolean
   createdAt?: boolean
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   shopOwner?: boolean | Prisma.ShopOwnerDefaultArgs<ExtArgs>
@@ -993,6 +1039,7 @@ export type SubscriptionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   status?: boolean
   startDate?: boolean
   endDate?: boolean
+  gracePeriodEndsAt?: boolean
   createdAt?: boolean
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   shopOwner?: boolean | Prisma.ShopOwnerDefaultArgs<ExtArgs>
@@ -1007,6 +1054,7 @@ export type SubscriptionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   status?: boolean
   startDate?: boolean
   endDate?: boolean
+  gracePeriodEndsAt?: boolean
   createdAt?: boolean
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   shopOwner?: boolean | Prisma.ShopOwnerDefaultArgs<ExtArgs>
@@ -1021,10 +1069,11 @@ export type SubscriptionSelectScalar = {
   status?: boolean
   startDate?: boolean
   endDate?: boolean
+  gracePeriodEndsAt?: boolean
   createdAt?: boolean
 }
 
-export type SubscriptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "shopOwnerId" | "planId" | "status" | "startDate" | "endDate" | "createdAt", ExtArgs["result"]["subscription"]>
+export type SubscriptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "shopOwnerId" | "planId" | "status" | "startDate" | "endDate" | "gracePeriodEndsAt" | "createdAt", ExtArgs["result"]["subscription"]>
 export type SubscriptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   shopOwner?: boolean | Prisma.ShopOwnerDefaultArgs<ExtArgs>
@@ -1059,6 +1108,7 @@ export type $SubscriptionPayload<ExtArgs extends runtime.Types.Extensions.Intern
     status: $Enums.SubscriptionStatus
     startDate: Date
     endDate: Date | null
+    gracePeriodEndsAt: Date | null
     createdAt: Date
   }, ExtArgs["result"]["subscription"]>
   composites: {}
@@ -1494,6 +1544,7 @@ export interface SubscriptionFieldRefs {
   readonly status: Prisma.FieldRef<"Subscription", 'SubscriptionStatus'>
   readonly startDate: Prisma.FieldRef<"Subscription", 'DateTime'>
   readonly endDate: Prisma.FieldRef<"Subscription", 'DateTime'>
+  readonly gracePeriodEndsAt: Prisma.FieldRef<"Subscription", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"Subscription", 'DateTime'>
 }
     
