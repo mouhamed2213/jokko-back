@@ -146,12 +146,13 @@ export const SubscriptionService = {
         plan: { code: subscription.plan.code },
       });
 
-    if (!wasDowngraded) {
+    // Si la date d'échéance est atteinte, recharger aussi le cas où un
+    // renouvellement concurrent vient de modifier l'abonnement pendant le
+    // traitement de l'expiration.
+    if (!wasDowngraded && subscription.endDate.getTime() > Date.now()) {
       return subscription;
     }
 
-    // Recharger l'abonnement pour retourner les limites et fonctionnalités
-    // du forfait gratuit, sans toucher aux données métier de la boutique.
     const refreshed = await prisma.subscription.findUnique({
       where: { id: subscription.id },
       include: subscriptionInclude,
