@@ -162,6 +162,33 @@ export const SubscriptionOverviewService = {
       }
     }
 
+    const latestSubscriptions = await prisma.subscription.findMany({
+      where: { shop: { is: { primaryShopId: null } } },
+      distinct: ["shopId"],
+      orderBy: [{ shopId: "asc" }, ...LATEST_SUBSCRIPTION_ORDER],
+      include: {
+        shop: { select: { id: true, name: true, email: true } },
+        plan: { select: { code: true, name: true, price: true } },
+      },
+    });
+
+    const recentSubscriptions = latestSubscriptions
+      .map((subscription) => ({
+        id: subscription.id,
+        shopId: subscription.shopId,
+        status: SubscriptionLifecycleService.getLifecycleInfo(
+          subscription,
+          gracePeriodDays,
+        ).status,
+        startDate: subscription.startDate,
+        endDate: subscription.endDate,
+        plan: subscription.plan,
+        shop: subscription.shop,
+        createdAt: subscription.createdAt,
+      }))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 10);
+
     const pendingPayments = await prisma.payment.count({
       where: {
         status: "PENDING",
@@ -180,6 +207,7 @@ export const SubscriptionOverviewService = {
       pendingSubscriptionPayments: pendingPayments,
       gracePeriodDays,
       mrr,
+      recentSubscriptions,
     };
   },
 };
