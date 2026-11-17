@@ -5,10 +5,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const data = process.env;
+const trustProxyHops = Number(data.TRUST_PROXY_HOPS || 0);
 
 export const env = {
   server: data.SERVER || "http://localhost",
   port: Number(data.PORT) || 3000,
+  // Nombre de reverse proxies de confiance devant Express (0 par défaut).
+  trustProxyHops: Number.isInteger(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : 0,
   logLevel: data.LOG_LEVEL || "info",
   db: {
     url: data.DATABASE_URL!,
