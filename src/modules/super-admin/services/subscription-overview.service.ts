@@ -134,6 +134,7 @@ export const SubscriptionOverviewService = {
       select: {
         status: true,
         endDate: true,
+        gracePeriodEndsAt: true,
         plan: { select: { code: true, price: true } },
       },
     });
