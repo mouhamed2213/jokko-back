@@ -5,18 +5,19 @@ import {
   me,
 } from "../controllers/auth.controller.js";
 import { authorizeRoles, protect, protectSuperAdmin } from "../middlewares/auth.middleware.js";
+import { loginLimiter, passwordResetLimiter } from "../middlewares/rate-limit.middleware.js";
 import { AccountAuthController } from "../modules/email/account-auth.controller.js";
 import { acceptSuperAdminInvitation } from "../modules/email/super-admin-invitation.controller.js";
 
 const router = Router();
 
-router.post("/login", login);
-router.post("/super-admin/login", loginSuperAdmin);
+router.post("/login", loginLimiter, login);
+router.post("/super-admin/login", loginLimiter, loginSuperAdmin);
 router.post("/super-admin/invitation/accept", acceptSuperAdminInvitation);
 
 // Public account recovery and confirmation routes.
-router.post("/forgot-password", AccountAuthController.forgotPassword);
-router.post("/password/reset", AccountAuthController.resetPassword);
+router.post("/forgot-password", passwordResetLimiter, AccountAuthController.forgotPassword);
+router.post("/password/reset", passwordResetLimiter, AccountAuthController.resetPassword);
 router.post("/email/verify", AccountAuthController.verifyEmail);
 router.post("/email/change/confirm", AccountAuthController.confirmEmailChange);
 
