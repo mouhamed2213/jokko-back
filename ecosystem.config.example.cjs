@@ -1,10 +1,16 @@
 module.exports = {
   apps: [
     {
-      name: 'mon-application-api',
+      name: 'jokko-business-api',
       script: './dist/index.js',
-      instances: 'max',               // Déploie 1 instance par cœur CPU disponible
-      exec_mode: 'cluster',           // Mode cluster pour la haute disponibilité
+      // Note architecture SSE & Tâches de fond :
+      // Les notifications SSE reposent sur un Store en mémoire vive (Map locale).
+      // Le mode 'fork' (1 instance) est recommandé par défaut tant qu'un adaptateur
+      // Redis Pub/Sub n'est pas branché pour diffuser les alertes de stock inter-instances.
+      // La tâche planifiée d'expiration d'abonnements est protégée et s'exécute uniquement
+      // sur le worker principal (NODE_APP_INSTANCE === '0').
+      instances: 1,
+      exec_mode: 'fork',
       autorestart: true,              // Redémarrage automatique en cas de crash
       watch: false,                   // Désactivé en production
       max_memory_restart: '1G',       // Redémarre le processus si la mémoire dépasse 1 Go
@@ -28,14 +34,14 @@ module.exports = {
         // Supabase / Storage
         SUPABASE_URL: 'https://xyz.supabase.co',
         SUPABASE_SECRET_KEY: 'sb_secret_key_production_vault',
-        ADMIN_EMAIL: "",
-        ADMIN_PASSWORD: "StrongAdminPassword123",
-        // Configuration Mail
-        MAIL_HOST: 'smtp.sendgrid.net',
-        MAIL_PORT: 587,
-        MAIL_USER: 'apikey',
-        MAIL_PASSWORD: 'SG.production_smtp_key_here',
-        MAIL_FROM: 'noreply@jokko-business.com'
+        ADMIN_EMAIL: 'admin@jokko-business.com',
+        ADMIN_PASSWORD: 'StrongAdminPassword123',
+
+        // Configuration Mail (Mailtrap / SMTP)
+        MAILTRAP_TOKEN: 'your_mailtrap_token_here',
+        MAILTRAP_FROM_EMAIL: 'contact@jokko-business.com',
+        MAILTRAP_FROM_NAME: 'Jokko Business',
+        MAILTRAP_CONTACT_EMAIL: 'contact@jokko-business.com'
       }
     }
   ]

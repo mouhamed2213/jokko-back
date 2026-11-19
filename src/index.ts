@@ -114,8 +114,15 @@ const runSubscriptionExpirationJob = () => {
 };
 
 // Rattrapage au démarrage, puis vérification périodique toutes les 15 minutes.
-runSubscriptionExpirationJob();
-setInterval(runSubscriptionExpirationJob, 15 * 60 * 1000);
+// Protection cluster : n'exécute la tâche planifiée que sur l'instance principale (instance 0 sous PM2)
+// afin d'éviter les exécutions concurrentes redondantes en base de données.
+const isPrimaryWorker =
+  !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === "0";
+
+if (isPrimaryWorker) {
+  runSubscriptionExpirationJob();
+  setInterval(runSubscriptionExpirationJob, 15 * 60 * 1000);
+}
 
 app.listen(env.port, () => {
   logger.info(`✅ Jokko Business API démarrée sur ${env.server}:${env.port}`);

@@ -68,5 +68,7 @@ pids/
 
 # Misc
 *.tgz
+package-lock.json
+yarn.lock
 ecosystem.config.js
 ecosystem.config.cjs
