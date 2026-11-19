@@ -40,7 +40,7 @@ export const getClients = async (req: AuthRequest, res: Response) => {
     const salesTotals = clientIds.length
       ? await prisma.sale.groupBy({
           by: ["clientId"],
-          where: { shopId, clientId: { in: clientIds } },
+          where: { shopId, clientId: { in: clientIds }, status: { not: "CANCELLED" } },
           _sum: {
             totalAmount: true,
             paidAmount: true,
@@ -118,7 +118,7 @@ export const getClientById = async (req: AuthRequest, res: Response) => {
         take: limit,
       }),
       prisma.sale.aggregate({
-        where: { shopId, clientId: id },
+        where: { shopId, clientId: id, status: { not: "CANCELLED" } },
         _sum: { totalAmount: true, paidAmount: true, remaining: true },
       }),
     ]);

@@ -10,10 +10,15 @@ export const ErrorHandler = (err: any, req: Request, res: Response, next: NextFu
         method: req.method,
       });
 
-      res.status(err.statusCode || 400).json({
+      const body: Record<string, unknown> = {
         success: false,
         message: err.message,
-      });
+      };
+      if ("code" in err && err.code) {
+        body.code = err.code;
+      }
+
+      res.status(err.statusCode || 400).json(body);
       return;
     }
 

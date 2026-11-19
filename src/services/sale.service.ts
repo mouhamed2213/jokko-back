@@ -1,11 +1,9 @@
+import type { Prisma } from "../database/prisma/generated/prisma/client.js";
 import { logger } from "../config/logger.js";
 import { prisma } from "../config/prisma.js";
 import { sendNotificationToShop } from "../controllers/notification.controller.js";
-import {
-  generateInvoiceNumber,
-  getSaleStatus,
-  recordCashIn,
-} from "../controllers/sale.controller.js";
+import { computePrice } from "../controllers/product.controller.js";
+import { getSaleStatus } from "../controllers/sale.controller.js";
 import {
   BadRequestError,
   ForbiddenError,
@@ -19,13 +17,44 @@ export type Item = {
   unitPrice: number;
 };
 
+async function generateInvoiceNumberInTx(
+  tx: Prisma.TransactionClient,
+  shopId: number,
+  offset = 0,
+): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `FAC-${year}-`;
+
+  const lastSale = await tx.sale.findFirst({
+    where: {
+      shopId,
+      invoiceNumber: { startsWith: prefix },
+    },
+    orderBy: { invoiceNumber: "desc" },
+    select: { invoiceNumber: true },
+  });
+
+  let nextSeq = 1;
+  if (lastSale?.invoiceNumber) {
+    const suffix = lastSale.invoiceNumber.slice(prefix.length);
+    const parsed = Number.parseInt(suffix, 10);
+    if (Number.isFinite(parsed) && parsed > 0 && suffix.length <= 8) {
+      nextSeq = parsed + 1;
+    } else {
+      const countThisYear = await tx.sale.count({
+        where: { shopId, invoiceNumber: { startsWith: prefix } },
+      });
+      nextSeq = countThisYear + 1;
+    }
+  }
+
+  return `${prefix}${String(nextSeq + offset).padStart(5, "0")}`;
+}
+
 export const SaleService = {
   /**
    * Modifie une vente existante (articles, quantités, client...).
-   * Règle de sécurité comptable : on n'autorise la modification que
-   * tant qu'aucun paiement n'a été enregistré sur la facture (paidAmount === 0).
-   * Si un paiement existe déjà, il faut annuler la vente et en recréer une
-   * (workflow existant), pour ne jamais désynchroniser caisse / dette client.
+   * Interdit si la vente est annulée ou a déjà reçu un paiement.
    */
   updateSale: async (
     shopId: number,
@@ -44,6 +73,10 @@ export const SaleService = {
       throw new NotFoundError("Facture introuvable");
     }
 
+    if (existingSale.status === "CANCELLED") {
+      throw new ForbiddenError("Impossible de modifier une facture annulée.");
+    }
+
     if (existingSale.paidAmount > 0) {
       throw new ForbiddenError(
         "Impossible de modifier une facture ayant déjà reçu un paiement. Annulez-la puis recréez-la si besoin.",
@@ -54,23 +87,42 @@ export const SaleService = {
       throw new BadRequestError("Au moins un article est requis");
     }
 
-    if (!clientId && !customerName?.trim()) {
-      throw new BadRequestError("Client ou nom du client passager requis");
+    if (!clientId) {
+      throw new BadRequestError(
+        "Une fiche client est obligatoire pour une facture impayée.",
+      );
     }
 
-    const newProductIds = items.map((i) => Number(i.productId));
-    const products = await prisma.product.findMany({
-      where: { id: { in: newProductIds }, shopId },
+    const client = await prisma.client.findFirst({
+      where: { id: Number(clientId), shopId },
+      select: { id: true },
     });
+    if (!client) {
+      throw new NotFoundError("Client introuvable");
+    }
 
     for (const item of items) {
-      const product = products.find((p) => p.id === Number(item.productId));
-      if (!product) {
-        throw new NotFoundError(`Produit ID ${item.productId} introuvable`);
+      const qty = Number(item.quantity);
+      const price = Number(item.unitPrice);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new BadRequestError("La quantité de chaque article doit être un entier positif.");
+      }
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new BadRequestError("Le prix unitaire de chaque article doit être positif.");
       }
     }
 
-    // Quantité déjà réservée par l'ancienne version de la facture, par produit
+    const newProductIds = [...new Set(items.map((i) => Number(i.productId)))];
+    const products = await prisma.product.findMany({
+      where: { id: { in: newProductIds }, shopId, isActive: true },
+    });
+
+    for (const pid of newProductIds) {
+      if (!products.find((p) => p.id === pid)) {
+        throw new NotFoundError(`Produit ID ${pid} introuvable`);
+      }
+    }
+
     const previouslySold = new Map<number, number>();
     for (const oldItem of existingSale.items) {
       if (!oldItem.productId) continue;
@@ -80,24 +132,10 @@ export const SaleService = {
       );
     }
 
-    // Quantité demandée par la nouvelle version, par produit
     const newlyRequested = new Map<number, number>();
     for (const item of items) {
       const pid = Number(item.productId);
       newlyRequested.set(pid, (newlyRequested.get(pid) || 0) + Number(item.quantity));
-    }
-
-    // Vérifie que le stock disponible (stock actuel + ce qui était déjà
-    // réservé par cette facture) suffit pour la nouvelle quantité demandée.
-    for (const [productId, requestedQty] of newlyRequested.entries()) {
-      const product = products.find((p) => p.id === productId)!;
-      const alreadyReserved = previouslySold.get(productId) || 0;
-      const availableForThisSale = product.quantity + alreadyReserved;
-      if (requestedQty > availableForThisSale) {
-        throw new BadRequestError(
-          `Stock insuffisant pour "${product.name}" (disponible: ${availableForThisSale})`,
-        );
-      }
     }
 
     const totalAmount = items.reduce(
@@ -106,58 +144,72 @@ export const SaleService = {
     );
 
     const updatedSale = await prisma.$transaction(async (tx) => {
-      // 1. Restaurer le stock consommé par l'ancienne version de la facture
-      for (const [productId, qty] of previouslySold.entries()) {
-        await tx.product.update({
-          where: { id: productId },
-          data: { quantity: { increment: qty } },
-        });
-      }
-
-      // 2. Consommer le stock pour la nouvelle version de la facture
-      for (const [productId, qty] of newlyRequested.entries()) {
-        await tx.product.update({
-          where: { id: productId },
-          data: { quantity: { decrement: qty } },
-        });
-      }
-
-      // 3. Tracer le mouvement net de stock par produit (delta) pour l'historique
-      const allProductIds = new Set([
+      const touchedProductIds = new Set<number>([
         ...previouslySold.keys(),
         ...newlyRequested.keys(),
       ]);
-      for (const productId of allProductIds) {
-        const before = previouslySold.get(productId) || 0;
-        const after = newlyRequested.get(productId) || 0;
-        const delta = after - before; // >0 = vente supplémentaire, <0 = restitution
-        if (delta !== 0) {
+
+      for (const productId of touchedProductIds) {
+        const oldQty = previouslySold.get(productId) || 0;
+        const newQty = newlyRequested.get(productId) || 0;
+        const delta = newQty - oldQty;
+        if (delta === 0) continue;
+
+        if (delta > 0) {
+          const updated = await tx.product.updateMany({
+            where: {
+              id: productId,
+              shopId,
+              quantity: { gte: delta },
+            },
+            data: { quantity: { decrement: delta } },
+          });
+          if (updated.count === 0) {
+            const p = products.find((prod) => prod.id === productId);
+            throw new BadRequestError(
+              `Stock insuffisant pour "${p?.name || `Produit #${productId}`}"`,
+            );
+          }
           await tx.stockMovement.create({
             data: {
               shopId,
               productId,
               userId,
-              type: delta > 0 ? "SALE" : "ENTRY",
-              quantity: Math.abs(delta),
-              note: `Modification facture ${existingSale.invoiceNumber || `#${saleId}`}`,
+              type: "SALE",
+              quantity: delta,
+              note: `Modification facture ${existingSale.invoiceNumber || `#${saleId}`} (+${delta})`,
+            },
+          });
+        } else {
+          const restored = Math.abs(delta);
+          await tx.product.update({
+            where: { id: productId },
+            data: { quantity: { increment: restored } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              productId,
+              userId,
+              type: "ENTRY",
+              quantity: restored,
+              note: `Modification facture ${existingSale.invoiceNumber || `#${saleId}`} (-${restored})`,
             },
           });
         }
       }
 
-      // 4. Remplacer les lignes de la facture
       await tx.saleItem.deleteMany({ where: { saleId } });
 
-      const sale = await tx.sale.update({
+      return tx.sale.update({
         where: { id: saleId },
         data: {
-          clientId: clientId ? Number(clientId) : null,
+          clientId: Number(clientId),
           customerName: customerName?.trim() || null,
           totalAmount,
-          paidAmount: 0,
           remaining: totalAmount,
-          status: "UNPAID",
-          note: note || null,
+          status: getSaleStatus(0, totalAmount),
+          note: note !== undefined ? note || null : existingSale.note,
           items: {
             create: items.map((item) => {
               const product = products.find(
@@ -177,51 +229,45 @@ export const SaleService = {
         include: {
           client: true,
           items: { include: { product: true } },
-          payments: true,
+          payments: { orderBy: { paidAt: "asc" } },
         },
       });
-
-      return sale;
     });
 
     logger.info(
-      `✏️ Facture modifiée — ${existingSale.invoiceNumber} — Nouveau total: ${totalAmount} FCFA — Shop: ${shopId}`,
+      `✏️ Facture modifiée — ${existingSale.invoiceNumber || `#${saleId}`} — Nouveau total: ${totalAmount} FCFA — Shop: ${shopId}`,
     );
 
     return updatedSale;
   },
 
   createSale: async (
-    shopOwnerId :number,
+    shopOwnerId: number,
     shopId: number,
     userId: number,
-    clientId: number,
-    customerName: string,
-    paidAmount: string,
-    paymentMethod: string,
+    userRole: string,
+    clientId: number | null | undefined,
+    customerName: string | undefined,
+    paidAmount: number | string | undefined,
+    paymentMethod: string | undefined,
     items: Item[],
-    note: string,
-    productId: number[],
+    note: string | undefined,
   ) => {
-    const subscription = await PlanChecker.plan(shopId , shopOwnerId);
-
+    const subscription = await PlanChecker.plan(shopId, shopOwnerId);
     if (!subscription) {
       throw new ForbiddenError("Abonnement introuvable");
     }
 
     const maxSalesPerMonth = subscription.limits.sales;
-
-    if (maxSalesPerMonth) {
+    if (maxSalesPerMonth !== null && maxSalesPerMonth !== undefined) {
       const now = new Date();
-
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const currentSales = await prisma.sale.count({
         where: {
           shopId,
-          createdAt: {
-            gte: startOfMonth,
-          },
+          status: { not: "CANCELLED" },
+          createdAt: { gte: startOfMonth },
         },
       });
 
@@ -231,126 +277,233 @@ export const SaleService = {
         );
       }
     }
-    //  Find product
+
+    // 1. Validation stricte des articles et agrégation par produit
+    const requestedByProduct = new Map<number, number>();
+    for (const item of items) {
+      const pid = Number(item.productId);
+      const qty = Number(item.quantity);
+      if (!Number.isInteger(pid) || pid <= 0) {
+        throw new BadRequestError("Identifiant de produit invalide.");
+      }
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new BadRequestError("La quantité de chaque article doit être un entier positif.");
+      }
+      if (userRole === "ADMIN") {
+        const price = Number(item.unitPrice);
+        if (!Number.isFinite(price) || price <= 0) {
+          throw new BadRequestError("Le prix unitaire de chaque article doit être supérieur à 0.");
+        }
+      }
+      requestedByProduct.set(pid, (requestedByProduct.get(pid) || 0) + qty);
+    }
+
+    const uniqueProductIds = [...requestedByProduct.keys()];
     const products = await prisma.product.findMany({
-      where: { id: { in: productId }, shopId, isActive: true },
+      where: { id: { in: uniqueProductIds }, shopId, isActive: true },
     });
 
-    for (const item of items) {
-      const product = products.find((p) => p.id === Number(item.productId));
+    for (const [pid, totalQty] of requestedByProduct.entries()) {
+      const product = products.find((p) => p.id === pid);
       if (!product) {
-        throw new NotFoundError(`Produit ID ${item.productId} introuvable`);
+        throw new NotFoundError(`Produit ID ${pid} introuvable`);
       }
-      if (product.quantity < Number(item.quantity)) {
+      if (product.quantity < totalQty) {
         throw new BadRequestError(
           `Stock insuffisant pour "${product.name}" (disponible: ${product.quantity})`,
         );
       }
     }
 
-    // sales amount
-    const totalAmount = items.reduce(
-      (sum: number, item: Item) =>
-        sum + Number(item.unitPrice) * Number(item.quantity),
-      0,
-    );
+    // 2. Calcul des prix : ADMIN peut ajuster (> 0), EMPLOYEE reçoit le prix du palier serveur
+    const resolvedItems = items.map((item) => {
+      const pid = Number(item.productId);
+      const qty = Number(item.quantity);
+      const product = products.find((p) => p.id === pid)!;
+      const totalQtyForProduct = requestedByProduct.get(pid)!;
+      const unitPrice =
+        userRole === "ADMIN"
+          ? Number(item.unitPrice)
+          : computePrice(product, totalQtyForProduct).price;
+
+      return {
+        product,
+        quantity: qty,
+        unitPrice,
+        lineTotal: unitPrice * qty,
+      };
+    });
+
+    const totalAmount = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0);
 
     const paid =
       paidAmount !== undefined && paidAmount !== null && paidAmount !== ""
         ? Number(paidAmount)
         : totalAmount;
 
-    if (paid < 0 || paid > totalAmount) {
+    if (!Number.isFinite(paid) || paid < 0 || paid > totalAmount) {
       throw new BadRequestError("Montant payé invalide");
     }
 
-    // Check cahd registration status
-    const cashRegister = await prisma.cashRegister.findFirst({
-      where: { shopId, status: "OPEN" },
-    });
+    const remaining = totalAmount - paid;
 
-    if (!cashRegister) {
-      logger.warn(
-        `🔒 Vente bloquée — caisse fermée — Shop: ${shopId} — User: ${userId}`,
-      );
+    // Règle métier : fiche client obligatoire pour toute vente partielle ou à crédit
+    if (remaining > 0 && !clientId) {
       throw new BadRequestError(
-        "La caisse est fermée. Veuillez ouvrir la caisse avant d'enregistrer une vente.",
-        "CASH_CLOSED",
+        "Une fiche client est obligatoire pour une vente partielle ou à crédit.",
       );
     }
 
-    const remaining = totalAmount - paid;
+    if (clientId) {
+      const client = await prisma.client.findFirst({
+        where: { id: Number(clientId), shopId },
+        select: { id: true },
+      });
+      if (!client) {
+        throw new NotFoundError("Client introuvable");
+      }
+    }
+
     const status = getSaleStatus(paid, totalAmount);
-    const invoiceNumber = await generateInvoiceNumber(shopId);
     const method = paymentMethod || "CASH";
 
-    const sale = await prisma.$transaction(async (tx) => {
-      const newSale = await tx.sale.create({
-        data: {
-          shopId,
-          userId,
-          clientId: clientId ? Number(clientId) : null,
-          customerName: customerName?.trim() || null,
-          invoiceNumber,
-          totalAmount,
-          paidAmount: paid,
-          remaining,
-          status,
-          note: note || null,
-          items: {
-            create: items.map((item: any) => {
-              const product = products.find(
-                (p) => p.id === Number(item.productId),
-              )!;
-              return {
-                productId: product.id,
-                productName: product.name,
-                productImageUrl: product.imageUrl,
-                quantity: Number(item.quantity),
-                unitPrice: Number(item.unitPrice),
-                totalAmount: Number(item.unitPrice) * Number(item.quantity),
-              };
-            }),
-          },
-        },
-        include: {
-          client: true,
-          items: { include: { product: true } },
-          payments: true,
-        },
-      });
+    // 3. Transaction atomique (vente + paiements + stock + caisse) avec retry en cas de collision de numéro
+    let sale: any = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        sale = await prisma.$transaction(async (tx) => {
+          const cashRegister = await tx.cashRegister.findFirst({
+            where: { shopId, status: "OPEN" },
+          });
 
-      if (paid > 0) {
-        await tx.salePayment.create({
-          data: {
-            saleId: newSale.id,
-            amount: paid,
-            note: "Paiement initial",
-            paymentMethod: method,
-          },
-        });
-      }
+          if (!cashRegister) {
+            logger.warn(
+              `🔒 Vente bloquée — caisse fermée — Shop: ${shopId} — User: ${userId}`,
+            );
+            throw new BadRequestError(
+              "La caisse est fermée. Veuillez ouvrir la caisse avant d'enregistrer une vente.",
+              "CASH_CLOSED",
+            );
+          }
 
-      for (const item of items) {
-        const product = products.find((p) => p.id === Number(item.productId))!;
-        await tx.product.update({
-          where: { id: product.id },
-          data: { quantity: product.quantity - Number(item.quantity) },
-        });
-        await tx.stockMovement.create({
-          data: {
+          const invoiceNumber = await generateInvoiceNumberInTx(
+            tx,
             shopId,
-            productId: product.id,
-            userId,
-            type: "SALE",
-            quantity: Number(item.quantity),
-            note: `Vente ${invoiceNumber}`,
-          },
-        });
-      }
+            attempt,
+          );
 
-      const updatedProducts = await tx.product.findMany({
-        where: { id: { in: productId }, shopId },
+          // Décrément atomique du stock par produit agrégé
+          for (const [pid, totalQty] of requestedByProduct.entries()) {
+            const updated = await tx.product.updateMany({
+              where: {
+                id: pid,
+                shopId,
+                isActive: true,
+                quantity: { gte: totalQty },
+              },
+              data: { quantity: { decrement: totalQty } },
+            });
+            if (updated.count === 0) {
+              const p = products.find((prod) => prod.id === pid)!;
+              throw new BadRequestError(
+                `Stock insuffisant pour "${p.name}"`,
+              );
+            }
+          }
+
+          const newSale = await tx.sale.create({
+            data: {
+              shopId,
+              userId,
+              clientId: clientId ? Number(clientId) : null,
+              customerName: customerName?.trim() || null,
+              invoiceNumber,
+              totalAmount,
+              paidAmount: paid,
+              remaining,
+              status,
+              note: note || null,
+              items: {
+                create: resolvedItems.map((item) => ({
+                  productId: item.product.id,
+                  productName: item.product.name,
+                  productImageUrl: item.product.imageUrl,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  totalAmount: item.lineTotal,
+                })),
+              },
+              ...(paid > 0
+                ? {
+                    payments: {
+                      create: {
+                        amount: paid,
+                        note: "Paiement initial",
+                        paymentMethod: method,
+                      },
+                    },
+                  }
+                : {}),
+            },
+            include: {
+              client: true,
+              items: { include: { product: true } },
+              payments: { orderBy: { paidAt: "asc" } },
+            },
+          });
+
+          for (const item of resolvedItems) {
+            await tx.stockMovement.create({
+              data: {
+                shopId,
+                productId: item.product.id,
+                userId,
+                type: "SALE",
+                quantity: item.quantity,
+                note: `Vente ${invoiceNumber}`,
+              },
+            });
+          }
+
+          // Encaissement en caisse DANS la transaction
+          if (paid > 0) {
+            const clientLabel =
+              newSale.client?.name || newSale.customerName || "Client";
+            await tx.cashTransaction.create({
+              data: {
+                cashRegisterId: cashRegister.id,
+                type: "IN",
+                amount: paid,
+                label: `Vente ${invoiceNumber} — ${clientLabel}`,
+                reference: invoiceNumber,
+                paymentMethod: method,
+              },
+            });
+            await tx.cashRegister.update({
+              where: { id: cashRegister.id },
+              data: { totalIn: { increment: paid } },
+            });
+          }
+
+          return newSale;
+        });
+        break;
+      } catch (err: any) {
+        if (err?.code === "P2002" && attempt < 4) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    // Alertes stock SSE après commit réussi
+    const hasStockAlertFeature =
+      subscription.features.includes("LOW_STOCK_ALERT") ||
+      subscription.features.includes("OUT_OF_STOCK_ALERT");
+
+    if (hasStockAlertFeature) {
+      const updatedProducts = await prisma.product.findMany({
+        where: { id: { in: uniqueProductIds }, shopId },
         select: { id: true, name: true, quantity: true, alertThreshold: true },
       });
 
@@ -359,36 +512,228 @@ export const SaleService = {
       );
       const outOfStock = updatedProducts.filter((p) => p.quantity === 0);
 
-      if (subscription.plan.code !== "FREE") {
-        if (lowStock.length > 0 || outOfStock.length > 0) {
-          sendNotificationToShop(shopId, "stock_alert", {
-            type: "after_sale",
-            invoiceNumber,
-            lowStock,
-            outOfStock,
-            total: lowStock.length + outOfStock.length,
-          });
-        }
-      } else {
-        logger.warn("Free plan no alert Threshold permitted");
+      if (lowStock.length > 0 || outOfStock.length > 0) {
+        sendNotificationToShop(shopId, "stock_alert", {
+          type: "after_sale",
+          invoiceNumber: sale.invoiceNumber,
+          lowStock,
+          outOfStock,
+          total: lowStock.length + outOfStock.length,
+        });
       }
-
-      return newSale;
-    });
-
-    if (paid > 0) {
-      const clientLabel = sale.client?.name || sale.customerName || "Client";
-      await recordCashIn(
-        shopId,
-        paid,
-        `Vente ${invoiceNumber} — ${clientLabel}`,
-        invoiceNumber,
-        method,
-      );
     }
 
     logger.info(
-      `🛒 Vente créée — ${invoiceNumber} — Total: ${totalAmount} FCFA — Payé: ${paid} FCFA — Shop: ${shopId}`,
+      `🛒 Vente créée — ${sale.invoiceNumber} — Total: ${totalAmount} FCFA — Payé: ${paid} FCFA — Shop: ${shopId}`,
     );
+
+    return sale;
+  },
+
+  /**
+   * Ajoute un paiement sur une vente / facture dans une seule transaction (caisse ouverte obligatoire).
+   * Unifie PATCH /sales/:id/payment et PATCH /invoices/:id/payment.
+   */
+  addPayment: async (
+    shopId: number,
+    saleId: number,
+    amount: number,
+    note?: string,
+    paymentMethod = "CASH",
+  ) => {
+    const paymentAmount = Number(amount);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      throw new BadRequestError("Montant invalide");
+    }
+
+    const method = paymentMethod || "CASH";
+
+    const updatedSale = await prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findFirst({
+        where: { id: saleId, shopId },
+        include: { client: true },
+      });
+      if (!sale) {
+        throw new NotFoundError("Facture introuvable");
+      }
+      if (sale.status === "CANCELLED") {
+        throw new BadRequestError("Impossible d'encaisser une facture annulée");
+      }
+      if (sale.remaining <= 0) {
+        throw new BadRequestError("Cette facture est déjà totalement soldée");
+      }
+      if (paymentAmount > sale.remaining) {
+        throw new BadRequestError(
+          `Le montant dépasse le reste à payer (${sale.remaining} FCFA)`,
+        );
+      }
+
+      const cashRegister = await tx.cashRegister.findFirst({
+        where: { shopId, status: "OPEN" },
+      });
+      if (!cashRegister) {
+        throw new BadRequestError(
+          "La caisse est fermée. Veuillez ouvrir la caisse avant d'enregistrer un paiement.",
+          "CASH_CLOSED",
+        );
+      }
+
+      const newPaid = sale.paidAmount + paymentAmount;
+      const newRemaining = Math.max(0, sale.remaining - paymentAmount);
+      const newStatus = getSaleStatus(newPaid, sale.totalAmount);
+
+      await tx.salePayment.create({
+        data: {
+          saleId,
+          amount: paymentAmount,
+          note: note || null,
+          paymentMethod: method,
+        },
+      });
+
+      const updated = await tx.sale.update({
+        where: { id: saleId },
+        data: {
+          paidAmount: newPaid,
+          remaining: newRemaining,
+          status: newStatus,
+        },
+        include: {
+          client: true,
+          items: { include: { product: true } },
+          payments: { orderBy: { paidAt: "asc" } },
+        },
+      });
+
+      const clientLabel =
+        updated.client?.name || updated.customerName || "Client";
+      await tx.cashTransaction.create({
+        data: {
+          cashRegisterId: cashRegister.id,
+          type: "IN",
+          amount: paymentAmount,
+          label: `Règlement facture ${sale.invoiceNumber || `#${saleId}`} — ${clientLabel}`,
+          reference: sale.invoiceNumber || String(saleId),
+          paymentMethod: method,
+        },
+      });
+      await tx.cashRegister.update({
+        where: { id: cashRegister.id },
+        data: { totalIn: { increment: paymentAmount } },
+      });
+
+      return updated;
+    });
+
+    logger.info(
+      `💰 Paiement ajouté — Vente #${saleId} — Montant: ${paymentAmount} FCFA (${method}) — Shop: ${shopId}`,
+    );
+
+    return updatedSale;
+  },
+
+  /**
+   * Annule une vente sans la supprimer (statut CANCELLED) :
+   * - Restaure le stock et trace les mouvements
+   * - Exige une caisse ouverte si un montant avait été encaissé
+   * - Rembourse en caisse par moyen de paiement d'origine
+   * - Conserve la facture et ses paiements pour la traçabilité et la continuité de numérotation
+   */
+  cancelSale: async (shopId: number, userId: number, saleId: number) => {
+    const cancelled = await prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findFirst({
+        where: { id: saleId, shopId },
+        include: { items: true, payments: true },
+      });
+
+      if (!sale) {
+        throw new NotFoundError("Vente introuvable");
+      }
+      if (sale.status === "CANCELLED") {
+        throw new BadRequestError("Cette vente est déjà annulée");
+      }
+
+      if (sale.paidAmount > 0) {
+        const cashRegister = await tx.cashRegister.findFirst({
+          where: { shopId, status: "OPEN" },
+        });
+        if (!cashRegister) {
+          throw new BadRequestError(
+            "La caisse est fermée. Veuillez ouvrir la caisse pour annuler et rembourser cette vente.",
+            "CASH_CLOSED",
+          );
+        }
+
+        // Regrouper les paiements par moyen de paiement d'origine
+        const refundByMethod = new Map<string, number>();
+        if (sale.payments.length > 0) {
+          for (const p of sale.payments) {
+            const method = p.paymentMethod || "CASH";
+            refundByMethod.set(method, (refundByMethod.get(method) || 0) + p.amount);
+          }
+        } else {
+          refundByMethod.set("CASH", sale.paidAmount);
+        }
+
+        let totalRefund = 0;
+        for (const [method, amount] of refundByMethod.entries()) {
+          if (amount <= 0) continue;
+          totalRefund += amount;
+          await tx.cashTransaction.create({
+            data: {
+              cashRegisterId: cashRegister.id,
+              type: "OUT",
+              amount,
+              label: `Annulation vente ${sale.invoiceNumber || `#${saleId}`}`,
+              reference: sale.invoiceNumber || String(saleId),
+              paymentMethod: method,
+            },
+          });
+        }
+
+        if (totalRefund > 0) {
+          await tx.cashRegister.update({
+            where: { id: cashRegister.id },
+            data: { totalOut: { increment: totalRefund } },
+          });
+        }
+      }
+
+      // Restaurer le stock
+      for (const item of sale.items) {
+        if (item.productId) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { quantity: { increment: item.quantity } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              shopId,
+              productId: item.productId,
+              userId,
+              type: "ENTRY",
+              quantity: item.quantity,
+              note: `Annulation vente ${sale.invoiceNumber || `#${saleId}`}`,
+            },
+          });
+        }
+      }
+
+      return tx.sale.update({
+        where: { id: saleId },
+        data: {
+          status: "CANCELLED",
+          remaining: 0,
+        },
+        include: {
+          client: true,
+          items: { include: { product: true } },
+          payments: { orderBy: { paidAt: "asc" } },
+        },
+      });
+    });
+
+    logger.warn(`🚫 Vente annulée (statut CANCELLED) — ID: ${saleId} — Shop: ${shopId}`);
+    return cancelled;
   },
 };

@@ -73,14 +73,14 @@ const getShopStats = async (shopId: number) => {
     prisma.product.count({ where: { shopId, isActive: true } }),
     prisma.client.count({ where: { shopId } }),
     prisma.supplier.count({ where: { shopId } }),
-    prisma.sale.count({ where: { shopId, createdAt: { gte: monthStart } } }),
+    prisma.sale.count({ where: { shopId, status: { not: "CANCELLED" }, createdAt: { gte: monthStart } } }),
     prisma.sale.aggregate({
-      where: { shopId, createdAt: { gte: d30 } },
+      where: { shopId, status: { not: "CANCELLED" }, createdAt: { gte: d30 } },
       _count: { _all: true },
       _sum: { totalAmount: true },
     }),
     prisma.sale.aggregate({
-      where: { shopId },
+      where: { shopId, status: { not: "CANCELLED" } },
       _count: { _all: true },
       _sum: { totalAmount: true, remaining: true },
       _max: { createdAt: true },

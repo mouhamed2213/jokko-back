@@ -121,7 +121,19 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
     }
 
-    const existing = await prisma.user.findFirst({ where: { id, shopId } });
+    const existing = await prisma.user.findFirst({
+      where: { id, shopId },
+      include: {
+        _count: {
+          select: {
+            ownedShops: true,
+            sales: true,
+            cashRegisters: true,
+            stockMovements: true,
+          },
+        },
+      },
+    });
     if (!existing) return res.status(404).json({ message: "Utilisateur introuvable" });
     const shop = await prisma.shop.findUnique({
       where: { id: shopId },
@@ -130,6 +142,17 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     if (shop?.currentShop === "SECONDARY" && existing.role === "ADMIN") {
       return res.status(409).json({
         message: "Le responsable d'une boutique secondaire doit être désactivé, pas supprimé.",
+      });
+    }
+    if (
+      existing._count.ownedShops > 0 ||
+      existing._count.sales > 0 ||
+      existing._count.cashRegisters > 0 ||
+      existing._count.stockMovements > 0
+    ) {
+      return res.status(409).json({
+        message:
+          "Impossible de supprimer un utilisateur lié à des ventes, caisses, mouvements ou boutiques. Désactivez plutôt son compte.",
       });
     }
 

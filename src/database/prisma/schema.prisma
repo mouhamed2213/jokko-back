@@ -301,7 +301,7 @@ model Sale {
   shopId        Int
   userId        Int?
   clientId      Int?
-  invoiceNumber String?  @unique
+  invoiceNumber String?
   customerName  String?
   totalAmount   Float
   paidAmount    Float    @default(0)
@@ -317,6 +317,7 @@ model Sale {
   items    SaleItem[]
   payments SalePayment[]
 
+  @@unique([shopId, invoiceNumber])
   @@map("sales")
 }
 

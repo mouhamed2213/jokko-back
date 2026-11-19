@@ -12,6 +12,7 @@ export const AnalyticsRepository = {
     prisma.sale.aggregate({
       where: {
         shopId,
+        status: { not: "CANCELLED" },
         createdAt: { gte: period.startDate, lte: period.endDate },
       },
       _count: { _all: true },
@@ -21,7 +22,7 @@ export const AnalyticsRepository = {
   getPaymentAggregate: (shopId: number, period: AnalyticsPeriod) =>
     prisma.salePayment.aggregate({
       where: {
-        sale: { shopId },
+        sale: { shopId, status: { not: "CANCELLED" } },
         paidAt: { gte: period.startDate, lte: period.endDate },
       },
       _sum: { amount: true },
@@ -65,6 +66,7 @@ export const AnalyticsRepository = {
         COALESCE(SUM("sales"."remaining"), 0)::float AS remaining
       FROM "sales"
       WHERE "sales"."shopId" = ${shopId}
+        AND "sales"."status" <> 'CANCELLED'
         AND "sales"."createdAt" >= ${period.startDate}
         AND "sales"."createdAt" <= ${period.endDate}
       GROUP BY 1  ORDER BY bucket ASC
@@ -85,7 +87,7 @@ export const AnalyticsRepository = {
         COALESCE(SUM("sale_payments"."amount"), 0)::float AS collected
       FROM "sale_payments"
       WHERE "saleId" IN (
-        SELECT "id" FROM "sales" WHERE "shopId" = ${shopId}
+        SELECT "id" FROM "sales" WHERE "shopId" = ${shopId} AND "status" <> 'CANCELLED'
       )
         AND "sale_payments"."paidAt" >= ${period.startDate}
         AND "sale_payments"."paidAt" <= ${period.endDate}
@@ -105,6 +107,7 @@ export const AnalyticsRepository = {
       where: {
         sale: {
           shopId,
+          status: { not: "CANCELLED" },
           createdAt: { gte: period.startDate, lte: period.endDate },
         },
       },
@@ -163,6 +166,7 @@ export const AnalyticsRepository = {
       LEFT JOIN "sales" s
         ON s."id" = s_item."saleId"
         AND s."shopId" = p."shopId"
+        AND s."status" <> 'CANCELLED'
         AND s."createdAt" >= ${period.startDate}
         AND s."createdAt" <= ${period.endDate}
       LEFT JOIN LATERAL (
@@ -213,6 +217,7 @@ export const AnalyticsRepository = {
       LEFT JOIN "sales" s
         ON s."id" = s_item."saleId"
         AND s."shopId" = p."shopId"
+        AND s."status" <> 'CANCELLED'
         AND s."createdAt" >= ${period.startDate}
         AND s."createdAt" <= ${period.endDate}
       LEFT JOIN LATERAL (
@@ -258,17 +263,20 @@ export const AnalyticsRepository = {
           FROM "sales" all_sale
           WHERE all_sale."clientId" = c."id"
             AND all_sale."shopId" = c."shopId"
+            AND all_sale."status" <> 'CANCELLED'
         ), 0)::float AS receivable,
         (
           SELECT MAX(all_sale."createdAt")
           FROM "sales" all_sale
           WHERE all_sale."clientId" = c."id"
             AND all_sale."shopId" = c."shopId"
+            AND all_sale."status" <> 'CANCELLED'
         ) AS "lastOrderAt"
       FROM "clients" c
       LEFT JOIN "sales" period_sale
         ON period_sale."clientId" = c."id"
         AND period_sale."shopId" = c."shopId"
+        AND period_sale."status" <> 'CANCELLED'
         AND period_sale."createdAt" >= ${period.startDate}
         AND period_sale."createdAt" <= ${period.endDate}
       WHERE c."shopId" = ${shopId}
@@ -324,6 +332,7 @@ export const AnalyticsRepository = {
         GROUP BY "saleId"
       ) items ON items."saleId" = s."id"
       WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
         AND s."createdAt" >= ${period.startDate}
         AND s."createdAt" <= ${period.endDate}
       GROUP BY 1
@@ -340,6 +349,7 @@ export const AnalyticsRepository = {
       FROM "sale_payments" sp
       INNER JOIN "sales" s ON s."id" = sp."saleId"
       WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
         AND sp."paidAt" >= ${period.startDate}
         AND sp."paidAt" <= ${period.endDate}
       GROUP BY 1
@@ -356,6 +366,7 @@ export const AnalyticsRepository = {
         COUNT(*)::int AS "salesCount"
       FROM "sales" s
       WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
         AND s."createdAt" >= ${period.startDate}
         AND s."createdAt" <= ${period.endDate}
       GROUP BY 1, 2

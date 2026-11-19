@@ -515,16 +515,28 @@ export const deleteSupplier = async (req: AuthRequest, res: Response) => {
     const shopId = req.user!.shopId;
     const id = Number(req.params.id);
 
-    const existing = await prisma.supplier.findFirst({ where: { id, shopId } });
+    const existing = await prisma.supplier.findFirst({
+      where: { id, shopId },
+      include: {
+        _count: { select: { supplierDebts: true, stockMovements: true } },
+      },
+    });
     if (!existing)
       return res.status(404).json({ message: "Fournisseur introuvable" });
+
+    if (existing._count.supplierDebts > 0 || existing._count.stockMovements > 0) {
+      return res.status(400).json({
+        message:
+          "Impossible de supprimer un fournisseur ayant un historique d'achats, de dettes ou de mouvements de stock.",
+      });
+    }
 
     await prisma.supplier.delete({ where: { id } });
     return res.status(200).json({ message: "Fournisseur supprimé" });
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur suppression fournisseur", error });
+      .json({ message: "Erreur suppression fournisseur" });
   }
 };
 

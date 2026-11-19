@@ -1,9 +1,101 @@
 import { prisma } from "../config/prisma.js";
-import { upload } from "../config/storage.config.js";
-import { UploadService } from "../modules/uploads/upload.service.js";
-import { BadRequestError, ForbiddenError, NotFoundError } from "../utils/errors.js";
-import { cleanPath, validateFile } from "../utils/file-upload.js";
+import {
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+} from "../utils/errors.js";
 import { PlanChecker } from "./plan-checker.service.js";
+import { StockService } from "./stock.service.js";
+
+export type ProductPricingInput = {
+  purchasePrice: number;
+  salePrice: number;
+  semiWholesalePrice?: number | null;
+  semiWholesaleMinQty?: number | null;
+  wholesalePrice?: number | null;
+  wholesaleMinQty?: number | null;
+};
+
+/**
+ * Valide la cohérence des prix et des paliers tarifaires (création & modification).
+ */
+export function validateProductPricing(input: ProductPricingInput): void {
+  const {
+    purchasePrice,
+    salePrice,
+    semiWholesalePrice,
+    semiWholesaleMinQty,
+    wholesalePrice,
+    wholesaleMinQty,
+  } = input;
+
+  if (!Number.isFinite(purchasePrice) || purchasePrice < 0) {
+    throw new BadRequestError("Le prix d'achat doit être un nombre supérieur ou égal à 0.");
+  }
+  if (!Number.isFinite(salePrice) || salePrice <= 0) {
+    throw new BadRequestError("Le prix de vente doit être strictement supérieur à 0.");
+  }
+  if (salePrice < purchasePrice) {
+    throw new BadRequestError("Le prix de vente ne peut pas être inférieur au prix d'achat.");
+  }
+
+  const hasSemiPrice = semiWholesalePrice !== null && semiWholesalePrice !== undefined;
+  const hasSemiQty = semiWholesaleMinQty !== null && semiWholesaleMinQty !== undefined;
+  if (hasSemiPrice !== hasSemiQty) {
+    throw new BadRequestError(
+      "Le palier Demi-gros requiert à la fois une quantité minimum et un prix.",
+    );
+  }
+  if (hasSemiPrice && hasSemiQty) {
+    if (!Number.isInteger(semiWholesaleMinQty) || semiWholesaleMinQty! < 2) {
+      throw new BadRequestError("La quantité minimum Demi-gros doit être un entier ≥ 2.");
+    }
+    if (!Number.isFinite(semiWholesalePrice) || semiWholesalePrice! <= 0) {
+      throw new BadRequestError("Le prix Demi-gros doit être supérieur à 0.");
+    }
+    if (semiWholesalePrice! >= salePrice) {
+      throw new BadRequestError("Le prix Demi-gros doit être inférieur au prix de vente détail.");
+    }
+    if (semiWholesalePrice! < purchasePrice) {
+      throw new BadRequestError("Le prix Demi-gros ne peut pas être inférieur au prix d'achat.");
+    }
+  }
+
+  const hasWholesalePrice = wholesalePrice !== null && wholesalePrice !== undefined;
+  const hasWholesaleQty = wholesaleMinQty !== null && wholesaleMinQty !== undefined;
+  if (hasWholesalePrice !== hasWholesaleQty) {
+    throw new BadRequestError(
+      "Le palier Gros requiert à la fois une quantité minimum et un prix.",
+    );
+  }
+  if (hasWholesalePrice && hasWholesaleQty) {
+    if (!Number.isInteger(wholesaleMinQty) || wholesaleMinQty! < 2) {
+      throw new BadRequestError("La quantité minimum Gros doit être un entier ≥ 2.");
+    }
+    if (!Number.isFinite(wholesalePrice) || wholesalePrice! <= 0) {
+      throw new BadRequestError("Le prix Gros doit être supérieur à 0.");
+    }
+    if (wholesalePrice! >= salePrice) {
+      throw new BadRequestError("Le prix Gros doit être inférieur au prix de vente détail.");
+    }
+    if (wholesalePrice! < purchasePrice) {
+      throw new BadRequestError("Le prix Gros ne peut pas être inférieur au prix d'achat.");
+    }
+  }
+
+  if (hasSemiPrice && hasSemiQty && hasWholesalePrice && hasWholesaleQty) {
+    if (wholesaleMinQty! <= semiWholesaleMinQty!) {
+      throw new BadRequestError(
+        "La quantité minimum Gros doit être strictement supérieure à celle du Demi-gros.",
+      );
+    }
+    if (wholesalePrice! >= semiWholesalePrice!) {
+      throw new BadRequestError(
+        "Le prix Gros doit être strictement inférieur au prix Demi-gros.",
+      );
+    }
+  }
+}
 
 export type CreateProductInput = {
   shopOwnerId: number;
@@ -18,10 +110,10 @@ export type CreateProductInput = {
   quantity?: number;
   alertThreshold?: number;
   imageUrl?: string | null;
-  semiWholesalePrice?: number;
-  semiWholesaleMinQty?: number;
-  wholesalePrice?: number;
-  wholesaleMinQty?: number;
+  semiWholesalePrice?: number | null;
+  semiWholesaleMinQty?: number | null;
+  wholesalePrice?: number | null;
+  wholesaleMinQty?: number | null;
   supplierId?: number;
   unitCost?: number;
   paidAmount?: number;
@@ -29,6 +121,31 @@ export type CreateProductInput = {
 };
 
 export const ProductService = {
+  async assertUniqueReference(
+    shopId: number,
+    reference: string | null | undefined,
+    excludeProductId?: number,
+  ) {
+    const trimmed = reference?.trim();
+    if (!trimmed) return;
+
+    const duplicate = await prisma.product.findFirst({
+      where: {
+        shopId,
+        isActive: true,
+        reference: { equals: trimmed, mode: "insensitive" },
+        ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+      },
+      select: { id: true, name: true },
+    });
+
+    if (duplicate) {
+      throw new ConflictError(
+        `La référence "${trimmed}" est déjà utilisée par le produit "${duplicate.name}".`,
+      );
+    }
+  },
+
   async createProduct(input: CreateProductInput) {
     const {
       shopOwnerId,
@@ -52,155 +169,88 @@ export const ProductService = {
       paidAmount = 0,
       createDebt = false,
     } = input;
-    const shop = await PlanChecker.plan(shopId, shopOwnerId);
-    const subscription = shop;
 
-    const currentProducts = await prisma.product.count({
-      where: { shopId },
-    });
-
+    const subscription = await PlanChecker.plan(shopId, shopOwnerId);
     if (!subscription) {
-      return;
+      throw new ForbiddenError("Abonnement introuvable");
     }
 
-    const maxProducts = subscription.limits.products ?? 50;
+    // Ne compter que les produits actifs ; null = illimité (plans payants)
+    const maxProducts = subscription.limits.products;
+    if (maxProducts !== null && maxProducts !== undefined) {
+      const currentProducts = await prisma.product.count({
+        where: { shopId, isActive: true },
+      });
 
-    if (currentProducts >= maxProducts) {
-      throw new ForbiddenError(
-        `Vous avez atteint la limite de ${maxProducts} produits autorisés par votre abonnement.`,
-      );
-    }
-
-    const qty = Number(quantity) || 0;
-    const cost = supplierId
-      ? Number(unitCost || purchasePrice)
-      : unitCost
-        ? Number(unitCost)
-        : null;
-    const paid = Number(paidAmount) || 0;
-
-    return prisma.$transaction(async (tx) => {
-      if (supplierId) {
-        const supplier = await tx.supplier.findFirst({
-          where: { id: supplierId, shopId },
-        });
-        if (!supplier) {
-          throw new NotFoundError("Fournisseur introuvable");
-        }
-      }
-
-      if (createDebt && (!supplierId || !cost || cost <= 0)) {
-        throw new BadRequestError(
-          "Un fournisseur et un coût unitaire sont obligatoires pour créer une dette",
+      if (currentProducts >= maxProducts) {
+        throw new ForbiddenError(
+          `Vous avez atteint la limite de ${maxProducts} produits autorisés par votre abonnement.`,
         );
       }
-      if (paid < 0) {
-        throw new BadRequestError("L'acompte ne peut pas être négatif");
-      }
+    }
 
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty < 0) {
+      throw new BadRequestError("La quantité initiale doit être un entier supérieur ou égal à 0.");
+    }
+
+    const parsedAlert = Number.isFinite(alertThreshold) ? Number(alertThreshold) : 5;
+    if (!Number.isInteger(parsedAlert) || parsedAlert < 0) {
+      throw new BadRequestError("Le seuil d'alerte doit être un entier supérieur ou égal à 0.");
+    }
+
+    validateProductPricing({
+      purchasePrice,
+      salePrice,
+      semiWholesalePrice,
+      semiWholesaleMinQty,
+      wholesalePrice,
+      wholesaleMinQty,
+    });
+
+    const trimmedRef = reference?.trim() || null;
+    await ProductService.assertUniqueReference(shopId, trimmedRef);
+
+    return prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
           shopId,
-          name,
-          description: description || null,
-          reference: reference || null,
+          name: name.trim(),
+          description: description?.trim() || null,
+          reference: trimmedRef,
           categoryId: categoryId ? Number(categoryId) : null,
           quantity: 0,
           purchasePrice: Number(purchasePrice),
           salePrice: Number(salePrice),
-          alertThreshold: Number(alertThreshold) || 5,
+          alertThreshold: parsedAlert,
           imageUrl: imageUrl || null,
-          semiWholesalePrice: semiWholesalePrice
-            ? Number(semiWholesalePrice)
-            : null,
-          semiWholesaleMinQty: semiWholesaleMinQty
-            ? Number(semiWholesaleMinQty)
-            : null,
-          wholesalePrice: wholesalePrice ? Number(wholesalePrice) : null,
-          wholesaleMinQty: wholesaleMinQty ? Number(wholesaleMinQty) : null,
+          semiWholesalePrice: semiWholesalePrice ?? null,
+          semiWholesaleMinQty: semiWholesaleMinQty ?? null,
+          wholesalePrice: wholesalePrice ?? null,
+          wholesaleMinQty: wholesaleMinQty ?? null,
         },
       });
 
-      if (qty <= 0) {
-        return tx.product.findUniqueOrThrow({
-          where: { id: product.id },
-          include: { category: true },
-        });
-      }
-
-      const totalCost = cost ? cost * qty : null;
-      if (createDebt && totalCost !== null && paid > totalCost) {
-        throw new BadRequestError(
-          "L'acompte ne peut pas dépasser le montant total de l'approvisionnement",
-        );
-      }
-      const updatedProduct = await tx.product.update({
-        where: { id: product.id },
-        data: { quantity: qty },
-      });
-
-      await tx.stockMovement.create({
-        data: {
+      if (qty > 0) {
+        await StockService.recordEntryInTx(tx, {
           shopId,
-          productId: product.id,
           userId,
-          supplierId: supplierId || null,
-          type: "ENTRY",
+          productId: product.id,
+          productName: product.name,
+          purchasePrice: product.purchasePrice,
           quantity: qty,
-          unitCost: cost,
           note: "Stock initial",
-        },
-      });
-
-      if (supplierId && createDebt && totalCost && totalCost > 0) {
-        const remaining = totalCost - paid;
-        const debt = await tx.supplierDebt.create({
-          data: {
-            supplierId,
-            totalAmount: totalCost,
-            paidAmount: paid,
-            remaining: remaining > 0 ? remaining : 0,
-            status: remaining <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "UNPAID",
-            note: `Approvisionnement — ${name} x${qty}`,
-          },
+          supplierId: supplierId || null,
+          unitCost: unitCost ?? null,
+          paidAmount,
+          createDebt,
         });
-
-        if (paid > 0) {
-          await tx.supplierPayment.create({
-            data: {
-              debtId: debt.id,
-              amount: paid,
-              note: "Acompte à la livraison",
-            },
-          });
-
-          const cashRegister = await tx.cashRegister.findFirst({
-            where: { shopId, status: "OPEN" },
-          });
-          if (cashRegister) {
-            await tx.cashTransaction.create({
-              data: {
-                cashRegisterId: cashRegister.id,
-                type: "OUT",
-                amount: paid,
-                label: `Acompte fournisseur — ${name} x${qty}`,
-                reference: String(supplierId),
-              },
-            });
-            await tx.cashRegister.update({
-              where: { id: cashRegister.id },
-              data: { totalOut: { increment: paid } },
-            });
-          }
-        }
       }
 
       return tx.product.findUniqueOrThrow({
-        where: { id: updatedProduct.id },
+        where: { id: product.id },
         include: { category: true },
       });
     });
   },
-
-
 };

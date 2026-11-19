@@ -1,11 +1,29 @@
 import { NextFunction, Response } from "express";
 import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
-import { ProductService } from "./../services/product.service.js";
-import {  UploadService } from "../modules/uploads/upload.service.js";
-import { cleanPath, getFullStorageUrl, validateFile } from "../utils/file-upload.js";
+import {
+  ProductService,
+  validateProductPricing,
+} from "./../services/product.service.js";
+import { UploadService } from "../modules/uploads/upload.service.js";
+import {
+  cleanPath,
+  getFullStorageUrl,
+  validateFile,
+} from "../utils/file-upload.js";
+import { BadRequestError, NotFoundError } from "../utils/errors.js";
 
-export const mapProductToDto = (product: any, bucketName: string = "products") => {
+const parseOptionalNumber = (value: unknown): number | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+};
+
+export const mapProductToDto = (
+  product: any,
+  bucketName: string = "products",
+) => {
   return {
     ...product,
     imageUrl: getFullStorageUrl(bucketName, product.imageUrl),
@@ -15,16 +33,22 @@ export const mapProductToDto = (product: any, bucketName: string = "products") =
 export const getProducts = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
-    const search = typeof req.query.search === "string" ? req.query.search : "";
+    const search =
+      typeof req.query.search === "string" ? req.query.search.trim() : "";
     const categoryId = req.query.categoryId
       ? Number(req.query.categoryId)
       : undefined;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
     const where: any = { shopId, isActive: true };
-    if (search) where.name = { contains: search, mode: "insensitive" };
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { reference: { contains: search, mode: "insensitive" } },
+      ];
+    }
     if (categoryId) where.categoryId = categoryId;
 
     const [total, products] = await Promise.all([
@@ -38,9 +62,8 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-    // ── Application du Mapper pour formater imageUrl ──
     const formattedProducts = products.map((product) =>
-      mapProductToDto(product, "products")
+      mapProductToDto(product, "products"),
     );
 
     return res.status(200).json({
@@ -56,7 +79,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur récupération produits", error });
+      .json({ message: "Erreur récupération produits" });
   }
 };
 
@@ -73,13 +96,14 @@ export const getProductById = async (req: AuthRequest, res: Response) => {
     if (!product)
       return res.status(404).json({ message: "Produit introuvable" });
 
-    return res.status(200).json(product);
+    return res.status(200).json(mapProductToDto(product, "products"));
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur récupération produit", error });
+      .json({ message: "Erreur récupération produit" });
   }
 };
+
 export const createProduct = async (
   req: AuthRequest,
   res: Response,
@@ -97,7 +121,7 @@ export const createProduct = async (
       salePrice,
       quantity,
       alertThreshold,
-      imageUrl: directImageUrl, // URL de secours si pas de fichier envoyé
+      imageUrl: directImageUrl,
       semiWholesalePrice,
       semiWholesaleMinQty,
       wholesalePrice,
@@ -108,45 +132,45 @@ export const createProduct = async (
       createDebt,
     } = req.body;
 
-    // return console.log("req.body", req.body);
-    if (!name || purchasePrice == null || salePrice == null) {
-      return res.status(400).json({
-        message: "Nom, prix d'achat et prix de vente sont obligatoires",
-      });
-    }
-    const parsedPaidAmount = Number(paidAmount) || 0;
-    if (parsedPaidAmount < 0) {
-      return res.status(400).json({ message: "L'acompte ne peut pas être négatif" });
-    }
     if (
-      (createDebt === true || createDebt === "true") &&
-      Number(unitCost || purchasePrice) > 0 &&
-      parsedPaidAmount > Number(unitCost || purchasePrice) * (Number(quantity) || 0)
+      !name?.trim() ||
+      purchasePrice === undefined ||
+      purchasePrice === null ||
+      purchasePrice === "" ||
+      salePrice === undefined ||
+      salePrice === null ||
+      salePrice === ""
     ) {
-      return res.status(400).json({
-        message: "L'acompte ne peut pas dépasser le montant total de l'approvisionnement",
-      });
+      throw new BadRequestError(
+        "Nom, prix d'achat et prix de vente sont obligatoires",
+      );
     }
 
     let imageUrl = directImageUrl || null;
 
-    // 1. Traitement du fichier uploadé via Multer (si présent)
     if (req.file) {
       validateFile(req.file);
       const filePath = cleanPath(req.file);
-      
-      // Upload vers Supabase Storage
       const uploadResult = await UploadService.uploadFile(
-        req.file, 
-        filePath, 
-        "product"
+        req.file,
+        filePath,
+        "product",
       );
-
-      // On récupère le chemin relatif retourné par Supabase (ex: uploadResult.path)
-      imageUrl = uploadResult?.path || uploadResult;
+      imageUrl = uploadResult?.path || null;
     }
 
-    // 2. Création du produit avec le bon imageUrl
+    const parsedQuantity =
+      quantity === undefined || quantity === null || quantity === ""
+        ? 0
+        : Number(quantity);
+
+    const parsedAlert =
+      alertThreshold === undefined ||
+      alertThreshold === null ||
+      alertThreshold === ""
+        ? 5
+        : Number(alertThreshold);
+
     const product = await ProductService.createProduct({
       shopOwnerId,
       shopId,
@@ -157,35 +181,41 @@ export const createProduct = async (
       categoryId,
       purchasePrice: Number(purchasePrice),
       salePrice: Number(salePrice),
-      quantity: Number(quantity) || 0,
-      alertThreshold: Number(alertThreshold),
+      quantity: parsedQuantity,
+      alertThreshold: parsedAlert,
       imageUrl,
-      semiWholesalePrice: Number(semiWholesalePrice) || undefined,
-      semiWholesaleMinQty: Number(semiWholesaleMinQty) || undefined,
-      wholesalePrice: Number(wholesalePrice) || undefined,
-      wholesaleMinQty: Number(wholesaleMinQty) || undefined,
-      supplierId: Number(supplierId) || undefined,
-      unitCost: Number(unitCost) || undefined,
-      paidAmount: parsedPaidAmount,
+      semiWholesalePrice: parseOptionalNumber(semiWholesalePrice) ?? null,
+      semiWholesaleMinQty: parseOptionalNumber(semiWholesaleMinQty) ?? null,
+      wholesalePrice: parseOptionalNumber(wholesalePrice) ?? null,
+      wholesaleMinQty: parseOptionalNumber(wholesaleMinQty) ?? null,
+      supplierId: supplierId ? Number(supplierId) : undefined,
+      unitCost:
+        unitCost !== undefined && unitCost !== "" ? Number(unitCost) : undefined,
+      paidAmount: Number(paidAmount) || 0,
       createDebt: createDebt === true || createDebt === "true",
     });
-    return res
-      .status(201)
-      .json({ message: "Produit créé avec succès", product });
+
+    return res.status(201).json({
+      message: "Produit créé avec succès",
+      product: mapProductToDto(product, "products"),
+    });
   } catch (e) {
-    next(e);
+    return next(e);
   }
 };
 
-export const updateProduct = async (req: AuthRequest, res: Response) => {
+export const updateProduct = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const shopId = req.user!.shopId;
     const id = Number(req.params.id);
 
-    // 1. Vérification de l'existence du produit
     const existing = await prisma.product.findFirst({ where: { id, shopId } });
     if (!existing) {
-      return res.status(404).json({ message: "Produit introuvable" });
+      throw new NotFoundError("Produit introuvable");
     }
 
     const {
@@ -195,7 +225,6 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       categoryId,
       purchasePrice,
       salePrice,
-      quantity,
       alertThreshold,
       imageUrl,
       semiWholesalePrice,
@@ -204,104 +233,124 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       wholesaleMinQty,
     } = req.body;
 
+    const nextPurchasePrice =
+      purchasePrice !== undefined && purchasePrice !== ""
+        ? Number(purchasePrice)
+        : existing.purchasePrice;
+    const nextSalePrice =
+      salePrice !== undefined && salePrice !== ""
+        ? Number(salePrice)
+        : existing.salePrice;
+
+    const parsedSemiPrice = parseOptionalNumber(semiWholesalePrice);
+    const parsedSemiQty = parseOptionalNumber(semiWholesaleMinQty);
+    const parsedWholesalePrice = parseOptionalNumber(wholesalePrice);
+    const parsedWholesaleQty = parseOptionalNumber(wholesaleMinQty);
+
+    const nextSemiPrice =
+      parsedSemiPrice !== undefined
+        ? parsedSemiPrice
+        : existing.semiWholesalePrice;
+    const nextSemiQty =
+      parsedSemiQty !== undefined
+        ? parsedSemiQty
+        : existing.semiWholesaleMinQty;
+    const nextWholesalePrice =
+      parsedWholesalePrice !== undefined
+        ? parsedWholesalePrice
+        : existing.wholesalePrice;
+    const nextWholesaleQty =
+      parsedWholesaleQty !== undefined
+        ? parsedWholesaleQty
+        : existing.wholesaleMinQty;
+
+    validateProductPricing({
+      purchasePrice: nextPurchasePrice,
+      salePrice: nextSalePrice,
+      semiWholesalePrice: nextSemiPrice,
+      semiWholesaleMinQty: nextSemiQty,
+      wholesalePrice: nextWholesalePrice,
+      wholesaleMinQty: nextWholesaleQty,
+    });
+
+    const nextReference =
+      reference !== undefined
+        ? String(reference).trim() || null
+        : existing.reference;
+
+    await ProductService.assertUniqueReference(shopId, nextReference, id);
+
     let finalImageUrl = existing.imageUrl;
 
-    // 2. Gestion de l'image Supabase Storage
     if (req.file) {
-      // CAS A : Un nouveau fichier est téléversé
-      // Supprimer l'ancienne image sur Supabase si elle existe
-      if (existing.imageUrl) {
-        await UploadService.deleteFile("products", existing.imageUrl);
-      }
-
-      // Upload de la nouvelle image
       validateFile(req.file);
+      if (existing.imageUrl && !existing.imageUrl.startsWith("http")) {
+        await UploadService.deleteFile("products", existing.imageUrl).catch(
+          () => undefined,
+        );
+      }
       const filePath = cleanPath(req.file);
       const uploadResult = await UploadService.uploadFile(
         req.file,
         filePath,
-        'product'
+        "product",
       );
-
-  
-      finalImageUrl = uploadResult?.path ;
+      finalImageUrl = uploadResult?.path ?? null;
     } else if (imageUrl === "" || imageUrl === null) {
-      // CAS B : L'utilisateur a explicitement retiré l'image
-      if (existing.imageUrl) {
-        await UploadService.deleteFile("products", existing.imageUrl);
+      if (existing.imageUrl && !existing.imageUrl.startsWith("http")) {
+        await UploadService.deleteFile("products", existing.imageUrl).catch(
+          () => undefined,
+        );
       }
       finalImageUrl = null;
+    } else if (typeof imageUrl === "string" && imageUrl.trim()) {
+      finalImageUrl = imageUrl.trim();
     }
 
-    // 3. Mise à jour dans la base de données
+    const nextAlert =
+      alertThreshold !== undefined && alertThreshold !== ""
+        ? Number(alertThreshold)
+        : existing.alertThreshold;
+    if (!Number.isInteger(nextAlert) || nextAlert < 0) {
+      throw new BadRequestError("Le seuil d'alerte doit être un entier supérieur ou égal à 0.");
+    }
+
+    // La quantité n'est volontairement pas modifiable ici : elle passe par /stock/entry ou /stock/out.
     const updated = await prisma.product.update({
       where: { id },
       data: {
-        name: name ?? existing.name,
-        description: description !== undefined ? (description || null) : existing.description,
-        reference: reference !== undefined ? (reference || null) : existing.reference,
+        name: name !== undefined ? String(name).trim() || existing.name : existing.name,
+        description:
+          description !== undefined
+            ? String(description).trim() || null
+            : existing.description,
+        reference: nextReference,
         categoryId:
           categoryId !== undefined
             ? categoryId
               ? Number(categoryId)
               : null
             : existing.categoryId,
-        purchasePrice:
-          purchasePrice !== undefined
-            ? Number(purchasePrice)
-            : existing.purchasePrice,
-        salePrice:
-          salePrice !== undefined ? Number(salePrice) : existing.salePrice,
-
-
-          quantity: quantity !== undefined ? Number(quantity) : existing.quantity,
-        alertThreshold:
-          alertThreshold !== undefined
-            ? Number(alertThreshold)
-            : existing.alertThreshold,
+        purchasePrice: nextPurchasePrice,
+        salePrice: nextSalePrice,
+        alertThreshold: nextAlert,
         imageUrl: finalImageUrl,
-        semiWholesalePrice:
-          semiWholesalePrice !== undefined
-            ? semiWholesalePrice
-              ? Number(semiWholesalePrice)
-              : null
-            : existing.semiWholesalePrice,
-        semiWholesaleMinQty:
-          semiWholesaleMinQty !== undefined
-            ? semiWholesaleMinQty
-              ? Number(semiWholesaleMinQty)
-              : null
-            : existing.semiWholesaleMinQty,
-        wholesalePrice:
-          wholesalePrice !== undefined
-            ? wholesalePrice
-              ? Number(wholesalePrice)
-              : null
-            : existing.wholesalePrice,
-        wholesaleMinQty:
-          wholesaleMinQty !== undefined
-            ? wholesaleMinQty
-              ? Number(wholesaleMinQty)
-              : null
-            : existing.wholesaleMinQty,
+        semiWholesalePrice: nextSemiPrice,
+        semiWholesaleMinQty: nextSemiQty,
+        wholesalePrice: nextWholesalePrice,
+        wholesaleMinQty: nextWholesaleQty,
       },
       include: { category: true },
     });
 
-    // 4. Formater la réponse avec le Mapper DTO (pour renvoyer l'URL publique)
-    const formattedProduct = mapProductToDto(updated, "products");
-
     return res.status(200).json({
       message: "Produit modifié avec succès",
-      product: formattedProduct,
+      product: mapProductToDto(updated, "products"),
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur modification produit", error });
+    return next(error);
   }
 };
-
 
 export const deleteProduct = async (req: AuthRequest, res: Response) => {
   try {
@@ -319,7 +368,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur suppression produit", error });
+      .json({ message: "Erreur suppression produit" });
   }
 };
 
@@ -331,12 +380,14 @@ export const getLowStockProducts = async (req: AuthRequest, res: Response) => {
       include: { category: true },
     });
 
-    const lowStock = products.filter((p) => p.quantity <= p.alertThreshold);
+    const lowStock = products
+      .filter((p) => p.quantity <= p.alertThreshold)
+      .map((p) => mapProductToDto(p, "products"));
     return res.status(200).json(lowStock);
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur produits stock faible", error });
+      .json({ message: "Erreur produits stock faible" });
   }
 };
 
@@ -351,16 +402,17 @@ export const getOutOfStockProducts = async (
       include: { category: true },
       orderBy: { updatedAt: "desc" },
     });
-    return res.status(200).json(products);
+    return res
+      .status(200)
+      .json(products.map((p) => mapProductToDto(p, "products")));
   } catch (error) {
     return res
       .status(500)
-      .json({ message: "Erreur produits en rupture", error });
+      .json({ message: "Erreur produits en rupture" });
   }
 };
 
 // ── GET /products/:id/price?quantity=X ───────────────────────
-// Retourne le prix suggéré selon la quantité et les niveaux tarifaires
 export const getSuggestedPrice = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
@@ -406,7 +458,7 @@ export const getSuggestedPrice = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Erreur calcul prix", error });
+    return res.status(500).json({ message: "Erreur calcul prix" });
   }
 };
 
@@ -421,7 +473,6 @@ export function computePrice(
   },
   quantity: number,
 ): { price: number; tier: "detail" | "semiWholesale" | "wholesale" } {
-  // Gros (priorité la plus haute)
   if (
     product.wholesalePrice &&
     product.wholesaleMinQty &&
@@ -429,7 +480,6 @@ export function computePrice(
   ) {
     return { price: product.wholesalePrice, tier: "wholesale" };
   }
-  // Demi-gros
   if (
     product.semiWholesalePrice &&
     product.semiWholesaleMinQty &&
@@ -437,11 +487,9 @@ export function computePrice(
   ) {
     return { price: product.semiWholesalePrice, tier: "semiWholesale" };
   }
-  // Détail (par défaut)
   return { price: product.salePrice, tier: "detail" };
 }
 
-// upload image
 export const uploadProductImage = (req: AuthRequest, res: Response) => {
   const file = req.file;
   if (!file) {
@@ -450,7 +498,6 @@ export const uploadProductImage = (req: AuthRequest, res: Response) => {
 
   return res.status(200).json({
     message: "Image uploadée avec succès",
-    // imageUrl: generateUrl,
     filename: file.filename,
   });
 };

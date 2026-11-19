@@ -334,13 +334,14 @@ export type SaleOrderByWithRelationInput = {
 
 export type SaleWhereUniqueInput = Prisma.AtLeast<{
   id?: number
-  invoiceNumber?: string
+  shopId_invoiceNumber?: Prisma.SaleShopIdInvoiceNumberCompoundUniqueInput
   AND?: Prisma.SaleWhereInput | Prisma.SaleWhereInput[]
   OR?: Prisma.SaleWhereInput[]
   NOT?: Prisma.SaleWhereInput | Prisma.SaleWhereInput[]
   shopId?: Prisma.IntFilter<"Sale"> | number
   userId?: Prisma.IntNullableFilter<"Sale"> | number | null
   clientId?: Prisma.IntNullableFilter<"Sale"> | number | null
+  invoiceNumber?: Prisma.StringNullableFilter<"Sale"> | string | null
   customerName?: Prisma.StringNullableFilter<"Sale"> | string | null
   totalAmount?: Prisma.FloatFilter<"Sale"> | number
   paidAmount?: Prisma.FloatFilter<"Sale"> | number
@@ -354,7 +355,7 @@ export type SaleWhereUniqueInput = Prisma.AtLeast<{
   client?: Prisma.XOR<Prisma.ClientNullableScalarRelationFilter, Prisma.ClientWhereInput> | null
   items?: Prisma.SaleItemListRelationFilter
   payments?: Prisma.SalePaymentListRelationFilter
-}, "id" | "invoiceNumber">
+}, "id" | "shopId_invoiceNumber">
 
 export type SaleOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -518,6 +519,11 @@ export type SaleListRelationFilter = {
 
 export type SaleOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type SaleShopIdInvoiceNumberCompoundUniqueInput = {
+  shopId: number
+  invoiceNumber: string
 }
 
 export type SaleCountOrderByAggregateInput = {

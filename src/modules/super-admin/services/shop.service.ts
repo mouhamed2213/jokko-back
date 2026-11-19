@@ -190,7 +190,7 @@ export const SuperAdminShopService = {
 
   const [salesRevenue, payments, auditLogs] = await Promise.all([
     prisma.sale.aggregate({
-      where: { shopId },
+      where: { shopId, status: { not: "CANCELLED" } },
       _sum: { totalAmount: true },
     }),
     subscription

@@ -31,7 +31,7 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       prisma.client.count({ where: { shopId } }),
       prisma.supplier.count({ where: { shopId } }),
       prisma.sale.findMany({
-        where: { shopId },
+        where: { shopId, status: { not: "CANCELLED" } },
         select: {
           totalAmount: true,
           paidAmount: true,
@@ -54,6 +54,7 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       prisma.sale.aggregate({
         where: {
           shopId,
+          status: { not: "CANCELLED" },
           createdAt: { gte: startOfMonth },
         },
         _sum: { totalAmount: true },
@@ -90,10 +91,10 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const recentSales = salesData.filter(s => new Date(s.createdAt) >= sevenDaysAgo);
     const recentSalesAmount = recentSales.reduce((sum, s) => sum + s.totalAmount, 0);
 
-    // Produits les plus vendus (top 5)
+    // Produits les plus vendus (top 5, hors ventes annulées)
     const topProducts = await prisma.saleItem.groupBy({
       by: ["productId", "productName"],
-      where: { sale: { shopId } },
+      where: { sale: { shopId, status: { not: "CANCELLED" } } },
       _sum: { quantity: true, totalAmount: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
