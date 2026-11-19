@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { BadRequestError } from "./errors.js";
 import { env } from "../config/env-config.js";
 
@@ -38,8 +39,9 @@ export const validateFile = (file: Express.Multer.File): void => {
   }
 };
 export const cleanPath = (file: Express.Multer.File): string => {
-  const ext = file.originalname ? file.originalname.split(".").pop() : "png";
-  const path = `${Date.now()}.${ext}`;
+  const rawExt = file.originalname ? file.originalname.split(".").pop() : "png";
+  const safeExt = (rawExt ? rawExt.replace(/[^a-zA-Z0-9]/g, "") : "png") || "png";
+  const path = `${Date.now()}-${randomUUID()}.${safeExt}`;
 
   return path;
 };

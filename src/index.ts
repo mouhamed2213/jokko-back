@@ -40,7 +40,7 @@ const origins = [
 ];
 const allowedOrigins = env.mode === 'production' ? origins : '*';
 
-console.log('Allowed Origins:', allowedOrigins);
+logger.info(`Allowed Origins: ${JSON.stringify(allowedOrigins)}`);
 app.use(
   cors({
     origin: env.mode=== 'production' ? (origin, callback) => {
@@ -56,7 +56,6 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
 
 app.use(
   morgan(env.mode === "production" ? "combined" : "dev", {
