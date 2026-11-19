@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { env } from "./config/env-config.js";
 import { logger, morganStream } from "./config/logger.js";
 import { ErrorHandler } from "./middlewares/error-handler.middleware.js";
+import { apiRateLimiter } from "./middlewares/rate-limit.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import contactRoutes from "./routes/contact.routes.js";
 import cashRoutes from "./routes/cash.routes.js";
@@ -28,9 +29,15 @@ import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middlew
 import { SubscriptionLifecycleService } from "./services/subscription-lifecycle.service.js";
 
 const app = express();
-// const PORT = Number(env.PORT) || 5000;
 
- 
+// À configurer uniquement si l'API est derrière un reverse proxy connu.
+if (env.trustProxyHops > 0) {
+  app.set("trust proxy", env.trustProxyHops);
+}
+
+// Limite globale avant le parsing JSON pour protéger aussi les ressources serveur.
+app.use("/api", apiRateLimiter);
+
 app.use(express.json());
 const origins = [
   'https://jokko-business.com',
@@ -54,6 +61,7 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
+    exposedHeaders: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After"],
   })
 );
 

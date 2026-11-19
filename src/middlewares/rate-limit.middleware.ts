@@ -1,103 +1,115 @@
 import type { NextFunction, Request, Response } from "express";
-import { logger } from "../config/logger.js";
 
 type RateLimitOptions = {
   windowMs: number;
   max: number;
-  message?: string;
-  keyGenerator?: (req: Request) => string;
+  message: string;
+  keyByPath?: boolean;
 };
 
-type ClientRecord = {
+type WindowEntry = {
   count: number;
   resetAt: number;
 };
 
-export function createRateLimiter(options: RateLimitOptions) {
-  const {
-    windowMs,
-    max,
-    message = "Trop de requêtes, veuillez réessayer ultérieurement.",
-    keyGenerator = (req) =>
-      req.ip ||
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      req.socket.remoteAddress ||
-      "unknown",
-  } = options;
+export const createRateLimiter = ({ windowMs, max, message, keyByPath = false }: RateLimitOptions) => {
+  // Chaque limiteur possède son propre compteur : les règles globales et
+  // spécifiques ne se remplacent donc pas mutuellement.
+  const windows = new Map<string, WindowEntry>();
 
-  const hits = new Map<string, ClientRecord>();
-
-  // Nettoyage régulier des entrées expirées toutes les 2 minutes pour éviter les fuites mémoire
-  const cleanupTimer = setInterval(() => {
+  const cleanupInterval = setInterval(() => {
     const now = Date.now();
-    for (const [key, record] of hits.entries()) {
-      if (now >= record.resetAt) {
-        hits.delete(key);
-      }
+    for (const [key, entry] of windows) {
+      if (entry.resetAt <= now) windows.delete(key);
     }
-  }, 2 * 60 * 1000);
+  }, 60_000);
+  cleanupInterval.unref();
 
-  // Permet au processus Node de s'arrêter proprement sans attendre ce timer
-  if (cleanupTimer.unref) {
-    cleanupTimer.unref();
-  }
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.method === "OPTIONS") {
+      next();
+      return;
+    }
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    const key = keyGenerator(req);
     const now = Date.now();
-    let record = hits.get(key);
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const key = keyByPath ? `${ip}:${req.baseUrl}${req.path}` : ip;
+    let entry = windows.get(key);
 
-    if (!record || now >= record.resetAt) {
-      record = { count: 1, resetAt: now + windowMs };
-      hits.set(key, record);
-    } else {
-      record.count += 1;
+    if (!entry || entry.resetAt <= now) {
+      entry = { count: 0, resetAt: now + windowMs };
+      windows.set(key, entry);
     }
 
-    const remaining = Math.max(0, max - record.count);
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((record.resetAt - now) / 1000),
-    );
+    entry.count += 1;
+    const remaining = Math.max(0, max - entry.count);
+    const resetSeconds = Math.max(0, Math.ceil((entry.resetAt - now) / 1000));
 
-    res.setHeader("X-RateLimit-Limit", max);
-    res.setHeader("X-RateLimit-Remaining", remaining);
-    res.setHeader("X-RateLimit-Reset", Math.ceil(record.resetAt / 1000));
+    res.setHeader("RateLimit-Limit", String(max));
+    res.setHeader("RateLimit-Remaining", String(remaining));
+    res.setHeader("RateLimit-Reset", String(resetSeconds));
 
-    if (record.count > max) {
-      res.setHeader("Retry-After", retryAfterSeconds);
-      logger.warn(
-        `⛔ Rate limit dépassé — IP: ${key} — URL: ${req.method} ${req.originalUrl}`,
-      );
-      return res.status(429).json({
-        code: "TOO_MANY_REQUESTS",
-        message,
-        retryAfter: retryAfterSeconds,
-      });
+    if (entry.count > max) {
+      res.setHeader("Retry-After", String(resetSeconds));
+      res.status(429).json({ message, retryAfter: resetSeconds });
+      return;
     }
 
-    return next();
+    next();
   };
-}
+};
 
-// ── Limiteurs prédéfinis ───────────────────────────────────────
-
-/**
- * Limiteur pour les tentatives de connexion (boutique et super admin) :
- * 10 tentatives max par fenêtre de 15 minutes.
- */
-export const loginLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: "Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.",
+export const apiRateLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 120,
+  message: "Trop de requêtes. Veuillez réessayer dans une minute.",
 });
 
-/**
- * Limiteur pour les demandes de réinitialisation de mot de passe :
- * 5 demandes max par fenêtre de 15 minutes.
- */
-export const passwordResetLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
+export const loginRateLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
   max: 5,
-  message: "Trop de demandes de réinitialisation. Veuillez réessayer dans 15 minutes.",
+  keyByPath: true,
+  message: "Trop de tentatives de connexion. Réessayez dans 15 minutes.",
+});
+
+export const passwordRecoveryRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 3,
+  keyByPath: true,
+  message: "Trop de demandes de réinitialisation. Réessayez dans une heure.",
+});
+
+export const passwordResetRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 5,
+  keyByPath: true,
+  message: "Trop de tentatives de réinitialisation. Réessayez dans une heure.",
+});
+
+export const emailActionRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 5,
+  keyByPath: true,
+  message: "Trop de demandes liées à l'e-mail. Réessayez dans une heure.",
+});
+
+export const emailVerificationRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyByPath: true,
+  message: "Trop de tentatives de vérification. Réessayez dans une heure.",
+});
+
+export const invitationRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 5,
+  keyByPath: true,
+  message: "Trop de tentatives d'acceptation d'invitation. Réessayez dans une heure.",
+});
+
+export const contactRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  max: 5,
+  keyByPath: true,
+  message: "Trop de messages envoyés. Réessayez dans une heure.",
 });
