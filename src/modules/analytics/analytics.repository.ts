@@ -5,7 +5,7 @@ import type { AnalyticsPeriod } from "./analytics.types.js";
 export const AnalyticsRepository = {
   getAuthorizedShops: (ownerId: number) =>
     prisma.shopOwner.findMany({
-      where: { userId: ownerId },
+      where: { userId: ownerId, shop: { status: "ACTIVE" } },
       select: { shopId: true, shop: { select: { id: true, name: true } } },
     }),
   getSalesAggregate: (shopId: number, period: AnalyticsPeriod) =>
@@ -371,5 +371,168 @@ export const AnalyticsRepository = {
         AND s."createdAt" <= ${period.endDate}
       GROUP BY 1, 2
       ORDER BY 1, 2
+    `),
+
+  getProfitSummary: async (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) => {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        costOfGoodsSold: number | null;
+        itemsWithoutCost: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        COALESCE(
+          SUM(si."quantity" * COALESCE(cost."unitCost", p."purchasePrice", 0)),
+          0
+        )::float AS "costOfGoodsSold",
+        COUNT(*) FILTER (
+          WHERE COALESCE(cost."unitCost", p."purchasePrice", 0) <= 0
+        )::int AS "itemsWithoutCost"
+      FROM "sales" s
+      INNER JOIN "sale_items" si
+        ON si."saleId" = s."id"
+      LEFT JOIN "products" p
+        ON p."id" = si."productId"
+      LEFT JOIN LATERAL (
+        SELECT sm."unitCost"
+        FROM "stock_movements" sm
+        WHERE sm."shopId" = s."shopId"
+          AND sm."productId" = si."productId"
+          AND sm."type" = 'ENTRY'
+          AND sm."unitCost" IS NOT NULL
+          AND sm."createdAt" <= s."createdAt"
+        ORDER BY sm."createdAt" DESC, sm."id" DESC
+        LIMIT 1
+      ) cost ON true
+      WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
+        AND s."createdAt" >= ${period.startDate}
+        AND s."createdAt" <= ${period.endDate}
+    `);
+
+    return {
+      costOfGoodsSold: rows[0]?.costOfGoodsSold ?? 0,
+      itemsWithoutCost: rows[0]?.itemsWithoutCost ?? 0,
+    };
+  },
+
+  getCashOutflows: (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) =>
+    prisma.$queryRaw<
+      Array<{
+        amount: number;
+        label: string;
+      }>
+    >(Prisma.sql`
+      SELECT
+        ct."amount"::float AS amount,
+        ct."label" AS label
+      FROM "cash_transactions" ct
+      INNER JOIN "cash_registers" cr
+        ON cr."id" = ct."cashRegisterId"
+      WHERE cr."shopId" = ${shopId}
+        AND ct."type" = 'OUT'
+        AND ct."createdAt" >= ${period.startDate}
+        AND ct."createdAt" <= ${period.endDate}
+    `),
+
+  getProfitLineItems: (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) =>
+    prisma.$queryRaw<
+      Array<{
+        saleId: number;
+        invoiceNumber: string | null;
+        saleCreatedAt: Date;
+        customerName: string | null;
+        saleStatus: string;
+        productId: number | null;
+        productName: string;
+        categoryName: string;
+        quantity: number;
+        revenue: number;
+        unitCost: number;
+        costSource: "HISTORICAL" | "PRODUCT_PRICE" | "MISSING";
+      }>
+    >(Prisma.sql`
+      SELECT
+        s."id" AS "saleId",
+        s."invoiceNumber" AS "invoiceNumber",
+        s."createdAt" AS "saleCreatedAt",
+        COALESCE(c."name", s."customerName") AS "customerName",
+        s."status" AS "saleStatus",
+        si."productId" AS "productId",
+        COALESCE(p."name", si."productName") AS "productName",
+        COALESCE(cat."name", 'Sans catégorie') AS "categoryName",
+        si."quantity"::int AS quantity,
+        si."totalAmount"::float AS revenue,
+        COALESCE(cost."unitCost", p."purchasePrice", 0)::float AS "unitCost",
+        CASE
+          WHEN cost."unitCost" IS NOT NULL AND cost."unitCost" > 0 THEN 'HISTORICAL'
+          WHEN p."purchasePrice" IS NOT NULL AND p."purchasePrice" > 0 THEN 'PRODUCT_PRICE'
+          ELSE 'MISSING'
+        END AS "costSource"
+      FROM "sales" s
+      INNER JOIN "sale_items" si
+        ON si."saleId" = s."id"
+      LEFT JOIN "clients" c
+        ON c."id" = s."clientId"
+      LEFT JOIN "products" p
+        ON p."id" = si."productId"
+      LEFT JOIN "categories" cat
+        ON cat."id" = p."categoryId"
+      LEFT JOIN LATERAL (
+        SELECT sm."unitCost"
+        FROM "stock_movements" sm
+        WHERE sm."shopId" = s."shopId"
+          AND sm."productId" = si."productId"
+          AND sm."type" = 'ENTRY'
+          AND sm."unitCost" IS NOT NULL
+          AND sm."createdAt" <= s."createdAt"
+        ORDER BY sm."createdAt" DESC, sm."id" DESC
+        LIMIT 1
+      ) cost ON true
+      WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
+        AND s."createdAt" >= ${period.startDate}
+        AND s."createdAt" <= ${period.endDate}
+      ORDER BY s."createdAt" DESC, s."id" DESC
+    `),
+
+  getDetailedCashOutflows: (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) =>
+    prisma.$queryRaw<
+      Array<{
+        id: number;
+        createdAt: Date;
+        label: string;
+        paymentMethod: string;
+        amount: number;
+        reference: string | null;
+      }>
+    >(Prisma.sql`
+      SELECT
+        ct."id" AS id,
+        ct."createdAt" AS "createdAt",
+        ct."label" AS label,
+        ct."paymentMethod" AS "paymentMethod",
+        ct."amount"::float AS amount,
+        ct."reference" AS reference
+      FROM "cash_transactions" ct
+      INNER JOIN "cash_registers" cr
+        ON cr."id" = ct."cashRegisterId"
+      WHERE cr."shopId" = ${shopId}
+        AND ct."type" = 'OUT'
+        AND ct."createdAt" >= ${period.startDate}
+        AND ct."createdAt" <= ${period.endDate}
+      ORDER BY ct."createdAt" DESC, ct."id" DESC
     `),
 };

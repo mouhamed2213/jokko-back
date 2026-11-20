@@ -17,6 +17,15 @@ export const CurrentShopType = {
 export type CurrentShopType = (typeof CurrentShopType)[keyof typeof CurrentShopType]
 
 
+export const PackagingUnit = {
+  PIECE: 'PIECE',
+  DOZEN: 'DOZEN',
+  CARTON: 'CARTON'
+} as const
+
+export type PackagingUnit = (typeof PackagingUnit)[keyof typeof PackagingUnit]
+
+
 export const PaymentType = {
   SUBSCRIPTION: 'SUBSCRIPTION',
   RENEWAL: 'RENEWAL',

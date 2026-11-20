@@ -4,6 +4,7 @@ import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { logger } from "../config/logger.js";
 import { sendNotificationToShop } from "./notification.controller.js";
 import { StockService } from "../services/stock.service.js";
+import { parsePackagingUnit } from "../helpers/packaging.js";
 import { BadRequestError, NotFoundError } from "../utils/errors.js";
 
 // ── POST /stock/entry ─────────────────────────────────────────
@@ -18,6 +19,7 @@ export const addStockEntry = async (
     const {
       productId,
       quantity,
+      unit,
       note,
       supplierId,
       unitCost,
@@ -38,6 +40,13 @@ export const addStockEntry = async (
       throw new NotFoundError("Produit introuvable");
     }
 
+    const entryUnit = unit ? parsePackagingUnit(unit) : "PIECE";
+    if (entryUnit !== "PIECE" && entryUnit !== product.unitType) {
+      throw new BadRequestError(
+        "L'unité choisie ne correspond pas au conditionnement de ce produit.",
+      );
+    }
+
     const result = await prisma.$transaction((tx) =>
       StockService.recordEntryInTx(tx, {
         shopId,
@@ -46,6 +55,8 @@ export const addStockEntry = async (
         productName: product.name,
         purchasePrice: product.purchasePrice,
         quantity: qty,
+        entryUnit,
+        unitsPerPack: product.unitsPerPack,
         note: note || null,
         supplierId: supplierId ? Number(supplierId) : null,
         unitCost: unitCost !== undefined && unitCost !== "" ? Number(unitCost) : null,
@@ -55,7 +66,7 @@ export const addStockEntry = async (
     );
 
     logger.info(
-      `📦 Entrée stock — Produit: ${product.id} — Qté: ${qty} — Shop: ${shopId}${supplierId ? ` — Fournisseur: ${supplierId}` : ""}`,
+      `📦 Entrée stock — Produit: ${product.id} — Qté: ${qty} (${entryUnit}) — Shop: ${shopId}${supplierId ? ` — Fournisseur: ${supplierId}` : ""}`,
     );
 
     return res.status(201).json({
@@ -78,12 +89,27 @@ export const addStockOut = async (
   try {
     const shopId = req.user!.shopId;
     const userId = req.user!.userId;
-    const { productId, quantity, note } = req.body;
+    const { productId, quantity, unit, note } = req.body;
 
     const parsedProductId = Number(productId);
     const qty = Number(quantity);
     if (!parsedProductId || !Number.isInteger(qty) || qty <= 0) {
       throw new BadRequestError("productId et quantity (entier > 0) sont obligatoires");
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { id: parsedProductId, shopId, isActive: true },
+      select: { id: true, unitType: true, unitsPerPack: true },
+    });
+    if (!product) {
+      throw new NotFoundError("Produit introuvable");
+    }
+
+    const outUnit = unit ? parsePackagingUnit(unit) : "PIECE";
+    if (outUnit !== "PIECE" && outUnit !== product.unitType) {
+      throw new BadRequestError(
+        "L'unité choisie ne correspond pas au conditionnement de ce produit.",
+      );
     }
 
     const { updatedProduct, movement } = await StockService.recordOut(
@@ -92,6 +118,8 @@ export const addStockOut = async (
       parsedProductId,
       qty,
       note || null,
+      outUnit,
+      product.unitsPerPack,
     );
 
     logger.info(`📤 Sortie stock — Produit: ${parsedProductId} — Qté: ${qty} — Shop: ${shopId}`);

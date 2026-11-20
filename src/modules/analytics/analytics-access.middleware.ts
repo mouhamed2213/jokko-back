@@ -11,9 +11,10 @@ export type AnalyticsSection =
   | "customers"
   | "cash"
   | "trends"
-  | "insights";
+  | "insights"
+  | "profit";
 
-const minimumPlan: Record<AnalyticsSection, "FREE" | "BASIC" | "PRO"> = {
+const minimumPlan: Record<AnalyticsSection, "FREE" | "BASIC" | "PRO" | "PREMIUM"> = {
   overview: "FREE",
   sales: "FREE",
   stock: "FREE",
@@ -22,6 +23,14 @@ const minimumPlan: Record<AnalyticsSection, "FREE" | "BASIC" | "PRO"> = {
   customers: "BASIC",
   trends: "BASIC",
   insights: "PRO",
+  profit: "PREMIUM",
+};
+
+const planDisplayNames: Record<"FREE" | "BASIC" | "PRO" | "PREMIUM", string> = {
+  FREE: "Gratuit",
+  BASIC: "Starter",
+  PRO: "Pro",
+  PREMIUM: "Signature",
 };
 
 const planRank = { FREE: 0, BASIC: 1, PRO: 2, PREMIUM: 3 } as const;
@@ -42,7 +51,7 @@ export const requireAnalyticsAccess = (section: AnalyticsSection) =>
 
       if (planRank[subscription.plan.code] < planRank[required]) {
         throw new ForbiddenError(
-          `Cette analyse est disponible à partir du plan ${required}.`,
+          `Cette analyse est disponible à partir du plan ${planDisplayNames[required]}.`,
         );
       }
 
@@ -61,7 +70,7 @@ export const requireAnalyticsAccess = (section: AnalyticsSection) =>
         planRank[subscription.plan.code] < planRank.BASIC
       ) {
         throw new ForbiddenError(
-          "La comparaison entre périodes est disponible à partir du plan BASIC.",
+          "La comparaison entre périodes est disponible à partir du plan Starter.",
         );
       }
 
@@ -92,7 +101,7 @@ export const requireMultiStoreAnalytics = async (
     !subscription.features.includes("MULTI_STORE")
   ) {
     throw new ForbiddenError(
-      "L'analyse multi-boutique nécessite le plan PREMIUM.",
+      "L'analyse multi-boutique nécessite le plan Signature.",
     );
   }
   next();

@@ -1,5 +1,7 @@
 import type { Prisma } from "../database/prisma/generated/prisma/client.js";
+import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
+import { getUnitLabel } from "../helpers/packaging.js";
 import { BadRequestError, NotFoundError } from "../utils/errors.js";
 
 export type StockEntryTxInput = {
@@ -7,11 +9,13 @@ export type StockEntryTxInput = {
   userId: number;
   productId: number;
   productName: string;
-  purchasePrice: number;
-  quantity: number;
+  purchasePrice: number; // prix d'achat par pièce
+  quantity: number; // quantité saisie dans entryUnit
+  entryUnit?: PackagingUnit;
+  unitsPerPack?: number;
   note?: string | null;
   supplierId?: number | null;
-  unitCost?: number | null;
+  unitCost?: number | null; // coût unitaire dans entryUnit
   paidAmount?: number;
   createDebt?: boolean;
 };
@@ -21,12 +25,8 @@ export const StockService = {
    * Enregistre une entrée de stock dans une transaction existante.
    * Partagé entre la création de produit (stock initial) et POST /stock/entry.
    *
-   * Règle métier fournisseur :
-   * - Avec dette (createDebt = true) : crée une dette fournisseur. Si un acompte est versé,
-   *   la caisse doit être ouverte et est débitée dans la même transaction.
-   * - Sans dette (createDebt = false) avec fournisseur : interprété comme un achat payé comptant.
-   *   La caisse doit être ouverte et est débitée du montant total ; l'achat est comptabilisé
-   *   dans les achats du fournisseur (statut PAID, reste dû = 0).
+   * Convertit automatiquement les quantités et coûts en pièces (unité atomique en base)
+   * tout en conservant le montant total exact pour les dettes fournisseurs et la caisse.
    */
   async recordEntryInTx(tx: Prisma.TransactionClient, input: StockEntryTxInput) {
     const {
@@ -36,6 +36,8 @@ export const StockService = {
       productName,
       purchasePrice,
       quantity,
+      entryUnit = "PIECE",
+      unitsPerPack = 1,
       note,
       supplierId,
       unitCost,
@@ -43,10 +45,13 @@ export const StockService = {
       createDebt = false,
     } = input;
 
-    const qty = Number(quantity);
-    if (!Number.isInteger(qty) || qty <= 0) {
+    const rawQty = Number(quantity);
+    if (!Number.isInteger(rawQty) || rawQty <= 0) {
       throw new BadRequestError("La quantité doit être un entier strictement positif");
     }
+
+    const multiplier = entryUnit === "PIECE" ? 1 : Math.max(1, unitsPerPack);
+    const qtyInPieces = rawQty * multiplier;
 
     const parsedSupplierId = supplierId ? Number(supplierId) : null;
     if (parsedSupplierId) {
@@ -59,14 +64,17 @@ export const StockService = {
       }
     }
 
-    const parsedUnitCost =
+    // Coût par unité saisie (ex: coût d'un carton si entryUnit === 'CARTON')
+    const costPerEntryUnit =
       unitCost !== undefined && unitCost !== null && Number(unitCost) > 0
         ? Number(unitCost)
         : purchasePrice > 0
-          ? Number(purchasePrice)
+          ? Number(purchasePrice) * multiplier
           : null;
 
-    const totalCost = parsedUnitCost !== null ? parsedUnitCost * qty : null;
+    const totalCost = costPerEntryUnit !== null ? costPerEntryUnit * rawQty : null;
+    const unitCostPerPiece =
+      totalCost !== null ? totalCost / qtyInPieces : null;
     const paid = Number(paidAmount) || 0;
 
     if (paid < 0) {
@@ -77,7 +85,7 @@ export const StockService = {
       if (!parsedSupplierId) {
         throw new BadRequestError("Un fournisseur est obligatoire pour créer une dette");
       }
-      if (!parsedUnitCost || parsedUnitCost <= 0) {
+      if (!costPerEntryUnit || costPerEntryUnit <= 0) {
         throw new BadRequestError("Le coût unitaire doit être supérieur à zéro");
       }
       if (totalCost !== null && paid > totalCost) {
@@ -87,13 +95,26 @@ export const StockService = {
       }
     }
 
-    // 1. Incrément atomique du stock
+    // 1. Incrément atomique du stock (toujours en pièces)
     const updatedProduct = await tx.product.update({
       where: { id: productId },
-      data: { quantity: { increment: qty } },
+      data: { quantity: { increment: qtyInPieces } },
     });
 
-    // 2. Mouvement de stock
+    const unitDesc =
+      entryUnit === "PIECE"
+        ? `x${rawQty}`
+        : `x${rawQty} ${getUnitLabel(entryUnit, rawQty > 1)} (${qtyInPieces} pcs)`;
+
+    const movementNote = note
+      ? entryUnit === "PIECE"
+        ? note
+        : `${note} (${rawQty} ${getUnitLabel(entryUnit, rawQty > 1)})`
+      : entryUnit === "PIECE"
+        ? null
+        : `Entrée ${rawQty} ${getUnitLabel(entryUnit, rawQty > 1)}`;
+
+    // 2. Mouvement de stock (quantité et coût unitaire normalisés à la pièce)
     const movement = await tx.stockMovement.create({
       data: {
         shopId,
@@ -101,9 +122,9 @@ export const StockService = {
         userId,
         supplierId: parsedSupplierId,
         type: "ENTRY",
-        quantity: qty,
-        unitCost: parsedUnitCost,
-        note: note || null,
+        quantity: qtyInPieces,
+        unitCost: unitCostPerPiece,
+        note: movementNote,
       },
     });
 
@@ -119,7 +140,7 @@ export const StockService = {
             paidAmount: paid,
             remaining,
             status: remaining <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "UNPAID",
-            note: note || `Approvisionnement — ${productName} x${qty}`,
+            note: note || `Approvisionnement — ${productName} ${unitDesc}`,
           },
         });
         debt = createdDebt;
@@ -148,7 +169,7 @@ export const StockService = {
               cashRegisterId: cashRegister.id,
               type: "OUT",
               amount: paid,
-              label: `Acompte fournisseur — ${productName} x${qty}`,
+              label: `Acompte fournisseur — ${productName} ${unitDesc}`,
               reference: String(parsedSupplierId),
             },
           });
@@ -177,7 +198,7 @@ export const StockService = {
             paidAmount: totalCost,
             remaining: 0,
             status: "PAID",
-            note: note || `Achat comptant — ${productName} x${qty}`,
+            note: note || `Achat comptant — ${productName} ${unitDesc}`,
           },
         });
         debt = createdDebt;
@@ -195,7 +216,7 @@ export const StockService = {
             cashRegisterId: cashRegister.id,
             type: "OUT",
             amount: totalCost,
-            label: `Achat fournisseur — ${productName} x${qty}`,
+            label: `Achat fournisseur — ${productName} ${unitDesc}`,
             reference: String(parsedSupplierId),
           },
         });
@@ -219,11 +240,16 @@ export const StockService = {
     productId: number,
     quantity: number,
     note?: string | null,
+    outUnit: PackagingUnit = "PIECE",
+    unitsPerPack = 1,
   ) {
-    const qty = Number(quantity);
-    if (!Number.isInteger(qty) || qty <= 0) {
+    const rawQty = Number(quantity);
+    if (!Number.isInteger(rawQty) || rawQty <= 0) {
       throw new BadRequestError("productId et quantity (entier > 0) sont obligatoires");
     }
+
+    const multiplier = outUnit === "PIECE" ? 1 : Math.max(1, unitsPerPack);
+    const qtyInPieces = rawQty * multiplier;
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.product.updateMany({
@@ -231,9 +257,9 @@ export const StockService = {
           id: productId,
           shopId,
           isActive: true,
-          quantity: { gte: qty },
+          quantity: { gte: qtyInPieces },
         },
-        data: { quantity: { decrement: qty } },
+        data: { quantity: { decrement: qtyInPieces } },
       });
 
       if (updated.count === 0) {
@@ -245,7 +271,7 @@ export const StockService = {
           throw new NotFoundError("Produit introuvable");
         }
         throw new BadRequestError(
-          `Stock insuffisant (disponible: ${exists.quantity})`,
+          `Stock insuffisant (disponible: ${exists.quantity} pièces)`,
         );
       }
 
@@ -253,14 +279,22 @@ export const StockService = {
         where: { id: productId },
       });
 
+      const movementNote = note
+        ? outUnit === "PIECE"
+          ? note
+          : `${note} (${rawQty} ${getUnitLabel(outUnit, rawQty > 1)})`
+        : outUnit === "PIECE"
+          ? null
+          : `Sortie ${rawQty} ${getUnitLabel(outUnit, rawQty > 1)}`;
+
       const movement = await tx.stockMovement.create({
         data: {
           shopId,
           productId,
           userId,
           type: "OUT",
-          quantity: qty,
-          note: note || null,
+          quantity: qtyInPieces,
+          note: movementNote,
         },
       });
 

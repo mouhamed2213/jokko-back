@@ -1,4 +1,9 @@
 import { prisma } from "../config/prisma.js";
+import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
+import {
+  resolvePackagingPrices,
+  resolveUnitsPerPack,
+} from "../helpers/packaging.js";
 import {
   BadRequestError,
   ConflictError,
@@ -105,17 +110,21 @@ export type CreateProductInput = {
   description?: string;
   reference?: string;
   categoryId?: string;
-  purchasePrice: number;
-  salePrice: number;
-  quantity?: number;
-  alertThreshold?: number;
+  unitType?: PackagingUnit;
+  unitsPerPack?: number;
+  purchasePrice?: number | null;
+  salePrice?: number | null;
+  packPurchasePrice?: number | null;
+  packSalePrice?: number | null;
+  quantity?: number; // saisi dans unitType (ex: nb de cartons si CARTON)
+  alertThreshold?: number; // saisi dans unitType (converti en pièces en base)
   imageUrl?: string | null;
   semiWholesalePrice?: number | null;
   semiWholesaleMinQty?: number | null;
   wholesalePrice?: number | null;
   wholesaleMinQty?: number | null;
   supplierId?: number;
-  unitCost?: number;
+  unitCost?: number; // coût par unitType
   paidAmount?: number;
   createDebt?: boolean;
 };
@@ -155,8 +164,12 @@ export const ProductService = {
       description,
       reference,
       categoryId,
-      purchasePrice,
-      salePrice,
+      unitType = "PIECE",
+      unitsPerPack: rawUnitsPerPack,
+      purchasePrice: rawPurchasePrice,
+      salePrice: rawSalePrice,
+      packPurchasePrice: rawPackPurchasePrice,
+      packSalePrice: rawPackSalePrice,
       quantity = 0,
       alertThreshold = 5,
       imageUrl,
@@ -189,19 +202,34 @@ export const ProductService = {
       }
     }
 
+    const unitsPerPack = resolveUnitsPerPack(unitType, rawUnitsPerPack);
+
     const qty = Number(quantity);
     if (!Number.isInteger(qty) || qty < 0) {
       throw new BadRequestError("La quantité initiale doit être un entier supérieur ou égal à 0.");
     }
 
-    const parsedAlert = Number.isFinite(alertThreshold) ? Number(alertThreshold) : 5;
-    if (!Number.isInteger(parsedAlert) || parsedAlert < 0) {
+    const parsedAlertInUnit = Number.isFinite(alertThreshold)
+      ? Number(alertThreshold)
+      : 5;
+    if (!Number.isInteger(parsedAlertInUnit) || parsedAlertInUnit < 0) {
       throw new BadRequestError("Le seuil d'alerte doit être un entier supérieur ou égal à 0.");
     }
+    const alertThresholdInPieces = parsedAlertInUnit * unitsPerPack;
 
+    const prices = resolvePackagingPrices({
+      unitType,
+      unitsPerPack,
+      purchasePrice: rawPurchasePrice,
+      salePrice: rawSalePrice,
+      packPurchasePrice: rawPackPurchasePrice,
+      packSalePrice: rawPackSalePrice,
+    });
+
+    // Les paliers Demi-gros / Gros s'appliquent sur l'unité principale du produit
     validateProductPricing({
-      purchasePrice,
-      salePrice,
+      purchasePrice: prices.tierBasePurchase,
+      salePrice: prices.tierBaseSale,
       semiWholesalePrice,
       semiWholesaleMinQty,
       wholesalePrice,
@@ -219,10 +247,14 @@ export const ProductService = {
           description: description?.trim() || null,
           reference: trimmedRef,
           categoryId: categoryId ? Number(categoryId) : null,
+          unitType,
+          unitsPerPack,
           quantity: 0,
-          purchasePrice: Number(purchasePrice),
-          salePrice: Number(salePrice),
-          alertThreshold: parsedAlert,
+          purchasePrice: prices.purchasePrice,
+          salePrice: prices.salePrice,
+          packPurchasePrice: prices.packPurchasePrice,
+          packSalePrice: prices.packSalePrice,
+          alertThreshold: alertThresholdInPieces,
           imageUrl: imageUrl || null,
           semiWholesalePrice: semiWholesalePrice ?? null,
           semiWholesaleMinQty: semiWholesaleMinQty ?? null,
@@ -239,6 +271,8 @@ export const ProductService = {
           productName: product.name,
           purchasePrice: product.purchasePrice,
           quantity: qty,
+          entryUnit: unitType,
+          unitsPerPack,
           note: "Stock initial",
           supplierId: supplierId || null,
           unitCost: unitCost ?? null,

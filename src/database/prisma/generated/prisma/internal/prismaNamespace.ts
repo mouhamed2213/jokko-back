@@ -2471,9 +2471,13 @@ export const ProductScalarFieldEnum = {
   name: 'name',
   description: 'description',
   reference: 'reference',
+  unitType: 'unitType',
+  unitsPerPack: 'unitsPerPack',
   quantity: 'quantity',
   purchasePrice: 'purchasePrice',
   salePrice: 'salePrice',
+  packPurchasePrice: 'packPurchasePrice',
+  packSalePrice: 'packSalePrice',
   semiWholesalePrice: 'semiWholesalePrice',
   semiWholesaleMinQty: 'semiWholesaleMinQty',
   wholesalePrice: 'wholesalePrice',
@@ -2586,6 +2590,9 @@ export const SaleItemScalarFieldEnum = {
   productImageUrl: 'productImageUrl',
   quantity: 'quantity',
   unitPrice: 'unitPrice',
+  soldUnit: 'soldUnit',
+  soldQuantity: 'soldQuantity',
+  soldUnitPrice: 'soldUnitPrice',
   totalAmount: 'totalAmount'
 } as const
 
@@ -2861,6 +2868,20 @@ export type EnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
  * Reference to a field of type 'UsageMetric[]'
  */
 export type ListEnumUsageMetricFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UsageMetric[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PackagingUnit'
+ */
+export type EnumPackagingUnitFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PackagingUnit'>
+    
+
+
+/**
+ * Reference to a field of type 'PackagingUnit[]'
+ */
+export type ListEnumPackagingUnitFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PackagingUnit[]'>
     
 
 

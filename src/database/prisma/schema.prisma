@@ -185,25 +185,35 @@ model Category {
   @@map("categories")
 }
 
+enum PackagingUnit {
+  PIECE
+  DOZEN
+  CARTON
+}
+
 model Product {
-  id                  Int      @id @default(autoincrement())
+  id                  Int           @id @default(autoincrement())
   shopId              Int
   categoryId          Int?
   name                String
   description         String?
   reference           String?
-  quantity            Int      @default(0)
+  unitType            PackagingUnit @default(PIECE)
+  unitsPerPack        Int           @default(1)
+  quantity            Int           @default(0)
   purchasePrice       Float
   salePrice           Float
+  packPurchasePrice   Float?
+  packSalePrice       Float?
   semiWholesalePrice  Float?
   semiWholesaleMinQty Int?
   wholesalePrice      Float?
   wholesaleMinQty     Int?
-  alertThreshold      Int      @default(5)
+  alertThreshold      Int           @default(5)
   imageUrl            String?
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   shop           Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
   category       Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -322,13 +332,16 @@ model Sale {
 }
 
 model SaleItem {
-  id              Int     @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   saleId          Int
   productId       Int?
   productName     String
   productImageUrl String?
   quantity        Int
   unitPrice       Float
+  soldUnit        PackagingUnit @default(PIECE)
+  soldQuantity    Int?
+  soldUnitPrice   Float?
   totalAmount     Float
 
   sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)

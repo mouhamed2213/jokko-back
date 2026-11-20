@@ -1,4 +1,5 @@
 import { BadRequestError } from "../../utils/errors.js";
+import { computeProfitMetrics } from "../../helpers/profit.js";
 import { AnalyticsRepository } from "./analytics.repository.js";
 import type {
   AnalyticsCashQuery,
@@ -6,6 +7,7 @@ import type {
   AnalyticsInsightsQuery,
   AnalyticsPeriodQuery,
   AnalyticsProductsQuery,
+  AnalyticsProfitQuery,
   AnalyticsSalesQuery,
   AnalyticsStockQuery,
   AnalyticsTrendsQuery,
@@ -55,7 +57,7 @@ const oneOf = (
   return value;
 };
 
-const getCashTransactionCategory = (label: string) => {
+export const getCashTransactionCategory = (label: string) => {
   if (label.startsWith("Règlement facture")) return "SALE_PAYMENT";
   if (label.startsWith("Acompte fournisseur")) return "SUPPLIER_DEPOSIT";
   if (label.startsWith("Paiement fournisseur")) return "SUPPLIER_PAYMENT";
@@ -83,7 +85,9 @@ export const AnalyticsService = {
     const overviews = await Promise.all(
       shops.map(async ({ shopId, shop }) => ({
         shop: { id: shop.id, name: shop.name },
-        overview: await AnalyticsService.getOverview(shopId, query),
+        overview: await AnalyticsService.getOverview(shopId, query, {
+          includeProfit: true,
+        }),
       })),
     );
     const consolidated = overviews.reduce(
@@ -97,6 +101,12 @@ export const AnalyticsService = {
           total.outOfStockProducts + item.overview.kpis.outOfStockProducts,
         lowStockProducts:
           total.lowStockProducts + item.overview.kpis.lowStockProducts,
+        costOfGoodsSold:
+          total.costOfGoodsSold + (item.overview.kpis.costOfGoodsSold ?? 0),
+        operatingExpenses:
+          total.operatingExpenses + (item.overview.kpis.operatingExpenses ?? 0),
+        itemsWithoutCost:
+          total.itemsWithoutCost + (item.overview.kpis.itemsWithoutCost ?? 0),
       }),
       {
         revenue: 0,
@@ -106,14 +116,62 @@ export const AnalyticsService = {
         stockValue: 0,
         outOfStockProducts: 0,
         lowStockProducts: 0,
+        costOfGoodsSold: 0,
+        operatingExpenses: 0,
+        itemsWithoutCost: 0,
       },
+    );
+
+    const consolidatedProfit = computeProfitMetrics({
+      revenue: consolidated.revenue,
+      costOfGoodsSold: consolidated.costOfGoodsSold,
+      operatingExpenses: consolidated.operatingExpenses,
+    });
+
+    const totalPreviousRevenue = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousRevenue ?? 0),
+      0,
+    );
+    const totalPreviousSalesCount = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousSalesCount ?? 0),
+      0,
+    );
+    const totalPreviousGrossProfit = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousGrossProfit ?? 0),
+      0,
     );
 
     return {
       period: overviews[0]?.overview.period ?? null,
+      comparison: isComparisonRequested(query.compare)
+        ? {
+            revenueChange: percentageChange(
+              consolidated.revenue,
+              totalPreviousRevenue,
+            ),
+            previousRevenue: roundMoney(totalPreviousRevenue),
+            previousSalesCount: totalPreviousSalesCount,
+            previousGrossProfit: roundMoney(totalPreviousGrossProfit),
+            profitChange: percentageChange(
+              consolidatedProfit.grossProfit,
+              totalPreviousGrossProfit,
+            ),
+            previousPeriod:
+              overviews[0]?.overview.comparison?.previousPeriod ?? null,
+          }
+        : null,
       shops: overviews,
       consolidated: {
         ...consolidated,
+        revenue: roundMoney(consolidated.revenue),
+        collected: roundMoney(consolidated.collected),
+        receivables: roundMoney(consolidated.receivables),
+        stockValue: roundMoney(consolidated.stockValue),
+        costOfGoodsSold: consolidatedProfit.costOfGoodsSold,
+        grossProfit: consolidatedProfit.grossProfit,
+        marginRate: consolidatedProfit.marginRate,
+        operatingExpenses: consolidatedProfit.operatingExpenses,
+        netProfit: consolidatedProfit.netProfit,
         averageBasket:
           consolidated.salesCount > 0
             ? roundMoney(consolidated.revenue / consolidated.salesCount)
@@ -122,17 +180,44 @@ export const AnalyticsService = {
     };
   },
 
-  getOverview: async (shopId: number, query: AnalyticsPeriodQuery) => {
+  getOverview: async (
+    shopId: number,
+    query: AnalyticsPeriodQuery,
+    options?: { includeProfit?: boolean },
+  ) => {
+    const includeProfit = options?.includeProfit ?? false;
+    const compare = isComparisonRequested(query.compare);
     const period = parseAnalyticsPeriod(query);
-    const [sales, payments, previousSales, products] = await Promise.all([
+    const previousPeriod = {
+      startDate: period.previousStartDate,
+      endDate: period.previousEndDate,
+    };
+
+    const [
+      sales,
+      payments,
+      previousSales,
+      products,
+      profitSummary,
+      previousProfitSummary,
+      cashOutflows,
+    ] = await Promise.all([
       AnalyticsRepository.getSalesAggregate(shopId, period),
       AnalyticsRepository.getPaymentAggregate(shopId, period),
       AnalyticsRepository.getSalesAggregate(shopId, {
         ...period,
-        startDate: period.previousStartDate,
-        endDate: period.previousEndDate,
+        ...previousPeriod,
       }),
       AnalyticsRepository.getStockSnapshot(shopId),
+      includeProfit
+        ? AnalyticsRepository.getProfitSummary(shopId, period)
+        : Promise.resolve(null),
+      includeProfit && compare
+        ? AnalyticsRepository.getProfitSummary(shopId, previousPeriod)
+        : Promise.resolve(null),
+      includeProfit
+        ? AnalyticsRepository.getCashOutflows(shopId, period)
+        : Promise.resolve(null),
     ]);
 
     const revenue = sales._sum.totalAmount || 0;
@@ -145,13 +230,45 @@ export const AnalyticsService = {
       0,
     );
 
+    const operatingExpenses = (cashOutflows ?? [])
+      .filter((tx) => getCashTransactionCategory(tx.label) === "OTHER")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const profitMetrics =
+      includeProfit && profitSummary
+        ? computeProfitMetrics({
+            revenue,
+            costOfGoodsSold: profitSummary.costOfGoodsSold,
+            operatingExpenses,
+          })
+        : null;
+
+    const previousGrossProfit =
+      includeProfit && previousProfitSummary
+        ? roundMoney(previousRevenue - previousProfitSummary.costOfGoodsSold)
+        : undefined;
+
     return {
       period: {
         startDate: period.startDate,
         endDate: period.endDate,
       },
-      comparison: isComparisonRequested(query.compare)
-        ? { revenueChange: percentageChange(revenue, previousRevenue) }
+      comparison: compare
+        ? {
+            revenueChange: percentageChange(revenue, previousRevenue),
+            previousRevenue: roundMoney(previousRevenue),
+            previousSalesCount: previousSales._count._all,
+            ...(profitMetrics && previousGrossProfit !== undefined
+              ? {
+                  previousGrossProfit,
+                  profitChange: percentageChange(
+                    profitMetrics.grossProfit,
+                    previousGrossProfit,
+                  ),
+                }
+              : {}),
+            previousPeriod,
+          }
         : null,
       kpis: {
         revenue: roundMoney(revenue),
@@ -165,6 +282,16 @@ export const AnalyticsService = {
         lowStockProducts: products.filter(
           (p) => p.quantity > 0 && p.quantity <= p.alertThreshold,
         ).length,
+        ...(profitMetrics && profitSummary
+          ? {
+              costOfGoodsSold: profitMetrics.costOfGoodsSold,
+              grossProfit: profitMetrics.grossProfit,
+              marginRate: profitMetrics.marginRate,
+              operatingExpenses: profitMetrics.operatingExpenses,
+              netProfit: profitMetrics.netProfit,
+              itemsWithoutCost: profitSummary.itemsWithoutCost,
+            }
+          : {}),
       },
     };
   },
@@ -217,7 +344,12 @@ export const AnalyticsService = {
     };
   },
 
-  getProducts: async (shopId: number, query: AnalyticsProductsQuery) => {
+  getProducts: async (
+    shopId: number,
+    query: AnalyticsProductsQuery,
+    options?: { includeProfit?: boolean },
+  ) => {
+    const includeProfit = options?.includeProfit ?? true;
     const period = parseAnalyticsPeriod(query);
     const pagination = getPagination(query);
     const status = oneOf(
@@ -292,8 +424,51 @@ export const AnalyticsService = {
       query.sort === "name"
         ? rows.sort((a, b) => a.productName.localeCompare(b.productName))
         : rows;
+
+    const totalRevenue = sortedRows.reduce((sum, r) => sum + r.revenue, 0);
+    const totalSoldQuantity = sortedRows.reduce(
+      (sum, r) => sum + r.soldQuantity,
+      0,
+    );
+    const totalCostOfGoodsSold = sortedRows.reduce(
+      (sum, r) => sum + r.costOfGoodsSold,
+      0,
+    );
+    const totalGrossMargin = totalRevenue - totalCostOfGoodsSold;
+    const averageMarginRate =
+      totalRevenue > 0
+        ? roundMoney((totalGrossMargin / totalRevenue) * 100)
+        : null;
+
+    const pagedProducts = sortedRows
+      .slice(pagination.offset, pagination.offset + pagination.pageSize)
+      .map((row) => {
+        if (includeProfit) return row;
+        const {
+          costOfGoodsSold: _cogs,
+          grossMargin: _gm,
+          marginRate: _mr,
+          costSource: _cs,
+          estimatedQuantity: _eq,
+          ...publicRow
+        } = row;
+        return publicRow;
+      });
+
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
+      summary: {
+        productCount: sortedRows.length,
+        totalSoldQuantity,
+        totalRevenue: roundMoney(totalRevenue),
+        ...(includeProfit
+          ? {
+              totalCostOfGoodsSold: roundMoney(totalCostOfGoodsSold),
+              totalGrossMargin: roundMoney(totalGrossMargin),
+              averageMarginRate,
+            }
+          : {}),
+      },
       pagination: paginationMeta(
         pagination.page,
         pagination.pageSize,
@@ -303,10 +478,7 @@ export const AnalyticsService = {
         method: "LATEST_ENTRY_BEFORE_SALE",
         estimatedWhenUnavailable: true,
       },
-      products: sortedRows.slice(
-        pagination.offset,
-        pagination.offset + pagination.pageSize,
-      ),
+      products: pagedProducts,
     };
   },
 
@@ -758,6 +930,271 @@ export const AnalyticsService = {
         pagination.offset,
         pagination.offset + pagination.pageSize,
       ),
+    };
+  },
+
+  getProfit: async (shopId: number, query: AnalyticsProfitQuery) => {
+    const period = parseAnalyticsPeriod(query);
+    const pagination = getPagination(query, 20);
+
+    const [lineItems, cashOutflows] = await Promise.all([
+      AnalyticsRepository.getProfitLineItems(shopId, period),
+      AnalyticsRepository.getDetailedCashOutflows(shopId, period),
+    ]);
+
+    const operatingExpenseRows = cashOutflows.filter(
+      (tx) => getCashTransactionCategory(tx.label) === "OTHER",
+    );
+    const totalOperatingExpenses = operatingExpenseRows.reduce(
+      (sum, tx) => sum + tx.amount,
+      0,
+    );
+
+    const totalRevenue = lineItems.reduce((sum, item) => sum + item.revenue, 0);
+    const totalCostOfGoodsSold = lineItems.reduce(
+      (sum, item) => sum + item.quantity * item.unitCost,
+      0,
+    );
+    const itemsWithoutCost = lineItems.filter(
+      (item) => item.costSource === "MISSING",
+    ).length;
+    const historicalItemsCount = lineItems.filter(
+      (item) => item.costSource === "HISTORICAL",
+    ).length;
+
+    const profitMetrics = computeProfitMetrics({
+      revenue: totalRevenue,
+      costOfGoodsSold: totalCostOfGoodsSold,
+      operatingExpenses: totalOperatingExpenses,
+    });
+
+    // 1. Agrégation par produit
+    const productMap = new Map<
+      string,
+      {
+        productId: number | null;
+        productName: string;
+        categoryName: string;
+        quantitySold: number;
+        revenue: number;
+        costOfGoodsSold: number;
+        missingCostLines: number;
+        historicalLines: number;
+        totalLines: number;
+      }
+    >();
+
+    // 2. Agrégation par catégorie
+    const categoryMap = new Map<
+      string,
+      {
+        categoryName: string;
+        quantitySold: number;
+        revenue: number;
+        costOfGoodsSold: number;
+        productKeys: Set<string>;
+      }
+    >();
+
+    // 3. Agrégation par vente (facture)
+    const saleMap = new Map<
+      number,
+      {
+        saleId: number;
+        invoiceNumber: string | null;
+        createdAt: Date;
+        customerName: string | null;
+        status: string;
+        itemsCount: number;
+        revenue: number;
+        costOfGoodsSold: number;
+        hasMissingCost: boolean;
+      }
+    >();
+
+    for (const item of lineItems) {
+      const lineCost = item.quantity * item.unitCost;
+      const productKey =
+        item.productId !== null
+          ? `id:${item.productId}`
+          : `name:${item.productName}`;
+
+      const prod = productMap.get(productKey) ?? {
+        productId: item.productId,
+        productName: item.productName,
+        categoryName: item.categoryName,
+        quantitySold: 0,
+        revenue: 0,
+        costOfGoodsSold: 0,
+        missingCostLines: 0,
+        historicalLines: 0,
+        totalLines: 0,
+      };
+      prod.quantitySold += item.quantity;
+      prod.revenue += item.revenue;
+      prod.costOfGoodsSold += lineCost;
+      prod.totalLines += 1;
+      if (item.costSource === "MISSING") prod.missingCostLines += 1;
+      if (item.costSource === "HISTORICAL") prod.historicalLines += 1;
+      productMap.set(productKey, prod);
+
+      const cat = categoryMap.get(item.categoryName) ?? {
+        categoryName: item.categoryName,
+        quantitySold: 0,
+        revenue: 0,
+        costOfGoodsSold: 0,
+        productKeys: new Set<string>(),
+      };
+      cat.quantitySold += item.quantity;
+      cat.revenue += item.revenue;
+      cat.costOfGoodsSold += lineCost;
+      cat.productKeys.add(productKey);
+      categoryMap.set(item.categoryName, cat);
+
+      const sale = saleMap.get(item.saleId) ?? {
+        saleId: item.saleId,
+        invoiceNumber: item.invoiceNumber,
+        createdAt: item.saleCreatedAt,
+        customerName: item.customerName,
+        status: item.saleStatus,
+        itemsCount: 0,
+        revenue: 0,
+        costOfGoodsSold: 0,
+        hasMissingCost: false,
+      };
+      sale.itemsCount += 1;
+      sale.revenue += item.revenue;
+      sale.costOfGoodsSold += lineCost;
+      if (item.costSource === "MISSING") sale.hasMissingCost = true;
+      saleMap.set(item.saleId, sale);
+    }
+
+    const byProduct = [...productMap.values()]
+      .map((p) => {
+        const grossProfit = p.revenue - p.costOfGoodsSold;
+        const marginRate =
+          p.revenue > 0 ? roundMoney((grossProfit / p.revenue) * 100) : null;
+        const profitShare =
+          profitMetrics.grossProfit > 0
+            ? roundMoney((grossProfit / profitMetrics.grossProfit) * 100)
+            : null;
+        const costSource =
+          p.missingCostLines > 0
+            ? "MISSING"
+            : p.historicalLines === p.totalLines
+              ? "HISTORICAL"
+              : "PRODUCT_PRICE";
+        return {
+          productId: p.productId,
+          productName: p.productName,
+          categoryName: p.categoryName,
+          quantitySold: p.quantitySold,
+          revenue: roundMoney(p.revenue),
+          costOfGoodsSold: roundMoney(p.costOfGoodsSold),
+          grossProfit: roundMoney(grossProfit),
+          marginRate,
+          profitShare,
+          costSource,
+        };
+      })
+      .sort((a, b) => b.grossProfit - a.grossProfit);
+
+    const byCategory = [...categoryMap.values()]
+      .map((c) => {
+        const grossProfit = c.revenue - c.costOfGoodsSold;
+        const marginRate =
+          c.revenue > 0 ? roundMoney((grossProfit / c.revenue) * 100) : null;
+        const profitShare =
+          profitMetrics.grossProfit > 0
+            ? roundMoney((grossProfit / profitMetrics.grossProfit) * 100)
+            : null;
+        return {
+          categoryName: c.categoryName,
+          productCount: c.productKeys.size,
+          quantitySold: c.quantitySold,
+          revenue: roundMoney(c.revenue),
+          costOfGoodsSold: roundMoney(c.costOfGoodsSold),
+          grossProfit: roundMoney(grossProfit),
+          marginRate,
+          profitShare,
+        };
+      })
+      .sort((a, b) => b.grossProfit - a.grossProfit);
+
+    const allSales = [...saleMap.values()]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((s) => {
+        const grossProfit = s.revenue - s.costOfGoodsSold;
+        const marginRate =
+          s.revenue > 0 ? roundMoney((grossProfit / s.revenue) * 100) : null;
+        return {
+          saleId: s.saleId,
+          invoiceNumber: s.invoiceNumber ?? `#${s.saleId}`,
+          createdAt: s.createdAt,
+          customerName: s.customerName ?? "Client comptoir",
+          status: s.status,
+          itemsCount: s.itemsCount,
+          revenue: roundMoney(s.revenue),
+          costOfGoodsSold: roundMoney(s.costOfGoodsSold),
+          grossProfit: roundMoney(grossProfit),
+          marginRate,
+          hasMissingCost: s.hasMissingCost,
+        };
+      });
+
+    const lossProducts = byProduct.filter((p) => p.grossProfit < 0);
+    const lowMarginProducts = byProduct.filter(
+      (p) =>
+        p.grossProfit >= 0 &&
+        p.marginRate !== null &&
+        p.marginRate < 10 &&
+        p.costSource !== "MISSING",
+    );
+    const missingCostProducts = byProduct.filter(
+      (p) => p.costSource === "MISSING",
+    );
+
+    return {
+      period: { startDate: period.startDate, endDate: period.endDate },
+      summary: {
+        revenue: roundMoney(totalRevenue),
+        costOfGoodsSold: profitMetrics.costOfGoodsSold,
+        grossProfit: profitMetrics.grossProfit,
+        marginRate: profitMetrics.marginRate,
+        operatingExpenses: profitMetrics.operatingExpenses,
+        netProfit: profitMetrics.netProfit,
+        salesCount: allSales.length,
+        itemsCount: lineItems.length,
+        itemsWithoutCost,
+        historicalCostRate:
+          lineItems.length > 0
+            ? roundMoney((historicalItemsCount / lineItems.length) * 100)
+            : 100,
+      },
+      alerts: {
+        lossProducts: lossProducts.slice(0, 10),
+        lowMarginProducts: lowMarginProducts.slice(0, 10),
+        missingCostProducts: missingCostProducts.slice(0, 10),
+      },
+      byProduct,
+      byCategory,
+      salesPagination: paginationMeta(
+        pagination.page,
+        pagination.pageSize,
+        allSales.length,
+      ),
+      sales: allSales.slice(
+        pagination.offset,
+        pagination.offset + pagination.pageSize,
+      ),
+      expenses: operatingExpenseRows.map((tx) => ({
+        id: tx.id,
+        createdAt: tx.createdAt,
+        label: tx.label,
+        paymentMethod: tx.paymentMethod,
+        amount: roundMoney(tx.amount),
+        reference: tx.reference,
+      })),
     };
   },
 };

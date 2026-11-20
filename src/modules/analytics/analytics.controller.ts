@@ -8,6 +8,7 @@ import type { AnalyticsCustomersQuery } from "./analytics.types.js";
 import type { AnalyticsCashQuery } from "./analytics.types.js";
 import type { AnalyticsTrendsQuery } from "./analytics.types.js";
 import type { AnalyticsInsightsQuery } from "./analytics.types.js";
+import type { AnalyticsProfitQuery } from "./analytics.types.js";
 
 export const getOverview = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getOverview(
@@ -17,6 +18,7 @@ export const getOverview = async (req: AuthRequest, res: Response) => {
       endDate: req.query.endDate as string | undefined,
       compare: req.query.compare as string | undefined,
     },
+    { includeProfit: req.user!.role === "ADMIN" },
   );
   return res.status(200).json(result);
 };
@@ -47,10 +49,10 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 };
 
 export const getProducts = async (req: AuthRequest, res: Response) => {
-
   const result = await AnalyticsService.getProducts(
     req.user!.shopId,
     req.query as AnalyticsProductsQuery,
+    { includeProfit: req.user!.role === "ADMIN" },
   );
 
   return res.status(200).json(result);
@@ -92,6 +94,14 @@ export const getInsights = async (req: AuthRequest, res: Response) => {
   const result = await AnalyticsService.getInsights(
     req.user!.shopId,
     req.query as AnalyticsInsightsQuery,
+  );
+  return res.status(200).json(result);
+};
+
+export const getProfit = async (req: AuthRequest, res: Response) => {
+  const result = await AnalyticsService.getProfit(
+    req.user!.shopId,
+    req.query as AnalyticsProfitQuery,
   );
   return res.status(200).json(result);
 };

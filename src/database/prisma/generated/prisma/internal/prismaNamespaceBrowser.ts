@@ -235,9 +235,13 @@ export const ProductScalarFieldEnum = {
   name: 'name',
   description: 'description',
   reference: 'reference',
+  unitType: 'unitType',
+  unitsPerPack: 'unitsPerPack',
   quantity: 'quantity',
   purchasePrice: 'purchasePrice',
   salePrice: 'salePrice',
+  packPurchasePrice: 'packPurchasePrice',
+  packSalePrice: 'packSalePrice',
   semiWholesalePrice: 'semiWholesalePrice',
   semiWholesaleMinQty: 'semiWholesaleMinQty',
   wholesalePrice: 'wholesalePrice',
@@ -350,6 +354,9 @@ export const SaleItemScalarFieldEnum = {
   productImageUrl: 'productImageUrl',
   quantity: 'quantity',
   unitPrice: 'unitPrice',
+  soldUnit: 'soldUnit',
+  soldQuantity: 'soldQuantity',
+  soldUnitPrice: 'soldUnitPrice',
   totalAmount: 'totalAmount'
 } as const
 

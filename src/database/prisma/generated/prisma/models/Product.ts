@@ -30,9 +30,12 @@ export type ProductAvgAggregateOutputType = {
   id: number | null
   shopId: number | null
   categoryId: number | null
+  unitsPerPack: number | null
   quantity: number | null
   purchasePrice: number | null
   salePrice: number | null
+  packPurchasePrice: number | null
+  packSalePrice: number | null
   semiWholesalePrice: number | null
   semiWholesaleMinQty: number | null
   wholesalePrice: number | null
@@ -44,9 +47,12 @@ export type ProductSumAggregateOutputType = {
   id: number | null
   shopId: number | null
   categoryId: number | null
+  unitsPerPack: number | null
   quantity: number | null
   purchasePrice: number | null
   salePrice: number | null
+  packPurchasePrice: number | null
+  packSalePrice: number | null
   semiWholesalePrice: number | null
   semiWholesaleMinQty: number | null
   wholesalePrice: number | null
@@ -61,9 +67,13 @@ export type ProductMinAggregateOutputType = {
   name: string | null
   description: string | null
   reference: string | null
+  unitType: $Enums.PackagingUnit | null
+  unitsPerPack: number | null
   quantity: number | null
   purchasePrice: number | null
   salePrice: number | null
+  packPurchasePrice: number | null
+  packSalePrice: number | null
   semiWholesalePrice: number | null
   semiWholesaleMinQty: number | null
   wholesalePrice: number | null
@@ -82,9 +92,13 @@ export type ProductMaxAggregateOutputType = {
   name: string | null
   description: string | null
   reference: string | null
+  unitType: $Enums.PackagingUnit | null
+  unitsPerPack: number | null
   quantity: number | null
   purchasePrice: number | null
   salePrice: number | null
+  packPurchasePrice: number | null
+  packSalePrice: number | null
   semiWholesalePrice: number | null
   semiWholesaleMinQty: number | null
   wholesalePrice: number | null
@@ -103,9 +117,13 @@ export type ProductCountAggregateOutputType = {
   name: number
   description: number
   reference: number
+  unitType: number
+  unitsPerPack: number
   quantity: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice: number
+  packSalePrice: number
   semiWholesalePrice: number
   semiWholesaleMinQty: number
   wholesalePrice: number
@@ -123,9 +141,12 @@ export type ProductAvgAggregateInputType = {
   id?: true
   shopId?: true
   categoryId?: true
+  unitsPerPack?: true
   quantity?: true
   purchasePrice?: true
   salePrice?: true
+  packPurchasePrice?: true
+  packSalePrice?: true
   semiWholesalePrice?: true
   semiWholesaleMinQty?: true
   wholesalePrice?: true
@@ -137,9 +158,12 @@ export type ProductSumAggregateInputType = {
   id?: true
   shopId?: true
   categoryId?: true
+  unitsPerPack?: true
   quantity?: true
   purchasePrice?: true
   salePrice?: true
+  packPurchasePrice?: true
+  packSalePrice?: true
   semiWholesalePrice?: true
   semiWholesaleMinQty?: true
   wholesalePrice?: true
@@ -154,9 +178,13 @@ export type ProductMinAggregateInputType = {
   name?: true
   description?: true
   reference?: true
+  unitType?: true
+  unitsPerPack?: true
   quantity?: true
   purchasePrice?: true
   salePrice?: true
+  packPurchasePrice?: true
+  packSalePrice?: true
   semiWholesalePrice?: true
   semiWholesaleMinQty?: true
   wholesalePrice?: true
@@ -175,9 +203,13 @@ export type ProductMaxAggregateInputType = {
   name?: true
   description?: true
   reference?: true
+  unitType?: true
+  unitsPerPack?: true
   quantity?: true
   purchasePrice?: true
   salePrice?: true
+  packPurchasePrice?: true
+  packSalePrice?: true
   semiWholesalePrice?: true
   semiWholesaleMinQty?: true
   wholesalePrice?: true
@@ -196,9 +228,13 @@ export type ProductCountAggregateInputType = {
   name?: true
   description?: true
   reference?: true
+  unitType?: true
+  unitsPerPack?: true
   quantity?: true
   purchasePrice?: true
   salePrice?: true
+  packPurchasePrice?: true
+  packSalePrice?: true
   semiWholesalePrice?: true
   semiWholesaleMinQty?: true
   wholesalePrice?: true
@@ -304,9 +340,13 @@ export type ProductGroupByOutputType = {
   name: string
   description: string | null
   reference: string | null
+  unitType: $Enums.PackagingUnit
+  unitsPerPack: number
   quantity: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice: number | null
+  packSalePrice: number | null
   semiWholesalePrice: number | null
   semiWholesaleMinQty: number | null
   wholesalePrice: number | null
@@ -348,9 +388,13 @@ export type ProductWhereInput = {
   name?: Prisma.StringFilter<"Product"> | string
   description?: Prisma.StringNullableFilter<"Product"> | string | null
   reference?: Prisma.StringNullableFilter<"Product"> | string | null
+  unitType?: Prisma.EnumPackagingUnitFilter<"Product"> | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFilter<"Product"> | number
   quantity?: Prisma.IntFilter<"Product"> | number
   purchasePrice?: Prisma.FloatFilter<"Product"> | number
   salePrice?: Prisma.FloatFilter<"Product"> | number
+  packPurchasePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
+  packSalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesaleMinQty?: Prisma.IntNullableFilter<"Product"> | number | null
   wholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
@@ -373,9 +417,13 @@ export type ProductOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   reference?: Prisma.SortOrderInput | Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrderInput | Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrderInput | Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -401,9 +449,13 @@ export type ProductWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Product"> | string
   description?: Prisma.StringNullableFilter<"Product"> | string | null
   reference?: Prisma.StringNullableFilter<"Product"> | string | null
+  unitType?: Prisma.EnumPackagingUnitFilter<"Product"> | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFilter<"Product"> | number
   quantity?: Prisma.IntFilter<"Product"> | number
   purchasePrice?: Prisma.FloatFilter<"Product"> | number
   salePrice?: Prisma.FloatFilter<"Product"> | number
+  packPurchasePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
+  packSalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesaleMinQty?: Prisma.IntNullableFilter<"Product"> | number | null
   wholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
@@ -426,9 +478,13 @@ export type ProductOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   reference?: Prisma.SortOrderInput | Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrderInput | Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrderInput | Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -455,9 +511,13 @@ export type ProductScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"Product"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"Product"> | string | null
   reference?: Prisma.StringNullableWithAggregatesFilter<"Product"> | string | null
+  unitType?: Prisma.EnumPackagingUnitWithAggregatesFilter<"Product"> | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntWithAggregatesFilter<"Product"> | number
   quantity?: Prisma.IntWithAggregatesFilter<"Product"> | number
   purchasePrice?: Prisma.FloatWithAggregatesFilter<"Product"> | number
   salePrice?: Prisma.FloatWithAggregatesFilter<"Product"> | number
+  packPurchasePrice?: Prisma.FloatNullableWithAggregatesFilter<"Product"> | number | null
+  packSalePrice?: Prisma.FloatNullableWithAggregatesFilter<"Product"> | number | null
   semiWholesalePrice?: Prisma.FloatNullableWithAggregatesFilter<"Product"> | number | null
   semiWholesaleMinQty?: Prisma.IntNullableWithAggregatesFilter<"Product"> | number | null
   wholesalePrice?: Prisma.FloatNullableWithAggregatesFilter<"Product"> | number | null
@@ -473,9 +533,13 @@ export type ProductCreateInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -498,9 +562,13 @@ export type ProductUncheckedCreateInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -518,9 +586,13 @@ export type ProductUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -543,9 +615,13 @@ export type ProductUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -566,9 +642,13 @@ export type ProductCreateManyInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -584,9 +664,13 @@ export type ProductUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -605,9 +689,13 @@ export type ProductUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -636,9 +724,13 @@ export type ProductCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   reference?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrder
@@ -654,9 +746,12 @@ export type ProductAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   shopId?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrder
@@ -671,9 +766,13 @@ export type ProductMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   reference?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrder
@@ -692,9 +791,13 @@ export type ProductMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
   reference?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrder
@@ -710,9 +813,12 @@ export type ProductSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   shopId?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
+  unitsPerPack?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   purchasePrice?: Prisma.SortOrder
   salePrice?: Prisma.SortOrder
+  packPurchasePrice?: Prisma.SortOrder
+  packSalePrice?: Prisma.SortOrder
   semiWholesalePrice?: Prisma.SortOrder
   semiWholesaleMinQty?: Prisma.SortOrder
   wholesalePrice?: Prisma.SortOrder
@@ -814,6 +920,10 @@ export type ProductUncheckedUpdateManyWithoutCategoryNestedInput = {
   deleteMany?: Prisma.ProductScalarWhereInput | Prisma.ProductScalarWhereInput[]
 }
 
+export type EnumPackagingUnitFieldUpdateOperationsInput = {
+  set?: $Enums.PackagingUnit
+}
+
 export type FloatFieldUpdateOperationsInput = {
   set?: number
   increment?: number
@@ -864,9 +974,13 @@ export type ProductCreateWithoutShopInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -887,9 +1001,13 @@ export type ProductUncheckedCreateWithoutShopInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -939,9 +1057,13 @@ export type ProductScalarWhereInput = {
   name?: Prisma.StringFilter<"Product"> | string
   description?: Prisma.StringNullableFilter<"Product"> | string | null
   reference?: Prisma.StringNullableFilter<"Product"> | string | null
+  unitType?: Prisma.EnumPackagingUnitFilter<"Product"> | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFilter<"Product"> | number
   quantity?: Prisma.IntFilter<"Product"> | number
   purchasePrice?: Prisma.FloatFilter<"Product"> | number
   salePrice?: Prisma.FloatFilter<"Product"> | number
+  packPurchasePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
+  packSalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
   semiWholesaleMinQty?: Prisma.IntNullableFilter<"Product"> | number | null
   wholesalePrice?: Prisma.FloatNullableFilter<"Product"> | number | null
@@ -957,9 +1079,13 @@ export type ProductCreateWithoutCategoryInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -980,9 +1106,13 @@ export type ProductUncheckedCreateWithoutCategoryInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1026,9 +1156,13 @@ export type ProductCreateWithoutStockMovementsInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1050,9 +1184,13 @@ export type ProductUncheckedCreateWithoutStockMovementsInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1085,9 +1223,13 @@ export type ProductUpdateWithoutStockMovementsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1109,9 +1251,13 @@ export type ProductUncheckedUpdateWithoutStockMovementsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1128,9 +1274,13 @@ export type ProductCreateWithoutSaleItemsInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1152,9 +1302,13 @@ export type ProductUncheckedCreateWithoutSaleItemsInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1187,9 +1341,13 @@ export type ProductUpdateWithoutSaleItemsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1211,9 +1369,13 @@ export type ProductUncheckedUpdateWithoutSaleItemsInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1232,9 +1394,13 @@ export type ProductCreateManyShopInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1250,9 +1416,13 @@ export type ProductUpdateWithoutShopInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1273,9 +1443,13 @@ export type ProductUncheckedUpdateWithoutShopInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1295,9 +1469,13 @@ export type ProductUncheckedUpdateManyWithoutShopInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1315,9 +1493,13 @@ export type ProductCreateManyCategoryInput = {
   name: string
   description?: string | null
   reference?: string | null
+  unitType?: $Enums.PackagingUnit
+  unitsPerPack?: number
   quantity?: number
   purchasePrice: number
   salePrice: number
+  packPurchasePrice?: number | null
+  packSalePrice?: number | null
   semiWholesalePrice?: number | null
   semiWholesaleMinQty?: number | null
   wholesalePrice?: number | null
@@ -1333,9 +1515,13 @@ export type ProductUpdateWithoutCategoryInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1356,9 +1542,13 @@ export type ProductUncheckedUpdateWithoutCategoryInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1378,9 +1568,13 @@ export type ProductUncheckedUpdateManyWithoutCategoryInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  unitsPerPack?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   purchasePrice?: Prisma.FloatFieldUpdateOperationsInput | number
   salePrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  packPurchasePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  packSalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   semiWholesaleMinQty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   wholesalePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1439,9 +1633,13 @@ export type ProductSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   name?: boolean
   description?: boolean
   reference?: boolean
+  unitType?: boolean
+  unitsPerPack?: boolean
   quantity?: boolean
   purchasePrice?: boolean
   salePrice?: boolean
+  packPurchasePrice?: boolean
+  packSalePrice?: boolean
   semiWholesalePrice?: boolean
   semiWholesaleMinQty?: boolean
   wholesalePrice?: boolean
@@ -1465,9 +1663,13 @@ export type ProductSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   name?: boolean
   description?: boolean
   reference?: boolean
+  unitType?: boolean
+  unitsPerPack?: boolean
   quantity?: boolean
   purchasePrice?: boolean
   salePrice?: boolean
+  packPurchasePrice?: boolean
+  packSalePrice?: boolean
   semiWholesalePrice?: boolean
   semiWholesaleMinQty?: boolean
   wholesalePrice?: boolean
@@ -1488,9 +1690,13 @@ export type ProductSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   name?: boolean
   description?: boolean
   reference?: boolean
+  unitType?: boolean
+  unitsPerPack?: boolean
   quantity?: boolean
   purchasePrice?: boolean
   salePrice?: boolean
+  packPurchasePrice?: boolean
+  packSalePrice?: boolean
   semiWholesalePrice?: boolean
   semiWholesaleMinQty?: boolean
   wholesalePrice?: boolean
@@ -1511,9 +1717,13 @@ export type ProductSelectScalar = {
   name?: boolean
   description?: boolean
   reference?: boolean
+  unitType?: boolean
+  unitsPerPack?: boolean
   quantity?: boolean
   purchasePrice?: boolean
   salePrice?: boolean
+  packPurchasePrice?: boolean
+  packSalePrice?: boolean
   semiWholesalePrice?: boolean
   semiWholesaleMinQty?: boolean
   wholesalePrice?: boolean
@@ -1525,7 +1735,7 @@ export type ProductSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProductOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "categoryId" | "name" | "description" | "reference" | "quantity" | "purchasePrice" | "salePrice" | "semiWholesalePrice" | "semiWholesaleMinQty" | "wholesalePrice" | "wholesaleMinQty" | "alertThreshold" | "imageUrl" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["product"]>
+export type ProductOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "shopId" | "categoryId" | "name" | "description" | "reference" | "unitType" | "unitsPerPack" | "quantity" | "purchasePrice" | "salePrice" | "packPurchasePrice" | "packSalePrice" | "semiWholesalePrice" | "semiWholesaleMinQty" | "wholesalePrice" | "wholesaleMinQty" | "alertThreshold" | "imageUrl" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["product"]>
 export type ProductInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   shop?: boolean | Prisma.ShopDefaultArgs<ExtArgs>
   category?: boolean | Prisma.Product$categoryArgs<ExtArgs>
@@ -1557,9 +1767,13 @@ export type $ProductPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     name: string
     description: string | null
     reference: string | null
+    unitType: $Enums.PackagingUnit
+    unitsPerPack: number
     quantity: number
     purchasePrice: number
     salePrice: number
+    packPurchasePrice: number | null
+    packSalePrice: number | null
     semiWholesalePrice: number | null
     semiWholesaleMinQty: number | null
     wholesalePrice: number | null
@@ -2002,9 +2216,13 @@ export interface ProductFieldRefs {
   readonly name: Prisma.FieldRef<"Product", 'String'>
   readonly description: Prisma.FieldRef<"Product", 'String'>
   readonly reference: Prisma.FieldRef<"Product", 'String'>
+  readonly unitType: Prisma.FieldRef<"Product", 'PackagingUnit'>
+  readonly unitsPerPack: Prisma.FieldRef<"Product", 'Int'>
   readonly quantity: Prisma.FieldRef<"Product", 'Int'>
   readonly purchasePrice: Prisma.FieldRef<"Product", 'Float'>
   readonly salePrice: Prisma.FieldRef<"Product", 'Float'>
+  readonly packPurchasePrice: Prisma.FieldRef<"Product", 'Float'>
+  readonly packSalePrice: Prisma.FieldRef<"Product", 'Float'>
   readonly semiWholesalePrice: Prisma.FieldRef<"Product", 'Float'>
   readonly semiWholesaleMinQty: Prisma.FieldRef<"Product", 'Int'>
   readonly wholesalePrice: Prisma.FieldRef<"Product", 'Float'>
