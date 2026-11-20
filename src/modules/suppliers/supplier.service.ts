@@ -1,5 +1,5 @@
 import { prisma } from "../../config/prisma.js";
-import { SubscriptionService } from "../../services/subscription.service.js";
+import { SubscriptionService } from "../subscriptions/subscription.service.js";
 import {
   BadRequestError,
   ForbiddenError,

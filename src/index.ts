@@ -7,7 +7,7 @@ import { env } from "./config/env-config.js";
 import { logger, morganStream } from "./config/logger.js";
 import { ErrorHandler } from "./middlewares/error-handler.middleware.js";
 import { apiRateLimiter } from "./middlewares/rate-limit.middleware.js";
-import authRoutes from "./routes/auth.routes.js";
+import authRoutes from "./modules/auth/auth.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
 import cashRoutes from "./modules/cash/cash.routes.js";
 import categoryRoutes from "./modules/categories/category.routes.js";
@@ -17,16 +17,16 @@ import invoiceRoutes from "./modules/invoices/invoice.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import productRoutes from "./modules/products/product.routes.js";
 import saleRoutes from "./modules/sales/sale.routes.js";
-import shopRoutes from "./routes/shop.routes.js";
+import shopRoutes from "./modules/shops/shop.routes.js";
 import stockRoutes from "./modules/stock/stock.routes.js";
-import subscription from "./routes/subscription.routes.js";
+import subscription from "./modules/subscriptions/subscription.routes.js";
 import superAdminRoutes from "./modules/super-admin/super-admin.routes.js";
 import supplierRoutes from "./modules/suppliers/supplier.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes.js";
 import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middleware.js";
-import { SubscriptionLifecycleService } from "./services/subscription-lifecycle.service.js";
+import { SubscriptionLifecycleService } from "./modules/subscriptions/subscription-lifecycle.service.js";
 
 const app = express();
 

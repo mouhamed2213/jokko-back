@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { upload } from "../../config/storage.config.js";
+import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import {
   createSecondShop,
   createShop,
@@ -8,15 +10,11 @@ import {
   switchShop,
   updateShopSettings,
   uploadShopLogo,
-} from "../controllers/shop.controller.js";
-import { authorizeRoles, protect } from "../middlewares/auth.middleware.js";
-import { upload } from "../config/storage.config.js";
+} from "./shop.controller.js";
 
 const router = Router();
 
-// publuc route , anyone can create shop
 router.post("/", createShop);
-
 router.post(
   "/create-second-shop",
   protect,

@@ -1,7 +1,6 @@
 import type { Response, Request } from "express";
 import { logger } from "../../config/logger.js";
 import { AppError } from "../../utils/errors.js";
-import { prisma } from "../../config/prisma.js";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
 import { AccountAuthService } from "./account-auth.service.js";
 
@@ -155,10 +154,7 @@ export const AccountAuthController = {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
     try {
-      const account = await prisma.user.findUnique({
-        where: { id: accountId },
-        select: { email: true, emailVerifiedAt: true },
-      });
+      const account = await AccountAuthService.getEmailStatus("USER", accountId);
       if (!account) return res.status(404).json({ message: "Compte introuvable." });
       return res.status(200).json(account);
     } catch (error) {
@@ -171,10 +167,7 @@ export const AccountAuthController = {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
     try {
-      const account = await prisma.superAdmin.findUnique({
-        where: { id: accountId },
-        select: { email: true, emailVerifiedAt: true },
-      });
+      const account = await AccountAuthService.getEmailStatus("SUPER_ADMIN", accountId);
       if (!account) return res.status(404).json({ message: "Compte introuvable." });
       return res.status(200).json(account);
     } catch (error) {

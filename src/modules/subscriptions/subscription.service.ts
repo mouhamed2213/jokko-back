@@ -1,13 +1,13 @@
-import { prisma } from "../config/prisma.js";
-import { Prisma } from "../database/prisma/generated/prisma/client.js";
-import { dateManagement } from "../helpers/dates.js";
+import { prisma } from "../../config/prisma.js";
+import { Prisma } from "../../database/prisma/generated/prisma/client.js";
+import { dateManagement } from "../../helpers/dates.js";
 import {
   AppError,
   BadRequestError,
   ForbiddenError,
   NotFoundError,
   UnprocessableEntity,
-} from "../utils/errors.js";
+} from "../../utils/errors.js";
 import { SubscriptionLifecycleService } from "./subscription-lifecycle.service.js";
 
 type SubscriptionWithPlan = Prisma.SubscriptionGetPayload<{
@@ -239,6 +239,29 @@ export const SubscriptionService = {
       where: { id: subscription.id, shopOwnerId: billingOwnerId },
       data: { endDate: parsedExtendToDate, gracePeriodEndsAt: null },
       include: subscriptionInclude,
+    });
+  },
+
+  extendPrimarySubscription: async (
+    shopId: number,
+    userId: number,
+    ownerId: number,
+    extendToDate: Date | string,
+  ) => {
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { primaryShopId: true },
+    });
+    if (!shop || shop.primaryShopId !== null || userId !== ownerId) {
+      throw new ForbiddenError(
+        "La gestion de l'abonnement est réservée au propriétaire depuis la boutique principale.",
+      );
+    }
+
+    return SubscriptionService.extendSubscription({
+      shopId,
+      shopOwnerId: ownerId,
+      extendToDate,
     });
   },
 };

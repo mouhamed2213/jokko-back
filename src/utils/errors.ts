@@ -56,9 +56,11 @@ export class ConflictError extends AppError {
   }
 }
 export class ForbiddenError extends AppError {
-  constructor(message: string = "Accès refusé") {
+  public code;
+  constructor(message: string = "Accès refusé", code?: unknown) {
     super(message, 403);
     this.name = "ForbiddenError";
+    this.code = code;
   }
 }
 

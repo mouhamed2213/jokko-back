@@ -1,6 +1,6 @@
 import type { NextFunction, Response } from "express";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
-import { SubscriptionService } from "../../services/subscription.service.js";
+import { SubscriptionService } from "../subscriptions/subscription.service.js";
 import { ForbiddenError } from "../../utils/errors.js";
 
 export type AnalyticsSection =

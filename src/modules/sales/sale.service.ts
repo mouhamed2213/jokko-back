@@ -13,7 +13,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../../utils/errors.js";
-import { PlanChecker } from "../../services/plan-checker.service.js";
+import { PlanChecker } from "../subscriptions/plan-checker.service.js";
 
 export function getSaleStatus(paid: number, total: number) {
   if (paid >= total) return "PAID";

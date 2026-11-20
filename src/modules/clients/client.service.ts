@@ -1,6 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import type { Prisma } from "../../database/prisma/generated/prisma/client.js";
-import { PlanChecker } from "../../services/plan-checker.service.js";
+import { PlanChecker } from "../subscriptions/plan-checker.service.js";
 import {
   BadRequestError,
   ForbiddenError,

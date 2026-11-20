@@ -1,23 +1,30 @@
-import { isBlockedStatus } from "../helpers/shop-status.js";
+import { isBlockedStatus } from "../../helpers/shop-status.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { logger } from "../config/logger.js";
-import { prisma } from "../config/prisma.js";
+import { logger } from "../../config/logger.js";
+import { prisma } from "../../config/prisma.js";
 
 import {
   CurrentShopType,
   PlanType,
   SubscriptionStatus,
-} from "../database/prisma/generated/prisma/enums.js";
+} from "../../database/prisma/generated/prisma/enums.js";
 import {
+  BadRequestError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
-} from "../utils/errors.js";
-import { env } from "../config/env-config.js";
-import { getFullStorageUrl } from "../utils/file-upload.js";
-import { LOGO_BUCKET } from "../config/storage.config.js";
+} from "../../utils/errors.js";
+import { env } from "../../config/env-config.js";
+import {
+  cleanPath,
+  getFullStorageUrl,
+  validateFile,
+} from "../../utils/file-upload.js";
+import { LOGO_BUCKET } from "../../config/storage.config.js";
+import { UploadService } from "../uploads/upload.service.js";
+import { AccountAuthService } from "../email/account-auth.service.js";
 
 export const ShopService = {
   createShop: async (
@@ -372,5 +379,262 @@ export const ShopService = {
         shopName: targetShop.name,
       },
     };
+  },
+
+  registerPrimaryShop: async (payload: {
+    shopName?: string;
+    ownerName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    adminPassword?: string;
+    currentShop?: string;
+    planType?: PlanType;
+  }) => {
+    const {
+      shopName,
+      ownerName,
+      email,
+      phone,
+      address,
+      adminPassword,
+      currentShop,
+      planType,
+    } = payload;
+
+    if (!shopName || !ownerName || !email || !adminPassword || !planType) {
+      throw new BadRequestError("Champs obligatoires manquants");
+    }
+
+    const existingShop = await ShopService.find(email);
+    if (existingShop && currentShop === "PRIMARY") {
+      throw new BadRequestError("Une boutique avec cet email existe déjà");
+    }
+
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const shop = await ShopService.createShop(
+      shopName,
+      ownerName,
+      email,
+      phone || "",
+      address || "",
+      hashedPassword,
+      planType,
+    );
+
+    const ownerAccount = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (ownerAccount) {
+      try {
+        await AccountAuthService.requestEmailVerification(
+          "USER",
+          ownerAccount.id,
+        );
+      } catch (emailError) {
+        logger.error(
+          "Boutique créée, mais email de vérification du propriétaire non envoyé",
+          {
+            userId: ownerAccount.id,
+            error:
+              emailError instanceof Error
+                ? emailError.message
+                : "Erreur inconnue",
+          },
+        );
+      }
+    }
+
+    logger.info(`🏪 Nouvelle boutique créée — "${shopName}" — Email: ${email}`);
+    return shop;
+  },
+
+  registerSecondaryShop: async (
+    ownerId: number,
+    userId: number,
+    body: Record<string, any>,
+  ) => {
+    const { manager, ...shopData } = body;
+    if (
+      !shopData.shopName ||
+      !shopData.ownerName ||
+      !shopData.phone ||
+      !shopData.email
+    ) {
+      throw new BadRequestError(
+        "Nom, propriétaire, téléphone et email de la boutique sont obligatoires",
+      );
+    }
+
+    let managerPayload: { name: string; email: string; password: string } | null =
+      null;
+    if (manager) {
+      if (
+        !manager.name ||
+        !manager.email ||
+        !manager.password ||
+        String(manager.password).length < 8
+      ) {
+        throw new BadRequestError(
+          "Nom, email et mot de passe d'au moins 8 caractères obligatoires pour le responsable",
+        );
+      }
+      managerPayload = {
+        name: String(manager.name).trim(),
+        email: String(manager.email).trim().toLowerCase(),
+        password: await bcrypt.hash(String(manager.password), 10),
+      };
+    }
+
+    const newShop = await ShopService.createSecondaryShop(ownerId, userId, {
+      ...shopData,
+      manager: managerPayload,
+    } as any);
+
+    if (managerPayload) {
+      const managerAccount = await prisma.user.findUnique({
+        where: { email: managerPayload.email },
+        select: { id: true },
+      });
+      if (managerAccount) {
+        try {
+          await AccountAuthService.requestEmailVerification(
+            "USER",
+            managerAccount.id,
+          );
+        } catch (emailError) {
+          logger.error(
+            "Boutique secondaire créée, mais email de vérification du responsable non envoyé",
+            {
+              userId: managerAccount.id,
+              error:
+                emailError instanceof Error
+                  ? emailError.message
+                  : "Erreur inconnue",
+            },
+          );
+        }
+      }
+    }
+
+    logger.info(`🏪 Boutique secondaire créée par User ${userId}`);
+    return newShop;
+  },
+
+  getSettings: async (shopId: number) => {
+    const shopData = await prisma.shop.findUnique({
+      where: { id: shopId },
+      include: {
+        subscriptions: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 1,
+          include: { plan: true },
+        },
+        primaryShop: {
+          include: {
+            subscriptions: {
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              include: { plan: true },
+            },
+          },
+        },
+        _count: {
+          select: { users: true, products: true, sales: true, clients: true },
+        },
+      },
+    });
+    if (!shopData) {
+      throw new NotFoundError("Boutique introuvable");
+    }
+
+    return {
+      ...shopData,
+      subscriptions: shopData.primaryShopId
+        ? shopData.primaryShop?.subscriptions ?? []
+        : shopData.subscriptions,
+      subscriptionInherited: !!shopData.primaryShopId,
+      billingShopId: shopData.primaryShopId ?? shopData.id,
+      logoUrl: getFullStorageUrl(LOGO_BUCKET, shopData.logoUrl as string),
+    };
+  },
+
+  updateSettings: async (
+    shopId: number,
+    ownerId: number,
+    payload: {
+      name?: string;
+      ownerName?: string;
+      phone?: string;
+      address?: string;
+    },
+  ) => {
+    const { name, ownerName, phone, address } = payload;
+    if (!name || !ownerName || !phone) {
+      throw new BadRequestError(
+        "Nom boutique, nom propriétaire et numéro obligatoires",
+      );
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.shop.update({
+        where: { id: shopId },
+        data: {
+          name: name.trim(),
+          ownerName: ownerName.trim(),
+          phone: phone.trim(),
+          address: address?.trim() || null,
+        },
+      });
+
+      await tx.shopOwner.updateMany({
+        where: { shopId, userId: ownerId },
+        data: { phone: updated.phone },
+      });
+
+      return updated;
+    });
+  },
+
+  uploadLogo: async (shopId: number, file?: Express.Multer.File) => {
+    if (!file) {
+      throw new BadRequestError("Aucun fichier reçu");
+    }
+    validateFile(file);
+    const generatePath = cleanPath(file);
+    const logoPath = await UploadService.uploadFile(file, generatePath, "logo");
+
+    const shop = await prisma.shop.update({
+      where: { id: shopId },
+      data: { logoUrl: logoPath.path },
+    });
+
+    return { generatePath, shop };
+  },
+
+  deleteLogo: async (shopId: number) => {
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { logoUrl: true },
+    });
+    if (!shop) {
+      throw new NotFoundError("Boutique introuvable");
+    }
+
+    const data = await UploadService.deleteFile(
+      LOGO_BUCKET,
+      shop.logoUrl ?? "",
+    );
+    if (!data || data.length === 0) {
+      logger.warn(
+        `Aucun fichier trouvé à supprimer dans '${LOGO_BUCKET}' au chemin : ${shop.logoUrl}`,
+      );
+    }
+
+    await prisma.shop.update({
+      where: { id: shopId },
+      data: { logoUrl: null },
+    });
   },
 };

@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { logger } from "../../config/logger.js";
 import { prisma } from "../../config/prisma.js";
-import { PlanChecker } from "../../services/plan-checker.service.js";
+import { PlanChecker } from "../subscriptions/plan-checker.service.js";
 import {
   AppError,
   BadRequestError,

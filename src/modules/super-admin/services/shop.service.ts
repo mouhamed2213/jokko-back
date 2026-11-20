@@ -2,7 +2,7 @@ import { prisma } from "../../../config/prisma.js";
 import { Prisma } from "../../../database/prisma/generated/prisma/client.js";
 import { NotFoundError } from "../../../utils/errors.js";
 import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
-import { SubscriptionLifecycleService } from "../../../services/subscription-lifecycle.service.js";
+import { SubscriptionLifecycleService } from "../../subscriptions/subscription-lifecycle.service.js";
 
 type ShopListFilters = {
   page?: number;

@@ -1,4 +1,4 @@
-import { CreatePaymentRequest } from "../types/index.js"
+import { CreatePaymentRequest } from "../../types/index.js";
 
 export const WaveProvider = {
   createPayment: async (req: CreatePaymentRequest): Promise<any> => {

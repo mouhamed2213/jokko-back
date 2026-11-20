@@ -4,8 +4,8 @@ import {
   PaymentType,
   PlanType,
 } from "../../../database/prisma/generated/prisma/enums.js";
-import { PaymentService } from "../../../services/payment.service.js";
-import { SubscriptionService } from "../../../services/subscription.service.js";
+import { PaymentService } from "../../subscriptions/payment.service.js";
+import { SubscriptionService } from "../../subscriptions/subscription.service.js";
 import { CreatePaymentOptions } from "../../../types/index.js";
 import { NotFoundError } from "../../../utils/errors.js";
 

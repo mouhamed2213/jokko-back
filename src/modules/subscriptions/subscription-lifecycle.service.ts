@@ -1,4 +1,4 @@
-import { prisma } from "../config/prisma.js";
+import { prisma } from "../../config/prisma.js";
 
 export const DEFAULT_GRACE_PERIOD_DAYS = 5;
 export const MAX_GRACE_PERIOD_DAYS = 365;

@@ -17,7 +17,7 @@ import {
   getFullStorageUrl,
   validateFile,
 } from "../../utils/file-upload.js";
-import { PlanChecker } from "../../services/plan-checker.service.js";
+import { PlanChecker } from "../subscriptions/plan-checker.service.js";
 import { StockService } from "../stock/stock.service.js";
 import { UploadService } from "../uploads/upload.service.js";
 
