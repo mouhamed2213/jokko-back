@@ -107,18 +107,26 @@ export const SaleService = {
       throw new NotFoundError("Client introuvable");
     }
 
-    for (const item of items) {
+    const normalizedItems = items.map((item) => {
+      const pid = Number(item.productId);
       const qty = Number(item.quantity);
       const price = Number(item.unitPrice);
+      const soldUnit: PackagingUnit = item.soldUnit
+        ? parsePackagingUnit(item.soldUnit)
+        : "PIECE";
+      if (!Number.isInteger(pid) || pid <= 0) {
+        throw new BadRequestError("Identifiant de produit invalide.");
+      }
       if (!Number.isInteger(qty) || qty <= 0) {
         throw new BadRequestError("La quantité de chaque article doit être un entier positif.");
       }
       if (!Number.isFinite(price) || price <= 0) {
         throw new BadRequestError("Le prix unitaire de chaque article doit être positif.");
       }
-    }
+      return { pid, qty, soldUnit, soldUnitPrice: price };
+    });
 
-    const newProductIds = [...new Set(items.map((i) => Number(i.productId)))];
+    const newProductIds = [...new Set(normalizedItems.map((i) => i.pid))];
     const products = await prisma.product.findMany({
       where: { id: { in: newProductIds }, shopId, isActive: true },
     });
@@ -139,13 +147,37 @@ export const SaleService = {
     }
 
     const newlyRequested = new Map<number, number>();
-    for (const item of items) {
-      const pid = Number(item.productId);
-      newlyRequested.set(pid, (newlyRequested.get(pid) || 0) + Number(item.quantity));
-    }
+    const resolvedItems = normalizedItems.map((item) => {
+      const product = products.find((p) => p.id === item.pid)!;
+      if (item.soldUnit !== "PIECE" && item.soldUnit !== product.unitType) {
+        throw new BadRequestError(
+          `Le produit "${product.name}" ne peut pas être vendu en ${getUnitLabel(item.soldUnit)}.`,
+        );
+      }
+      const multiplier =
+        item.soldUnit === "PIECE" ? 1 : Math.max(1, product.unitsPerPack);
+      const piecesCount = item.qty * multiplier;
+      const lineTotal = item.soldUnitPrice * item.qty;
+      const effectivePiecePrice = lineTotal / piecesCount;
 
-    const totalAmount = items.reduce(
-      (sum, item) => sum + Number(item.unitPrice) * Number(item.quantity),
+      newlyRequested.set(
+        item.pid,
+        (newlyRequested.get(item.pid) || 0) + piecesCount,
+      );
+
+      return {
+        product,
+        soldUnit: item.soldUnit,
+        soldQuantity: item.qty,
+        soldUnitPrice: item.soldUnitPrice,
+        piecesCount,
+        effectivePiecePrice,
+        lineTotal,
+      };
+    });
+
+    const totalAmount = resolvedItems.reduce(
+      (sum, item) => sum + item.lineTotal,
       0,
     );
 
@@ -217,19 +249,17 @@ export const SaleService = {
           status: getSaleStatus(0, totalAmount),
           note: note !== undefined ? note || null : existingSale.note,
           items: {
-            create: items.map((item) => {
-              const product = products.find(
-                (p) => p.id === Number(item.productId),
-              )!;
-              return {
-                productId: product.id,
-                productName: product.name,
-                productImageUrl: product.imageUrl,
-                quantity: Number(item.quantity),
-                unitPrice: Number(item.unitPrice),
-                totalAmount: Number(item.unitPrice) * Number(item.quantity),
-              };
-            }),
+            create: resolvedItems.map((item) => ({
+              productId: item.product.id,
+              productName: item.product.name,
+              productImageUrl: item.product.imageUrl,
+              quantity: item.piecesCount,
+              unitPrice: item.effectivePiecePrice,
+              soldUnit: item.soldUnit,
+              soldQuantity: item.soldQuantity,
+              soldUnitPrice: item.soldUnitPrice,
+              totalAmount: item.lineTotal,
+            })),
           },
         },
         include: {
