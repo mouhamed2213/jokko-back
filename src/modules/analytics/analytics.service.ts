@@ -109,8 +109,29 @@ export const AnalyticsService = {
       },
     );
 
+    const totalPreviousRevenue = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousRevenue ?? 0),
+      0,
+    );
+    const totalPreviousSalesCount = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousSalesCount ?? 0),
+      0,
+    );
+
     return {
       period: overviews[0]?.overview.period ?? null,
+      comparison: isComparisonRequested(query.compare)
+        ? {
+            revenueChange: percentageChange(
+              consolidated.revenue,
+              totalPreviousRevenue,
+            ),
+            previousRevenue: roundMoney(totalPreviousRevenue),
+            previousSalesCount: totalPreviousSalesCount,
+            previousPeriod:
+              overviews[0]?.overview.comparison?.previousPeriod ?? null,
+          }
+        : null,
       shops: overviews,
       consolidated: {
         ...consolidated,
@@ -151,7 +172,15 @@ export const AnalyticsService = {
         endDate: period.endDate,
       },
       comparison: isComparisonRequested(query.compare)
-        ? { revenueChange: percentageChange(revenue, previousRevenue) }
+        ? {
+            revenueChange: percentageChange(revenue, previousRevenue),
+            previousRevenue: roundMoney(previousRevenue),
+            previousSalesCount: previousSales._count._all,
+            previousPeriod: {
+              startDate: period.previousStartDate,
+              endDate: period.previousEndDate,
+            },
+          }
         : null,
       kpis: {
         revenue: roundMoney(revenue),
