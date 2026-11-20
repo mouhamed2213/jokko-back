@@ -2,7 +2,7 @@ import { NextFunction, Response } from "express";
 import { prisma } from "../config/prisma.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
 import { logger } from "../config/logger.js";
-import { sendNotificationToShop } from "./notification.controller.js";
+import { sendNotificationToShop } from "../modules/notifications/notification.service.js";
 import { StockService } from "../services/stock.service.js";
 import { parsePackagingUnit } from "../helpers/packaging.js";
 import { BadRequestError, NotFoundError } from "../utils/errors.js";

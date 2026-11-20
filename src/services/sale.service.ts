@@ -2,7 +2,7 @@ import type { Prisma } from "../database/prisma/generated/prisma/client.js";
 import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
 import { logger } from "../config/logger.js";
 import { prisma } from "../config/prisma.js";
-import { sendNotificationToShop } from "../controllers/notification.controller.js";
+import { sendNotificationToShop } from "../modules/notifications/notification.service.js";
 import {
   computePriceForUnit,
   getUnitLabel,
