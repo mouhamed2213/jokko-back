@@ -1,28 +1,26 @@
-import { NextFunction, Response } from "express";
-import { prisma } from "../config/prisma.js";
-import { AuthRequest } from "../middlewares/auth.middleware.js";
-import { BadRequestError, ForbiddenError } from "../utils/errors.js";
-import { SubscriptionService } from "../services/subscription.service.js";
+import { prisma } from "../../config/prisma.js";
+import { SubscriptionService } from "../../services/subscription.service.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../utils/errors.js";
 
-const getSupplierSubscription = async (req: AuthRequest) => {
-  return SubscriptionService.currentSubscription(
-    req.user!.shopId,
-    req.user!.ownerId,
-  );
-};
+export const SupplierService = {
+  list: async (
+    shopId: number,
+    query: {
+      page?: number;
+      limit?: number;
+      agingBucket?: string;
+      search?: string;
+    },
+  ) => {
+    const page = Math.max(query.page || 1, 1);
+    const limit = Math.min(Math.max(query.limit || 10, 1), 100);
+    const agingBucket = query.agingBucket;
+    const search = (query.search || "").trim();
 
-// ── GET /suppliers ────────────────────────────────────────────
-export const getSuppliers = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
-    const agingBucket =
-      typeof req.query.agingBucket === "string"
-        ? req.query.agingBucket
-        : undefined;
-    const search =
-      typeof req.query.search === "string" ? req.query.search.trim() : "";
     const now = Date.now();
     const day = 86_400_000;
     const agingRanges: Record<string, { gte?: Date; lt?: Date }> = {
@@ -37,14 +35,17 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
       },
       "90+": { lt: new Date(now - 91 * day) },
     };
+
     const agingRange = agingBucket ? agingRanges[agingBucket] : undefined;
     if (agingBucket && !agingRange) {
-      return res.status(400).json({ message: "Tranche d'ancienneté invalide" });
+      throw new BadRequestError("Tranche d'ancienneté invalide");
     }
+
     const debtWhere = {
       status: { in: ["UNPAID", "PARTIAL"] },
       ...(agingRange ? { createdAt: agingRange } : {}),
     };
+
     const supplierWhere = {
       shopId,
       ...(search
@@ -58,6 +59,7 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
         : {}),
       ...(agingRange ? { supplierDebts: { some: debtWhere } } : {}),
     };
+
     const [total, suppliers] = await Promise.all([
       prisma.supplier.count({ where: supplierWhere }),
       prisma.supplier.findMany({
@@ -89,24 +91,15 @@ export const getSuppliers = async (req: AuthRequest, res: Response) => {
       deliveries: s._count.stockMovements,
     }));
 
-    return res.status(200).json({
+    return {
       data: formatted,
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur récupération fournisseurs", error });
-  }
-};
+    };
+  },
 
-// ── GET /suppliers/:id ────────────────────────────────────────
-export const getSupplierById = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const id = Number(req.params.id);
-    const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  getById: async (shopId: number, id: number, page = 1, limit = 10) => {
+    const safePage = Math.max(page, 1);
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
 
     const supplier = await prisma.supplier.findFirst({
       where: { id, shopId },
@@ -119,20 +112,20 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
           where: { type: "ENTRY" },
           include: { product: true },
           orderBy: { createdAt: "desc" },
-          skip: (page - 1) * limit,
-          take: limit,
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
         },
       },
     });
-
-    if (!supplier)
-      return res.status(404).json({ message: "Fournisseur introuvable" });
+    if (!supplier) {
+      throw new NotFoundError("Fournisseur introuvable");
+    }
 
     const movementTotal = await prisma.stockMovement.count({
       where: { supplierId: id, shopId, type: "ENTRY" },
     });
 
-    return res.status(200).json({
+    return {
       ...supplier,
       totalDebt: supplier.supplierDebts
         .filter((d) => d.status !== "PAID")
@@ -146,31 +139,17 @@ export const getSupplierById = async (req: AuthRequest, res: Response) => {
         0,
       ),
       stockMovementsPagination: {
-        page,
-        limit,
+        page: safePage,
+        limit: safeLimit,
         total: movementTotal,
-        totalPages: Math.ceil(movementTotal / limit),
+        totalPages: Math.ceil(movementTotal / safeLimit),
       },
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur récupération fournisseur", error });
-  }
-};
+    };
+  },
 
-// ── GET /suppliers/analytics/ranking ────────────────────────────
-// Classe les fournisseurs par montant acheté, dette due et livraisons.
-// ── GET /suppliers/analytics/products?supplierId= ──────────────
-// Liste, pour un fournisseur donné, les produits qu'il a déjà livrés
-// (traçabilité : "quels produits viennent de quel fournisseur").
-export const getSupplierProducts = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const supplierId = Number(req.query.supplierId);
-
+  getProducts: async (shopId: number, supplierId: number) => {
     if (!supplierId) {
-      return res.status(400).json({ message: "supplierId requis" });
+      throw new BadRequestError("supplierId requis");
     }
 
     const supplier = await prisma.supplier.findFirst({
@@ -178,7 +157,7 @@ export const getSupplierProducts = async (req: AuthRequest, res: Response) => {
       select: { id: true, name: true },
     });
     if (!supplier) {
-      return res.status(404).json({ message: "Fournisseur introuvable" });
+      throw new NotFoundError("Fournisseur introuvable");
     }
 
     const entries = await prisma.stockMovement.findMany({
@@ -222,7 +201,6 @@ export const getSupplierProducts = async (req: AuthRequest, res: Response) => {
       } else {
         existing.totalQuantity += entry.quantity;
         existing.deliveries += 1;
-        // entries triées du plus récent au plus ancien : le premier vu est le dernier
       }
     }
 
@@ -230,25 +208,15 @@ export const getSupplierProducts = async (req: AuthRequest, res: Response) => {
       (a, b) => b.lastDate.getTime() - a.lastDate.getTime(),
     );
 
-    return res
-      .status(200)
-      .json({ supplier: { id: supplier.id, name: supplier.name }, products });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur produits du fournisseur", error });
-  }
-};
+    return { supplier: { id: supplier.id, name: supplier.name }, products };
+  },
 
-
-export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const sortBy =
-      typeof req.query.sortBy === "string" ? req.query.sortBy : "purchases";
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-
+  getRanking: async (
+    shopId: number,
+    sortBy = "purchases",
+    page = 1,
+    limit = 10,
+  ) => {
     const suppliers = await prisma.supplier.findMany({
       where: { shopId },
       include: {
@@ -283,33 +251,21 @@ export const getSupplierRanking = async (req: AuthRequest, res: Response) => {
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const paged = ranked.slice((page - 1) * limit, page * limit);
 
-    return res.status(200).json({
+    return {
       data: paged,
       pagination: { total, page, limit, totalPages },
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur classement fournisseurs", error });
-  }
-};
+    };
+  },
 
-// ── GET /suppliers/consolidated ─────────────────────────────────
-// Vue consolidée des fournisseurs/dettes à travers toutes les boutiques
-// du même propriétaire (aucune fusion de données, juste une addition
-// boutique par boutique — chaque boutique garde sa propre comptabilité).
-export const getConsolidatedSuppliers = async (
-  req: AuthRequest,
-  res: Response,
-) => {
-  try {
-    if (req.user!.userId !== req.user!.ownerId) {
-      throw new ForbiddenError("La vue consolidée est réservée au propriétaire principal.");
+  getConsolidated: async (userId: number, ownerId: number) => {
+    if (userId !== ownerId) {
+      throw new ForbiddenError(
+        "La vue consolidée est réservée au propriétaire principal.",
+      );
     }
-    const ownerId = req.user!.ownerId;
 
     const ownerships = await prisma.shopOwner.findMany({
-      where: { userId: ownerId },
+      where: { userId: ownerId, shop: { status: "ACTIVE" } },
       select: { shop: { select: { id: true, name: true } } },
     });
 
@@ -351,25 +307,22 @@ export const getConsolidatedSuppliers = async (
       0,
     );
 
-    return res.status(200).json({ shops, grandTotalDebt, grandTotalSuppliers });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur vue consolidée fournisseurs", error });
-  }
-};
+    return { shops, grandTotalDebt, grandTotalSuppliers };
+  },
 
-
-export const createSupplier = async (req: AuthRequest, res: Response, next : NextFunction) => {
-  try {
-    const { name, phone, email, address } = req.body;
-    const shopId = req.user!.shopId;
-    const subscription = await getSupplierSubscription(req);
-
-    if (!name) {
+  create: async (
+    shopId: number,
+    ownerId: number,
+    payload: { name?: string; phone?: string; email?: string; address?: string },
+  ) => {
+    if (!payload.name) {
       throw new BadRequestError("Le nom est obligatoire");
     }
 
+    const subscription = await SubscriptionService.currentSubscription(
+      shopId,
+      ownerId,
+    );
     const supplierLimit = subscription.limits.suppliers;
     const supplierCount = await prisma.supplier.count({ where: { shopId } });
 
@@ -379,49 +332,34 @@ export const createSupplier = async (req: AuthRequest, res: Response, next : Nex
       );
     }
 
-    const supplier = await prisma.supplier.create({
+    return prisma.supplier.create({
       data: {
         shopId,
-        name,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
+        name: payload.name,
+        phone: payload.phone || null,
+        email: payload.email || null,
+        address: payload.address || null,
       },
     });
+  },
 
-    return res
-      .status(201)
-      .json({ message: "Fournisseur créé avec succès", supplier });
-  } catch (e) {
-    next(e)
-  }
-};
-
-// ── GET /suppliers/quota ───────────────────────────────────────
-export const getSupplierQuota = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const subscription = await getSupplierSubscription(req);
+  getQuota: async (shopId: number, ownerId: number) => {
+    const subscription = await SubscriptionService.currentSubscription(
+      shopId,
+      ownerId,
+    );
     const limit = subscription.limits.suppliers;
     const count = await prisma.supplier.count({ where: { shopId } });
 
-    return res.status(200).json({
+    return {
       count,
       limit,
       remaining: limit === null ? null : Math.max(limit - count, 0),
       plan: subscription.plan.code,
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur récupération quota fournisseurs", error });
-  }
-};
+    };
+  },
 
-// ── GET /suppliers/aging ───────────────────────────────────────
-export const getSupplierDebtAging = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
+  getDebtAging: async (shopId: number) => {
     const debts = await prisma.supplierDebt.findMany({
       where: {
         supplier: { shopId },
@@ -464,128 +402,103 @@ export const getSupplierDebtAging = async (req: AuthRequest, res: Response) => {
       };
     });
 
-    return res.status(200).json({
+    return {
       referenceDate: new Date(now).toISOString(),
       totalRemaining: agingDebts.reduce((sum, debt) => sum + debt.remaining, 0),
       totalDebts: agingDebts.length,
       buckets,
       debts: agingDebts,
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur rapport ancienneté dettes", error });
-  }
-};
+    };
+  },
 
-// ── PUT /suppliers/:id ────────────────────────────────────────
-export const updateSupplier = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const id = Number(req.params.id);
-    const { name, phone, email, address } = req.body;
-
+  update: async (
+    shopId: number,
+    id: number,
+    payload: { name?: string; phone?: string; email?: string; address?: string },
+  ) => {
     const existing = await prisma.supplier.findFirst({ where: { id, shopId } });
-    if (!existing)
-      return res.status(404).json({ message: "Fournisseur introuvable" });
+    if (!existing) {
+      throw new NotFoundError("Fournisseur introuvable");
+    }
 
-    const updated = await prisma.supplier.update({
+    return prisma.supplier.update({
       where: { id },
       data: {
-        name: name || existing.name,
-        phone: phone !== undefined ? phone : existing.phone,
-        email: email !== undefined ? email : existing.email,
-        address: address !== undefined ? address : existing.address,
+        name: payload.name || existing.name,
+        phone: payload.phone !== undefined ? payload.phone : existing.phone,
+        email: payload.email !== undefined ? payload.email : existing.email,
+        address:
+          payload.address !== undefined ? payload.address : existing.address,
       },
     });
+  },
 
-    return res
-      .status(200)
-      .json({ message: "Fournisseur modifié", supplier: updated });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur modification fournisseur", error });
-  }
-};
-
-// ── DELETE /suppliers/:id ─────────────────────────────────────
-export const deleteSupplier = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const id = Number(req.params.id);
-
+  remove: async (shopId: number, id: number) => {
     const existing = await prisma.supplier.findFirst({
       where: { id, shopId },
       include: {
         _count: { select: { supplierDebts: true, stockMovements: true } },
       },
     });
-    if (!existing)
-      return res.status(404).json({ message: "Fournisseur introuvable" });
+    if (!existing) {
+      throw new NotFoundError("Fournisseur introuvable");
+    }
 
-    if (existing._count.supplierDebts > 0 || existing._count.stockMovements > 0) {
-      return res.status(400).json({
-        message:
-          "Impossible de supprimer un fournisseur ayant un historique d'achats, de dettes ou de mouvements de stock.",
-      });
+    if (
+      existing._count.supplierDebts > 0 ||
+      existing._count.stockMovements > 0
+    ) {
+      throw new BadRequestError(
+        "Impossible de supprimer un fournisseur ayant un historique d'achats, de dettes ou de mouvements de stock.",
+      );
     }
 
     await prisma.supplier.delete({ where: { id } });
-    return res.status(200).json({ message: "Fournisseur supprimé" });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur suppression fournisseur" });
-  }
-};
+  },
 
-// ── POST /suppliers/:id/debts ─────────────────────────────────
-// Créer une dette manuellement (sans approvisionnement)
-export const addSupplierDebt = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const supplierId = Number(req.params.id);
-    const { totalAmount, paidAmount, note } = req.body;
-
-    if (!totalAmount || Number(totalAmount) <= 0) {
-      return res.status(400).json({ message: "Montant total invalide" });
+  addDebt: async (
+    shopId: number,
+    supplierId: number,
+    payload: {
+      totalAmount?: number | string;
+      paidAmount?: number | string;
+      note?: string;
+      paymentMethod?: string;
+    },
+  ) => {
+    const total = Number(payload.totalAmount);
+    if (!total || total <= 0) {
+      throw new BadRequestError("Montant total invalide");
     }
 
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, shopId },
     });
-    if (!supplier)
-      return res.status(404).json({ message: "Fournisseur introuvable" });
-
-    const total = Number(totalAmount);
-    const paid = paidAmount ? Number(paidAmount) : 0;
-    const paymentMethod = req.body.paymentMethod || "CASH";
-
-    if (paid > total) {
-      return res
-        .status(400)
-        .json({ message: "L'acompte ne peut pas dépasser le total" });
+    if (!supplier) {
+      throw new NotFoundError("Fournisseur introuvable");
     }
 
-    // Si acompte versé, vérifier que la caisse est ouverte
+    const paid = payload.paidAmount ? Number(payload.paidAmount) : 0;
+    if (paid > total) {
+      throw new BadRequestError("L'acompte ne peut pas dépasser le total");
+    }
+
     if (paid > 0) {
       const cashRegister = await prisma.cashRegister.findFirst({
         where: { shopId, status: "OPEN" },
       });
       if (!cashRegister) {
-        return res.status(400).json({
-          message:
-            "La caisse est fermée. Impossible de verser un acompte sans caisse ouverte.",
-          code: "CASH_CLOSED",
-        });
+        throw new BadRequestError(
+          "La caisse est fermée. Impossible de verser un acompte sans caisse ouverte.",
+          "CASH_CLOSED",
+        );
       }
     }
 
     const remaining = total - paid;
     const status = remaining <= 0 ? "PAID" : paid > 0 ? "PARTIAL" : "UNPAID";
 
-    const debt = await prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const newDebt = await tx.supplierDebt.create({
         data: {
           supplierId,
@@ -593,11 +506,10 @@ export const addSupplierDebt = async (req: AuthRequest, res: Response) => {
           paidAmount: paid,
           remaining,
           status,
-          note: note || null,
+          note: payload.note || null,
         },
       });
 
-      // Enregistrer l'acompte si versé
       if (paid > 0) {
         await tx.supplierPayment.create({
           data: {
@@ -607,7 +519,6 @@ export const addSupplierDebt = async (req: AuthRequest, res: Response) => {
           },
         });
 
-        // Décaissement en caisse si ouverte
         const cashRegister = await tx.cashRegister.findFirst({
           where: { shopId, status: "OPEN" },
         });
@@ -630,58 +541,49 @@ export const addSupplierDebt = async (req: AuthRequest, res: Response) => {
 
       return newDebt;
     });
+  },
 
-    return res.status(201).json({ message: "Dette enregistrée", debt });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur ajout dette fournisseur", error });
-  }
-};
-
-// ── POST /suppliers/:id/debts/:debtId/payments ────────────────
-// Enregistrer un paiement (règlement ou acompte) vers un fournisseur
-export const addSupplierPayment = async (req: AuthRequest, res: Response) => {
-  try {
-    const shopId = req.user!.shopId;
-    const supplierId = Number(req.params.id);
-    const debtId = Number(req.params.debtId);
-    const { amount, note } = req.body;
-
-    const paymentAmount = Number(amount);
+  addPayment: async (
+    shopId: number,
+    supplierId: number,
+    debtId: number,
+    payload: { amount?: number | string; note?: string },
+  ) => {
+    const paymentAmount = Number(payload.amount);
     if (!paymentAmount || paymentAmount <= 0) {
-      return res.status(400).json({ message: "Montant invalide" });
+      throw new BadRequestError("Montant invalide");
     }
 
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, shopId },
     });
-    if (!supplier)
-      return res.status(404).json({ message: "Fournisseur introuvable" });
+    if (!supplier) {
+      throw new NotFoundError("Fournisseur introuvable");
+    }
 
     const debt = await prisma.supplierDebt.findUnique({
       where: { id: debtId },
     });
-    if (!debt) return res.status(404).json({ message: "Dette introuvable" });
+    if (!debt || debt.supplierId !== supplierId) {
+      throw new NotFoundError("Dette introuvable");
+    }
     if (debt.status === "PAID") {
-      return res.status(400).json({ message: "Cette dette est déjà soldée" });
+      throw new BadRequestError("Cette dette est déjà soldée");
     }
     if (paymentAmount > debt.remaining) {
-      return res.status(400).json({
-        message: `Le montant dépasse le reste dû (${debt.remaining} FCFA)`,
-      });
+      throw new BadRequestError(
+        `Le montant dépasse le reste dû (${debt.remaining} FCFA)`,
+      );
     }
 
-    // ✅ Vérifier que la caisse est ouverte
     const cashRegForPayment = await prisma.cashRegister.findFirst({
       where: { shopId, status: "OPEN" },
     });
     if (!cashRegForPayment) {
-      return res.status(400).json({
-        message:
-          "La caisse est fermée. Veuillez ouvrir la caisse avant de payer un fournisseur.",
-        code: "CASH_CLOSED",
-      });
+      throw new BadRequestError(
+        "La caisse est fermée. Veuillez ouvrir la caisse avant de payer un fournisseur.",
+        "CASH_CLOSED",
+      );
     }
 
     const newPaid = debt.paidAmount + paymentAmount;
@@ -691,9 +593,9 @@ export const addSupplierPayment = async (req: AuthRequest, res: Response) => {
     const payment = await prisma.$transaction(async (tx) => {
       const newPayment = await tx.supplierPayment.create({
         data: {
-          debtId: debtId,
+          debtId,
           amount: paymentAmount,
-          note: note || null,
+          note: payload.note || null,
         },
       });
 
@@ -706,7 +608,6 @@ export const addSupplierPayment = async (req: AuthRequest, res: Response) => {
         },
       });
 
-      // ✅ Décaissement automatique en caisse si ouverte
       const cashRegister = await tx.cashRegister.findFirst({
         where: { shopId, status: "OPEN" },
       });
@@ -729,15 +630,6 @@ export const addSupplierPayment = async (req: AuthRequest, res: Response) => {
       return newPayment;
     });
 
-    return res.status(201).json({
-      message: "Paiement enregistré",
-      payment,
-      debtStatus: newStatus,
-      remaining: newRemaining,
-    });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Erreur paiement fournisseur", error });
-  }
+    return { payment, debtStatus: newStatus, remaining: newRemaining };
+  },
 };

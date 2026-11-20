@@ -21,7 +21,7 @@ import shopRoutes from "./routes/shop.routes.js";
 import stockRoutes from "./modules/stock/stock.routes.js";
 import subscription from "./routes/subscription.routes.js";
 import superAdminRoutes from "./modules/super-admin/super-admin.routes.js";
-import supplierRoutes from "./routes/supplier.routes.js";
+import supplierRoutes from "./modules/suppliers/supplier.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes.js";
