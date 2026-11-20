@@ -5,7 +5,7 @@ import type { AnalyticsPeriod } from "./analytics.types.js";
 export const AnalyticsRepository = {
   getAuthorizedShops: (ownerId: number) =>
     prisma.shopOwner.findMany({
-      where: { userId: ownerId },
+      where: { userId: ownerId, shop: { status: "ACTIVE" } },
       select: { shopId: true, shop: { select: { id: true, name: true } } },
     }),
   getSalesAggregate: (shopId: number, period: AnalyticsPeriod) =>

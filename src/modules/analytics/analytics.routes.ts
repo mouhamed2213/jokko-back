@@ -28,7 +28,7 @@ router.get(
 router.get(
   "/overview/multi-store",
   protect,
-  authorizeRoles("ADMIN", "EMPLOYEE"),
+  authorizeRoles("ADMIN"),
   requireMultiStoreAnalytics,
   getMultiStoreOverview,
 );

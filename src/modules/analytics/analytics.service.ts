@@ -135,6 +135,10 @@ export const AnalyticsService = {
       shops: overviews,
       consolidated: {
         ...consolidated,
+        revenue: roundMoney(consolidated.revenue),
+        collected: roundMoney(consolidated.collected),
+        receivables: roundMoney(consolidated.receivables),
+        stockValue: roundMoney(consolidated.stockValue),
         averageBasket:
           consolidated.salesCount > 0
             ? roundMoney(consolidated.revenue / consolidated.salesCount)

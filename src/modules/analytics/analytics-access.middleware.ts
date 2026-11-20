@@ -61,7 +61,7 @@ export const requireAnalyticsAccess = (section: AnalyticsSection) =>
         planRank[subscription.plan.code] < planRank.BASIC
       ) {
         throw new ForbiddenError(
-          "La comparaison entre périodes est disponible à partir du plan BASIC.",
+          "La comparaison entre périodes est disponible à partir du plan Starter.",
         );
       }
 
@@ -92,7 +92,7 @@ export const requireMultiStoreAnalytics = async (
     !subscription.features.includes("MULTI_STORE")
   ) {
     throw new ForbiddenError(
-      "L'analyse multi-boutique nécessite le plan PREMIUM.",
+      "L'analyse multi-boutique nécessite le plan Signature.",
     );
   }
   next();
