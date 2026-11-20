@@ -1,8 +1,13 @@
 import type { Prisma } from "../database/prisma/generated/prisma/client.js";
+import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
 import { logger } from "../config/logger.js";
 import { prisma } from "../config/prisma.js";
 import { sendNotificationToShop } from "../controllers/notification.controller.js";
-import { computePrice } from "../controllers/product.controller.js";
+import {
+  computePriceForUnit,
+  getUnitLabel,
+  parsePackagingUnit,
+} from "../helpers/packaging.js";
 import { getSaleStatus } from "../controllers/sale.controller.js";
 import {
   BadRequestError,
@@ -15,6 +20,7 @@ export type Item = {
   productId: number;
   quantity: number;
   unitPrice: number;
+  soldUnit?: PackagingUnit;
 };
 
 async function generateInvoiceNumberInTx(
@@ -278,11 +284,11 @@ export const SaleService = {
       }
     }
 
-    // 1. Validation stricte des articles et agrégation par produit
-    const requestedByProduct = new Map<number, number>();
-    for (const item of items) {
+    // 1. Validation stricte des articles
+    const normalizedInputs = items.map((item) => {
       const pid = Number(item.productId);
       const qty = Number(item.quantity);
+      const soldUnit = item.soldUnit ? parsePackagingUnit(item.soldUnit) : undefined;
       if (!Number.isInteger(pid) || pid <= 0) {
         throw new BadRequestError("Identifiant de produit invalide.");
       }
@@ -295,42 +301,82 @@ export const SaleService = {
           throw new BadRequestError("Le prix unitaire de chaque article doit être supérieur à 0.");
         }
       }
-      requestedByProduct.set(pid, (requestedByProduct.get(pid) || 0) + qty);
-    }
+      return { pid, qty, soldUnit, rawUnitPrice: Number(item.unitPrice) };
+    });
 
-    const uniqueProductIds = [...requestedByProduct.keys()];
+    const uniqueProductIds = [...new Set(normalizedInputs.map((i) => i.pid))];
     const products = await prisma.product.findMany({
       where: { id: { in: uniqueProductIds }, shopId, isActive: true },
     });
 
-    for (const [pid, totalQty] of requestedByProduct.entries()) {
-      const product = products.find((p) => p.id === pid);
+    // Quantité agrégée par (produit, unité vendue) pour le calcul des paliers
+    const qtyByProductAndUnit = new Map<string, number>();
+    const requestedPiecesByProduct = new Map<number, number>();
+
+    for (const input of normalizedInputs) {
+      const product = products.find((p) => p.id === input.pid);
       if (!product) {
-        throw new NotFoundError(`Produit ID ${pid} introuvable`);
+        throw new NotFoundError(`Produit ID ${input.pid} introuvable`);
       }
-      if (product.quantity < totalQty) {
+      const effectiveUnit: PackagingUnit = input.soldUnit ?? "PIECE";
+      if (effectiveUnit !== "PIECE" && effectiveUnit !== product.unitType) {
         throw new BadRequestError(
-          `Stock insuffisant pour "${product.name}" (disponible: ${product.quantity})`,
+          `Le produit "${product.name}" ne peut pas être vendu en ${getUnitLabel(effectiveUnit)}.`,
+        );
+      }
+      const multiplier =
+        effectiveUnit === "PIECE" ? 1 : Math.max(1, product.unitsPerPack);
+      const pieces = input.qty * multiplier;
+
+      requestedPiecesByProduct.set(
+        input.pid,
+        (requestedPiecesByProduct.get(input.pid) || 0) + pieces,
+      );
+      const unitKey = `${input.pid}:${effectiveUnit}`;
+      qtyByProductAndUnit.set(
+        unitKey,
+        (qtyByProductAndUnit.get(unitKey) || 0) + input.qty,
+      );
+    }
+
+    for (const [pid, totalPieces] of requestedPiecesByProduct.entries()) {
+      const product = products.find((p) => p.id === pid)!;
+      if (product.quantity < totalPieces) {
+        throw new BadRequestError(
+          `Stock insuffisant pour "${product.name}" (disponible: ${product.quantity} pièces)`,
         );
       }
     }
 
     // 2. Calcul des prix : ADMIN peut ajuster (> 0), EMPLOYEE reçoit le prix du palier serveur
-    const resolvedItems = items.map((item) => {
-      const pid = Number(item.productId);
-      const qty = Number(item.quantity);
-      const product = products.find((p) => p.id === pid)!;
-      const totalQtyForProduct = requestedByProduct.get(pid)!;
-      const unitPrice =
-        userRole === "ADMIN"
-          ? Number(item.unitPrice)
-          : computePrice(product, totalQtyForProduct).price;
+    const resolvedItems = normalizedInputs.map((input) => {
+      const product = products.find((p) => p.id === input.pid)!;
+      const effectiveUnit: PackagingUnit = input.soldUnit ?? "PIECE";
+      const totalQtyInSameUnit =
+        qtyByProductAndUnit.get(`${input.pid}:${effectiveUnit}`) || input.qty;
+
+      const computed = computePriceForUnit(
+        product,
+        totalQtyInSameUnit,
+        effectiveUnit,
+      );
+      const soldUnitPrice =
+        userRole === "ADMIN" ? input.rawUnitPrice : computed.price;
+
+      const multiplier =
+        effectiveUnit === "PIECE" ? 1 : Math.max(1, product.unitsPerPack);
+      const piecesCount = input.qty * multiplier;
+      const lineTotal = soldUnitPrice * input.qty;
+      const effectivePiecePrice = lineTotal / piecesCount;
 
       return {
         product,
-        quantity: qty,
-        unitPrice,
-        lineTotal: unitPrice * qty,
+        soldUnit: effectiveUnit,
+        soldQuantity: input.qty,
+        soldUnitPrice,
+        piecesCount,
+        effectivePiecePrice,
+        lineTotal,
       };
     });
 
@@ -392,16 +438,16 @@ export const SaleService = {
             attempt,
           );
 
-          // Décrément atomique du stock par produit agrégé
-          for (const [pid, totalQty] of requestedByProduct.entries()) {
+          // Décrément atomique du stock par produit agrégé (en pièces)
+          for (const [pid, totalPieces] of requestedPiecesByProduct.entries()) {
             const updated = await tx.product.updateMany({
               where: {
                 id: pid,
                 shopId,
                 isActive: true,
-                quantity: { gte: totalQty },
+                quantity: { gte: totalPieces },
               },
-              data: { quantity: { decrement: totalQty } },
+              data: { quantity: { decrement: totalPieces } },
             });
             if (updated.count === 0) {
               const p = products.find((prod) => prod.id === pid)!;
@@ -428,8 +474,11 @@ export const SaleService = {
                   productId: item.product.id,
                   productName: item.product.name,
                   productImageUrl: item.product.imageUrl,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
+                  quantity: item.piecesCount,
+                  unitPrice: item.effectivePiecePrice,
+                  soldUnit: item.soldUnit,
+                  soldQuantity: item.soldQuantity,
+                  soldUnitPrice: item.soldUnitPrice,
                   totalAmount: item.lineTotal,
                 })),
               },
@@ -453,14 +502,18 @@ export const SaleService = {
           });
 
           for (const item of resolvedItems) {
+            const unitSuffix =
+              item.soldUnit === "PIECE"
+                ? ""
+                : ` (${item.soldQuantity} ${getUnitLabel(item.soldUnit, item.soldQuantity > 1)})`;
             await tx.stockMovement.create({
               data: {
                 shopId,
                 productId: item.product.id,
                 userId,
                 type: "SALE",
-                quantity: item.quantity,
-                note: `Vente ${invoiceNumber}`,
+                quantity: item.piecesCount,
+                note: `Vente ${invoiceNumber}${unitSuffix}`,
               },
             });
           }

@@ -11,6 +11,12 @@ import {
   getFullStorageUrl,
   validateFile,
 } from "../utils/file-upload.js";
+import {
+  computePriceForUnit,
+  parsePackagingUnit,
+  resolvePackagingPrices,
+  resolveUnitsPerPack,
+} from "../helpers/packaging.js";
 import { BadRequestError, NotFoundError } from "../utils/errors.js";
 
 const parseOptionalNumber = (value: unknown): number | null | undefined => {
@@ -117,8 +123,12 @@ export const createProduct = async (
       description,
       reference,
       categoryId,
+      unitType: rawUnitType,
+      unitsPerPack: rawUnitsPerPack,
       purchasePrice,
       salePrice,
+      packPurchasePrice,
+      packSalePrice,
       quantity,
       alertThreshold,
       imageUrl: directImageUrl,
@@ -132,15 +142,23 @@ export const createProduct = async (
       createDebt,
     } = req.body;
 
-    if (
-      !name?.trim() ||
-      purchasePrice === undefined ||
-      purchasePrice === null ||
-      purchasePrice === "" ||
-      salePrice === undefined ||
-      salePrice === null ||
-      salePrice === ""
-    ) {
+    const unitType = parsePackagingUnit(rawUnitType);
+    const hasPiecePrices =
+      purchasePrice !== undefined &&
+      purchasePrice !== null &&
+      purchasePrice !== "" &&
+      salePrice !== undefined &&
+      salePrice !== null &&
+      salePrice !== "";
+    const hasPackPrices =
+      packPurchasePrice !== undefined &&
+      packPurchasePrice !== null &&
+      packPurchasePrice !== "" &&
+      packSalePrice !== undefined &&
+      packSalePrice !== null &&
+      packSalePrice !== "";
+
+    if (!name?.trim() || (unitType === "PIECE" ? !hasPiecePrices : !hasPackPrices && !hasPiecePrices)) {
       throw new BadRequestError(
         "Nom, prix d'achat et prix de vente sont obligatoires",
       );
@@ -168,7 +186,9 @@ export const createProduct = async (
       alertThreshold === undefined ||
       alertThreshold === null ||
       alertThreshold === ""
-        ? 5
+        ? unitType === "PIECE"
+          ? 5
+          : 1
         : Number(alertThreshold);
 
     const product = await ProductService.createProduct({
@@ -179,8 +199,15 @@ export const createProduct = async (
       description,
       reference,
       categoryId,
-      purchasePrice: Number(purchasePrice),
-      salePrice: Number(salePrice),
+      unitType,
+      unitsPerPack:
+        rawUnitsPerPack !== undefined && rawUnitsPerPack !== ""
+          ? Number(rawUnitsPerPack)
+          : undefined,
+      purchasePrice: parseOptionalNumber(purchasePrice) ?? null,
+      salePrice: parseOptionalNumber(salePrice) ?? null,
+      packPurchasePrice: parseOptionalNumber(packPurchasePrice) ?? null,
+      packSalePrice: parseOptionalNumber(packSalePrice) ?? null,
       quantity: parsedQuantity,
       alertThreshold: parsedAlert,
       imageUrl,
@@ -223,8 +250,12 @@ export const updateProduct = async (
       description,
       reference,
       categoryId,
+      unitType: rawUnitType,
+      unitsPerPack: rawUnitsPerPack,
       purchasePrice,
       salePrice,
+      packPurchasePrice,
+      packSalePrice,
       alertThreshold,
       imageUrl,
       semiWholesalePrice,
@@ -233,14 +264,49 @@ export const updateProduct = async (
       wholesaleMinQty,
     } = req.body;
 
-    const nextPurchasePrice =
-      purchasePrice !== undefined && purchasePrice !== ""
-        ? Number(purchasePrice)
-        : existing.purchasePrice;
-    const nextSalePrice =
-      salePrice !== undefined && salePrice !== ""
-        ? Number(salePrice)
-        : existing.salePrice;
+    const nextUnitType =
+      rawUnitType !== undefined
+        ? parsePackagingUnit(rawUnitType)
+        : existing.unitType;
+    const nextUnitsPerPack =
+      rawUnitType !== undefined || rawUnitsPerPack !== undefined
+        ? resolveUnitsPerPack(
+            nextUnitType,
+            rawUnitsPerPack !== undefined && rawUnitsPerPack !== ""
+              ? Number(rawUnitsPerPack)
+              : existing.unitsPerPack,
+          )
+        : existing.unitsPerPack;
+
+    // Empêcher le changement de conditionnement si du stock existe déjà (intégrité valorisation)
+    if (
+      existing.quantity > 0 &&
+      (nextUnitType !== existing.unitType ||
+        nextUnitsPerPack !== existing.unitsPerPack)
+    ) {
+      throw new BadRequestError(
+        "Impossible de modifier le conditionnement d'un produit qui a encore du stock.",
+      );
+    }
+
+    const parsedPackPurchase = parseOptionalNumber(packPurchasePrice);
+    const parsedPackSale = parseOptionalNumber(packSalePrice);
+    const parsedPurchase = parseOptionalNumber(purchasePrice);
+    const parsedSale = parseOptionalNumber(salePrice);
+
+    const prices = resolvePackagingPrices({
+      unitType: nextUnitType,
+      unitsPerPack: nextUnitsPerPack,
+      purchasePrice:
+        parsedPurchase !== undefined ? parsedPurchase : existing.purchasePrice,
+      salePrice: parsedSale !== undefined ? parsedSale : existing.salePrice,
+      packPurchasePrice:
+        parsedPackPurchase !== undefined
+          ? parsedPackPurchase
+          : existing.packPurchasePrice,
+      packSalePrice:
+        parsedPackSale !== undefined ? parsedPackSale : existing.packSalePrice,
+    });
 
     const parsedSemiPrice = parseOptionalNumber(semiWholesalePrice);
     const parsedSemiQty = parseOptionalNumber(semiWholesaleMinQty);
@@ -265,8 +331,8 @@ export const updateProduct = async (
         : existing.wholesaleMinQty;
 
     validateProductPricing({
-      purchasePrice: nextPurchasePrice,
-      salePrice: nextSalePrice,
+      purchasePrice: prices.tierBasePurchase,
+      salePrice: prices.tierBaseSale,
       semiWholesalePrice: nextSemiPrice,
       semiWholesaleMinQty: nextSemiQty,
       wholesalePrice: nextWholesalePrice,
@@ -307,13 +373,20 @@ export const updateProduct = async (
       finalImageUrl = imageUrl.trim();
     }
 
-    const nextAlert =
+    const nextAlertInUnit =
       alertThreshold !== undefined && alertThreshold !== ""
         ? Number(alertThreshold)
-        : existing.alertThreshold;
-    if (!Number.isInteger(nextAlert) || nextAlert < 0) {
+        : null;
+    if (
+      nextAlertInUnit !== null &&
+      (!Number.isInteger(nextAlertInUnit) || nextAlertInUnit < 0)
+    ) {
       throw new BadRequestError("Le seuil d'alerte doit être un entier supérieur ou égal à 0.");
     }
+    const nextAlertInPieces =
+      nextAlertInUnit !== null
+        ? nextAlertInUnit * nextUnitsPerPack
+        : existing.alertThreshold;
 
     // La quantité n'est volontairement pas modifiable ici : elle passe par /stock/entry ou /stock/out.
     const updated = await prisma.product.update({
@@ -331,9 +404,13 @@ export const updateProduct = async (
               ? Number(categoryId)
               : null
             : existing.categoryId,
-        purchasePrice: nextPurchasePrice,
-        salePrice: nextSalePrice,
-        alertThreshold: nextAlert,
+        unitType: nextUnitType,
+        unitsPerPack: nextUnitsPerPack,
+        purchasePrice: prices.purchasePrice,
+        salePrice: prices.salePrice,
+        packPurchasePrice: prices.packPurchasePrice,
+        packSalePrice: prices.packSalePrice,
+        alertThreshold: nextAlertInPieces,
         imageUrl: finalImageUrl,
         semiWholesalePrice: nextSemiPrice,
         semiWholesaleMinQty: nextSemiQty,
@@ -412,17 +489,23 @@ export const getOutOfStockProducts = async (
   }
 };
 
-// ── GET /products/:id/price?quantity=X ───────────────────────
+// ── GET /products/:id/price?quantity=X&unit=PIECE|DOZEN|CARTON ────
 export const getSuggestedPrice = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
     const id = Number(req.params.id);
     const quantity = Number(req.query.quantity) || 1;
+    const requestedUnit = req.query.unit
+      ? parsePackagingUnit(req.query.unit)
+      : undefined;
 
     const product = await prisma.product.findFirst({
       where: { id, shopId },
       select: {
+        unitType: true,
+        unitsPerPack: true,
         salePrice: true,
+        packSalePrice: true,
         semiWholesalePrice: true,
         semiWholesaleMinQty: true,
         wholesalePrice: true,
@@ -433,28 +516,36 @@ export const getSuggestedPrice = async (req: AuthRequest, res: Response) => {
     if (!product)
       return res.status(404).json({ message: "Produit introuvable" });
 
-    const suggested = computePrice(product, quantity);
+    const suggested = computePriceForUnit(product, quantity, requestedUnit);
+    const baseDetailPrice =
+      suggested.soldUnit === "PIECE"
+        ? product.salePrice
+        : (product.packSalePrice ?? product.salePrice * product.unitsPerPack);
 
     return res.status(200).json({
       quantity,
+      soldUnit: suggested.soldUnit,
+      piecesCount: suggested.piecesCount,
       suggestedPrice: suggested.price,
       tier: suggested.tier,
       tiers: {
-        detail: { price: product.salePrice, label: "Détail" },
-        semiWholesale: product.semiWholesalePrice
-          ? {
-              price: product.semiWholesalePrice,
-              minQty: product.semiWholesaleMinQty,
-              label: "Demi-gros",
-            }
-          : null,
-        wholesale: product.wholesalePrice
-          ? {
-              price: product.wholesalePrice,
-              minQty: product.wholesaleMinQty,
-              label: "Gros",
-            }
-          : null,
+        detail: { price: baseDetailPrice, label: "Détail" },
+        semiWholesale:
+          suggested.soldUnit === product.unitType && product.semiWholesalePrice
+            ? {
+                price: product.semiWholesalePrice,
+                minQty: product.semiWholesaleMinQty,
+                label: "Demi-gros",
+              }
+            : null,
+        wholesale:
+          suggested.soldUnit === product.unitType && product.wholesalePrice
+            ? {
+                price: product.wholesalePrice,
+                minQty: product.wholesaleMinQty,
+                label: "Gros",
+              }
+            : null,
       },
     });
   } catch (error) {

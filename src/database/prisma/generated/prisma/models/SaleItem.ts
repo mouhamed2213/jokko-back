@@ -32,6 +32,8 @@ export type SaleItemAvgAggregateOutputType = {
   productId: number | null
   quantity: number | null
   unitPrice: number | null
+  soldQuantity: number | null
+  soldUnitPrice: number | null
   totalAmount: number | null
 }
 
@@ -41,6 +43,8 @@ export type SaleItemSumAggregateOutputType = {
   productId: number | null
   quantity: number | null
   unitPrice: number | null
+  soldQuantity: number | null
+  soldUnitPrice: number | null
   totalAmount: number | null
 }
 
@@ -52,6 +56,9 @@ export type SaleItemMinAggregateOutputType = {
   productImageUrl: string | null
   quantity: number | null
   unitPrice: number | null
+  soldUnit: $Enums.PackagingUnit | null
+  soldQuantity: number | null
+  soldUnitPrice: number | null
   totalAmount: number | null
 }
 
@@ -63,6 +70,9 @@ export type SaleItemMaxAggregateOutputType = {
   productImageUrl: string | null
   quantity: number | null
   unitPrice: number | null
+  soldUnit: $Enums.PackagingUnit | null
+  soldQuantity: number | null
+  soldUnitPrice: number | null
   totalAmount: number | null
 }
 
@@ -74,6 +84,9 @@ export type SaleItemCountAggregateOutputType = {
   productImageUrl: number
   quantity: number
   unitPrice: number
+  soldUnit: number
+  soldQuantity: number
+  soldUnitPrice: number
   totalAmount: number
   _all: number
 }
@@ -85,6 +98,8 @@ export type SaleItemAvgAggregateInputType = {
   productId?: true
   quantity?: true
   unitPrice?: true
+  soldQuantity?: true
+  soldUnitPrice?: true
   totalAmount?: true
 }
 
@@ -94,6 +109,8 @@ export type SaleItemSumAggregateInputType = {
   productId?: true
   quantity?: true
   unitPrice?: true
+  soldQuantity?: true
+  soldUnitPrice?: true
   totalAmount?: true
 }
 
@@ -105,6 +122,9 @@ export type SaleItemMinAggregateInputType = {
   productImageUrl?: true
   quantity?: true
   unitPrice?: true
+  soldUnit?: true
+  soldQuantity?: true
+  soldUnitPrice?: true
   totalAmount?: true
 }
 
@@ -116,6 +136,9 @@ export type SaleItemMaxAggregateInputType = {
   productImageUrl?: true
   quantity?: true
   unitPrice?: true
+  soldUnit?: true
+  soldQuantity?: true
+  soldUnitPrice?: true
   totalAmount?: true
 }
 
@@ -127,6 +150,9 @@ export type SaleItemCountAggregateInputType = {
   productImageUrl?: true
   quantity?: true
   unitPrice?: true
+  soldUnit?: true
+  soldQuantity?: true
+  soldUnitPrice?: true
   totalAmount?: true
   _all?: true
 }
@@ -225,6 +251,9 @@ export type SaleItemGroupByOutputType = {
   productImageUrl: string | null
   quantity: number
   unitPrice: number
+  soldUnit: $Enums.PackagingUnit
+  soldQuantity: number | null
+  soldUnitPrice: number | null
   totalAmount: number
   _count: SaleItemCountAggregateOutputType | null
   _avg: SaleItemAvgAggregateOutputType | null
@@ -259,6 +288,9 @@ export type SaleItemWhereInput = {
   productImageUrl?: Prisma.StringNullableFilter<"SaleItem"> | string | null
   quantity?: Prisma.IntFilter<"SaleItem"> | number
   unitPrice?: Prisma.FloatFilter<"SaleItem"> | number
+  soldUnit?: Prisma.EnumPackagingUnitFilter<"SaleItem"> | $Enums.PackagingUnit
+  soldQuantity?: Prisma.IntNullableFilter<"SaleItem"> | number | null
+  soldUnitPrice?: Prisma.FloatNullableFilter<"SaleItem"> | number | null
   totalAmount?: Prisma.FloatFilter<"SaleItem"> | number
   sale?: Prisma.XOR<Prisma.SaleScalarRelationFilter, Prisma.SaleWhereInput>
   product?: Prisma.XOR<Prisma.ProductNullableScalarRelationFilter, Prisma.ProductWhereInput> | null
@@ -272,6 +304,9 @@ export type SaleItemOrderByWithRelationInput = {
   productImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldUnit?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrderInput | Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrderInput | Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
   sale?: Prisma.SaleOrderByWithRelationInput
   product?: Prisma.ProductOrderByWithRelationInput
@@ -288,6 +323,9 @@ export type SaleItemWhereUniqueInput = Prisma.AtLeast<{
   productImageUrl?: Prisma.StringNullableFilter<"SaleItem"> | string | null
   quantity?: Prisma.IntFilter<"SaleItem"> | number
   unitPrice?: Prisma.FloatFilter<"SaleItem"> | number
+  soldUnit?: Prisma.EnumPackagingUnitFilter<"SaleItem"> | $Enums.PackagingUnit
+  soldQuantity?: Prisma.IntNullableFilter<"SaleItem"> | number | null
+  soldUnitPrice?: Prisma.FloatNullableFilter<"SaleItem"> | number | null
   totalAmount?: Prisma.FloatFilter<"SaleItem"> | number
   sale?: Prisma.XOR<Prisma.SaleScalarRelationFilter, Prisma.SaleWhereInput>
   product?: Prisma.XOR<Prisma.ProductNullableScalarRelationFilter, Prisma.ProductWhereInput> | null
@@ -301,6 +339,9 @@ export type SaleItemOrderByWithAggregationInput = {
   productImageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldUnit?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrderInput | Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrderInput | Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
   _count?: Prisma.SaleItemCountOrderByAggregateInput
   _avg?: Prisma.SaleItemAvgOrderByAggregateInput
@@ -320,6 +361,9 @@ export type SaleItemScalarWhereWithAggregatesInput = {
   productImageUrl?: Prisma.StringNullableWithAggregatesFilter<"SaleItem"> | string | null
   quantity?: Prisma.IntWithAggregatesFilter<"SaleItem"> | number
   unitPrice?: Prisma.FloatWithAggregatesFilter<"SaleItem"> | number
+  soldUnit?: Prisma.EnumPackagingUnitWithAggregatesFilter<"SaleItem"> | $Enums.PackagingUnit
+  soldQuantity?: Prisma.IntNullableWithAggregatesFilter<"SaleItem"> | number | null
+  soldUnitPrice?: Prisma.FloatNullableWithAggregatesFilter<"SaleItem"> | number | null
   totalAmount?: Prisma.FloatWithAggregatesFilter<"SaleItem"> | number
 }
 
@@ -328,6 +372,9 @@ export type SaleItemCreateInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
   sale: Prisma.SaleCreateNestedOneWithoutItemsInput
   product?: Prisma.ProductCreateNestedOneWithoutSaleItemsInput
@@ -341,6 +388,9 @@ export type SaleItemUncheckedCreateInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -349,6 +399,9 @@ export type SaleItemUpdateInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
   sale?: Prisma.SaleUpdateOneRequiredWithoutItemsNestedInput
   product?: Prisma.ProductUpdateOneWithoutSaleItemsNestedInput
@@ -362,6 +415,9 @@ export type SaleItemUncheckedUpdateInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -373,6 +429,9 @@ export type SaleItemCreateManyInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -381,6 +440,9 @@ export type SaleItemUpdateManyMutationInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -392,6 +454,9 @@ export type SaleItemUncheckedUpdateManyInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -413,6 +478,9 @@ export type SaleItemCountOrderByAggregateInput = {
   productImageUrl?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldUnit?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
 }
 
@@ -422,6 +490,8 @@ export type SaleItemAvgOrderByAggregateInput = {
   productId?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
 }
 
@@ -433,6 +503,9 @@ export type SaleItemMaxOrderByAggregateInput = {
   productImageUrl?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldUnit?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
 }
 
@@ -444,6 +517,9 @@ export type SaleItemMinOrderByAggregateInput = {
   productImageUrl?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldUnit?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
 }
 
@@ -453,6 +529,8 @@ export type SaleItemSumOrderByAggregateInput = {
   productId?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPrice?: Prisma.SortOrder
+  soldQuantity?: Prisma.SortOrder
+  soldUnitPrice?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
 }
 
@@ -545,6 +623,9 @@ export type SaleItemCreateWithoutProductInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
   sale: Prisma.SaleCreateNestedOneWithoutItemsInput
 }
@@ -556,6 +637,9 @@ export type SaleItemUncheckedCreateWithoutProductInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -596,6 +680,9 @@ export type SaleItemScalarWhereInput = {
   productImageUrl?: Prisma.StringNullableFilter<"SaleItem"> | string | null
   quantity?: Prisma.IntFilter<"SaleItem"> | number
   unitPrice?: Prisma.FloatFilter<"SaleItem"> | number
+  soldUnit?: Prisma.EnumPackagingUnitFilter<"SaleItem"> | $Enums.PackagingUnit
+  soldQuantity?: Prisma.IntNullableFilter<"SaleItem"> | number | null
+  soldUnitPrice?: Prisma.FloatNullableFilter<"SaleItem"> | number | null
   totalAmount?: Prisma.FloatFilter<"SaleItem"> | number
 }
 
@@ -604,6 +691,9 @@ export type SaleItemCreateWithoutSaleInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
   product?: Prisma.ProductCreateNestedOneWithoutSaleItemsInput
 }
@@ -615,6 +705,9 @@ export type SaleItemUncheckedCreateWithoutSaleInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -651,6 +744,9 @@ export type SaleItemCreateManyProductInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -659,6 +755,9 @@ export type SaleItemUpdateWithoutProductInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
   sale?: Prisma.SaleUpdateOneRequiredWithoutItemsNestedInput
 }
@@ -670,6 +769,9 @@ export type SaleItemUncheckedUpdateWithoutProductInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -680,6 +782,9 @@ export type SaleItemUncheckedUpdateManyWithoutProductInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -690,6 +795,9 @@ export type SaleItemCreateManySaleInput = {
   productImageUrl?: string | null
   quantity: number
   unitPrice: number
+  soldUnit?: $Enums.PackagingUnit
+  soldQuantity?: number | null
+  soldUnitPrice?: number | null
   totalAmount: number
 }
 
@@ -698,6 +806,9 @@ export type SaleItemUpdateWithoutSaleInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
   product?: Prisma.ProductUpdateOneWithoutSaleItemsNestedInput
 }
@@ -709,6 +820,9 @@ export type SaleItemUncheckedUpdateWithoutSaleInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -719,6 +833,9 @@ export type SaleItemUncheckedUpdateManyWithoutSaleInput = {
   productImageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPrice?: Prisma.FloatFieldUpdateOperationsInput | number
+  soldUnit?: Prisma.EnumPackagingUnitFieldUpdateOperationsInput | $Enums.PackagingUnit
+  soldQuantity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  soldUnitPrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   totalAmount?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
@@ -732,6 +849,9 @@ export type SaleItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   productImageUrl?: boolean
   quantity?: boolean
   unitPrice?: boolean
+  soldUnit?: boolean
+  soldQuantity?: boolean
+  soldUnitPrice?: boolean
   totalAmount?: boolean
   sale?: boolean | Prisma.SaleDefaultArgs<ExtArgs>
   product?: boolean | Prisma.SaleItem$productArgs<ExtArgs>
@@ -745,6 +865,9 @@ export type SaleItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   productImageUrl?: boolean
   quantity?: boolean
   unitPrice?: boolean
+  soldUnit?: boolean
+  soldQuantity?: boolean
+  soldUnitPrice?: boolean
   totalAmount?: boolean
   sale?: boolean | Prisma.SaleDefaultArgs<ExtArgs>
   product?: boolean | Prisma.SaleItem$productArgs<ExtArgs>
@@ -758,6 +881,9 @@ export type SaleItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   productImageUrl?: boolean
   quantity?: boolean
   unitPrice?: boolean
+  soldUnit?: boolean
+  soldQuantity?: boolean
+  soldUnitPrice?: boolean
   totalAmount?: boolean
   sale?: boolean | Prisma.SaleDefaultArgs<ExtArgs>
   product?: boolean | Prisma.SaleItem$productArgs<ExtArgs>
@@ -771,10 +897,13 @@ export type SaleItemSelectScalar = {
   productImageUrl?: boolean
   quantity?: boolean
   unitPrice?: boolean
+  soldUnit?: boolean
+  soldQuantity?: boolean
+  soldUnitPrice?: boolean
   totalAmount?: boolean
 }
 
-export type SaleItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "saleId" | "productId" | "productName" | "productImageUrl" | "quantity" | "unitPrice" | "totalAmount", ExtArgs["result"]["saleItem"]>
+export type SaleItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "saleId" | "productId" | "productName" | "productImageUrl" | "quantity" | "unitPrice" | "soldUnit" | "soldQuantity" | "soldUnitPrice" | "totalAmount", ExtArgs["result"]["saleItem"]>
 export type SaleItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sale?: boolean | Prisma.SaleDefaultArgs<ExtArgs>
   product?: boolean | Prisma.SaleItem$productArgs<ExtArgs>
@@ -802,6 +931,9 @@ export type $SaleItemPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     productImageUrl: string | null
     quantity: number
     unitPrice: number
+    soldUnit: $Enums.PackagingUnit
+    soldQuantity: number | null
+    soldUnitPrice: number | null
     totalAmount: number
   }, ExtArgs["result"]["saleItem"]>
   composites: {}
@@ -1235,6 +1367,9 @@ export interface SaleItemFieldRefs {
   readonly productImageUrl: Prisma.FieldRef<"SaleItem", 'String'>
   readonly quantity: Prisma.FieldRef<"SaleItem", 'Int'>
   readonly unitPrice: Prisma.FieldRef<"SaleItem", 'Float'>
+  readonly soldUnit: Prisma.FieldRef<"SaleItem", 'PackagingUnit'>
+  readonly soldQuantity: Prisma.FieldRef<"SaleItem", 'Int'>
+  readonly soldUnitPrice: Prisma.FieldRef<"SaleItem", 'Float'>
   readonly totalAmount: Prisma.FieldRef<"SaleItem", 'Float'>
 }
     
