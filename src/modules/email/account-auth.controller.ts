@@ -32,11 +32,33 @@ const isPublicRateLimited = (req: Request, action: string, maxRequests = 10) => 
   return current.count > maxRequests;
 };
 
+const isSafeUserError = (error: unknown): error is Error => {
+  if (error instanceof AppError) return true;
+  if (!(error instanceof Error)) return false;
+  // Ne jamais exposer les erreurs Prisma / réseau / système au client
+  const name = error.name || "";
+  if (
+    name.startsWith("Prisma") ||
+    name === "TypeError" ||
+    name === "ReferenceError" ||
+    "code" in error
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const respondWithBadRequest = (res: Response, error: unknown) => {
+  if (!isSafeUserError(error)) {
+    logger.error("Erreur technique interceptée dans AccountAuthController", {
+      error: error instanceof Error ? error.stack : String(error),
+    });
+    return res.status(500).json({
+      message: "Une erreur interne est survenue. Veuillez réessayer plus tard.",
+    });
+  }
   const statusCode = error instanceof AppError ? error.statusCode : 400;
-  return res.status(statusCode).json({
-    message: error instanceof Error ? error.message : "Demande invalide",
-  });
+  return res.status(statusCode).json({ message: error.message });
 };
 
 export const AccountAuthController = {

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcrypt";
 import { prisma } from "../../config/prisma.js";
+import { BadRequestError } from "../../utils/errors.js";
 
 const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -24,7 +25,7 @@ export const SuperAdminInvitationService = {
       token.consumedAt ||
       token.expiresAt <= new Date()
     ) {
-      throw new Error("Lien d'invitation invalide, expiré ou déjà utilisé.");
+      throw new BadRequestError("Lien d'invitation invalide, expiré ou déjà utilisé.");
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
@@ -40,7 +41,7 @@ export const SuperAdminInvitationService = {
         data: { consumedAt: now },
       });
       if (consumed.count !== 1) {
-        throw new Error("Ce lien a déjà été utilisé ou a expiré.");
+        throw new BadRequestError("Ce lien a déjà été utilisé ou a expiré.");
       }
 
       await tx.superAdmin.update({

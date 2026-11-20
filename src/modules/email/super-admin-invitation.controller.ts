@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { SuperAdminInvitationService } from "./super-admin-invitation.service.js";
 
 const attempts = new Map<string, { count: number; resetAt: number }>();
@@ -22,6 +22,7 @@ const isRateLimited = (req: Request) => {
 export const acceptSuperAdminInvitation = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
   if (isRateLimited(req)) {
     return res
@@ -56,11 +57,6 @@ export const acceptSuperAdminInvitation = async (
       message: "Invitation acceptée. Vous pouvez maintenant vous connecter.",
     });
   } catch (error) {
-    return res.status(400).json({
-      message:
-        error instanceof Error
-          ? error.message
-          : "Impossible d'accepter l'invitation.",
-    });
+    return next(error);
   }
 };
