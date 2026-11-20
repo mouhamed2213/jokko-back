@@ -15,7 +15,7 @@ import clientRoutes from "./modules/clients/client.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import invoiceRoutes from "./modules/invoices/invoice.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
-import productRoutes from "./routes/product.routes.js";
+import productRoutes from "./modules/products/product.routes.js";
 import saleRoutes from "./modules/sales/sale.routes.js";
 import shopRoutes from "./routes/shop.routes.js";
 import stockRoutes from "./modules/stock/stock.routes.js";

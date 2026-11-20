@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateProductPricing } from "./product.service.js";
-import { computePrice } from "../controllers/product.controller.js";
+import { computePrice, validateProductPricing } from "./product.service.js";
 
 test("validateProductPricing accepts purchasePrice = 0 and coherent tiers", () => {
   assert.doesNotThrow(() =>
