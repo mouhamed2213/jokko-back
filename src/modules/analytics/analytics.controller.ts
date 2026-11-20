@@ -17,6 +17,7 @@ export const getOverview = async (req: AuthRequest, res: Response) => {
       endDate: req.query.endDate as string | undefined,
       compare: req.query.compare as string | undefined,
     },
+    { includeProfit: req.user!.role === "ADMIN" },
   );
   return res.status(200).json(result);
 };
@@ -47,10 +48,10 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 };
 
 export const getProducts = async (req: AuthRequest, res: Response) => {
-
   const result = await AnalyticsService.getProducts(
     req.user!.shopId,
     req.query as AnalyticsProductsQuery,
+    { includeProfit: req.user!.role === "ADMIN" },
   );
 
   return res.status(200).json(result);

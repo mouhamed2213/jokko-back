@@ -372,4 +372,72 @@ export const AnalyticsRepository = {
       GROUP BY 1, 2
       ORDER BY 1, 2
     `),
+
+  getProfitSummary: async (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) => {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        costOfGoodsSold: number | null;
+        itemsWithoutCost: number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        COALESCE(
+          SUM(si."quantity" * COALESCE(cost."unitCost", p."purchasePrice", 0)),
+          0
+        )::float AS "costOfGoodsSold",
+        COUNT(*) FILTER (
+          WHERE COALESCE(cost."unitCost", p."purchasePrice", 0) <= 0
+        )::int AS "itemsWithoutCost"
+      FROM "sales" s
+      INNER JOIN "sale_items" si
+        ON si."saleId" = s."id"
+      LEFT JOIN "products" p
+        ON p."id" = si."productId"
+      LEFT JOIN LATERAL (
+        SELECT sm."unitCost"
+        FROM "stock_movements" sm
+        WHERE sm."shopId" = s."shopId"
+          AND sm."productId" = si."productId"
+          AND sm."type" = 'ENTRY'
+          AND sm."unitCost" IS NOT NULL
+          AND sm."createdAt" <= s."createdAt"
+        ORDER BY sm."createdAt" DESC, sm."id" DESC
+        LIMIT 1
+      ) cost ON true
+      WHERE s."shopId" = ${shopId}
+        AND s."status" <> 'CANCELLED'
+        AND s."createdAt" >= ${period.startDate}
+        AND s."createdAt" <= ${period.endDate}
+    `);
+
+    return {
+      costOfGoodsSold: rows[0]?.costOfGoodsSold ?? 0,
+      itemsWithoutCost: rows[0]?.itemsWithoutCost ?? 0,
+    };
+  },
+
+  getCashOutflows: (
+    shopId: number,
+    period: { startDate: Date; endDate: Date },
+  ) =>
+    prisma.$queryRaw<
+      Array<{
+        amount: number;
+        label: string;
+      }>
+    >(Prisma.sql`
+      SELECT
+        ct."amount"::float AS amount,
+        ct."label" AS label
+      FROM "cash_transactions" ct
+      INNER JOIN "cash_registers" cr
+        ON cr."id" = ct."cashRegisterId"
+      WHERE cr."shopId" = ${shopId}
+        AND ct."type" = 'OUT'
+        AND ct."createdAt" >= ${period.startDate}
+        AND ct."createdAt" <= ${period.endDate}
+    `),
 };

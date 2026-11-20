@@ -1,16 +1,17 @@
 import { Response } from "express";
 import { prisma } from "../config/prisma.js";
+import { computeProfitMetrics } from "../helpers/profit.js";
 import { AuthRequest } from "../middlewares/auth.middleware.js";
+import { AnalyticsRepository } from "../modules/analytics/analytics.repository.js";
+import { getCashTransactionCategory } from "../modules/analytics/analytics.service.js";
 
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
     const shopId = req.user!.shopId;
-    // const now = new Date();
-    // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-const now = new Date(); 
-const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1); 
-// startOfMonth vaudra automatiquement le 1er Juillet 2026
+    const isAdmin = req.user!.role === "ADMIN";
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthPeriod = { startDate: startOfMonth, endDate: now };
 
     const [
       totalProducts,
@@ -22,6 +23,8 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       supplierDebts,
       cashRegister,
       currentMonthSalesSum,
+      currentMonthProfitSummary,
+      currentMonthCashOutflows,
     ] = await Promise.all([
       prisma.product.count({ where: { shopId, isActive: true } }),
       prisma.product.findMany({
@@ -50,7 +53,6 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       prisma.cashRegister.findFirst({
         where: { shopId, status: "OPEN" },
       }),
-      // Requête ajoutée au Promise.all
       prisma.sale.aggregate({
         where: {
           shopId,
@@ -59,6 +61,12 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         },
         _sum: { totalAmount: true },
       }),
+      isAdmin
+        ? AnalyticsRepository.getProfitSummary(shopId, monthPeriod)
+        : Promise.resolve(null),
+      isAdmin
+        ? AnalyticsRepository.getCashOutflows(shopId, monthPeriod)
+        : Promise.resolve(null),
     ]);
 
     // --- CALCULS DES PRODUITS ---
@@ -102,14 +110,37 @@ const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const currentBalance = cashRegister ? cashRegister.openingAmount + cashRegister.totalIn - cashRegister.totalOut : null;
 
+    const monthOperatingExpenses = (currentMonthCashOutflows ?? [])
+      .filter((tx) => getCashTransactionCategory(tx.label) === "OTHER")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const monthProfit =
+      isAdmin && currentMonthProfitSummary
+        ? computeProfitMetrics({
+            revenue: currentMonthSalesAmount,
+            costOfGoodsSold: currentMonthProfitSummary.costOfGoodsSold,
+            operatingExpenses: monthOperatingExpenses,
+          })
+        : null;
+
     return res.status(200).json({
       totalProducts,
       lowStockProducts,
       outOfStockProducts,
       stockValue,
       totalSales: salesData.length,
-      totalSalesAmount,       // Reste le CA global
-      currentMonthSalesAmount, // <-- AJOUT : Le frontend utilisera cette clé pour bloquer/flouter !
+      totalSalesAmount,
+      currentMonthSalesAmount,
+      ...(monthProfit && currentMonthProfitSummary
+        ? {
+            currentMonthCostOfGoodsSold: monthProfit.costOfGoodsSold,
+            currentMonthGrossProfit: monthProfit.grossProfit,
+            currentMonthMarginRate: monthProfit.marginRate,
+            currentMonthOperatingExpenses: monthProfit.operatingExpenses,
+            currentMonthNetProfit: monthProfit.netProfit,
+            currentMonthItemsWithoutCost: currentMonthProfitSummary.itemsWithoutCost,
+          }
+        : {}),
       totalPaidAmount,
       totalClientDebt,
       recentSalesAmount,

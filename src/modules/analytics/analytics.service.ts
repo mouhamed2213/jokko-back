@@ -1,4 +1,5 @@
 import { BadRequestError } from "../../utils/errors.js";
+import { computeProfitMetrics } from "../../helpers/profit.js";
 import { AnalyticsRepository } from "./analytics.repository.js";
 import type {
   AnalyticsCashQuery,
@@ -55,7 +56,7 @@ const oneOf = (
   return value;
 };
 
-const getCashTransactionCategory = (label: string) => {
+export const getCashTransactionCategory = (label: string) => {
   if (label.startsWith("Règlement facture")) return "SALE_PAYMENT";
   if (label.startsWith("Acompte fournisseur")) return "SUPPLIER_DEPOSIT";
   if (label.startsWith("Paiement fournisseur")) return "SUPPLIER_PAYMENT";
@@ -83,7 +84,9 @@ export const AnalyticsService = {
     const overviews = await Promise.all(
       shops.map(async ({ shopId, shop }) => ({
         shop: { id: shop.id, name: shop.name },
-        overview: await AnalyticsService.getOverview(shopId, query),
+        overview: await AnalyticsService.getOverview(shopId, query, {
+          includeProfit: true,
+        }),
       })),
     );
     const consolidated = overviews.reduce(
@@ -97,6 +100,12 @@ export const AnalyticsService = {
           total.outOfStockProducts + item.overview.kpis.outOfStockProducts,
         lowStockProducts:
           total.lowStockProducts + item.overview.kpis.lowStockProducts,
+        costOfGoodsSold:
+          total.costOfGoodsSold + (item.overview.kpis.costOfGoodsSold ?? 0),
+        operatingExpenses:
+          total.operatingExpenses + (item.overview.kpis.operatingExpenses ?? 0),
+        itemsWithoutCost:
+          total.itemsWithoutCost + (item.overview.kpis.itemsWithoutCost ?? 0),
       }),
       {
         revenue: 0,
@@ -106,8 +115,17 @@ export const AnalyticsService = {
         stockValue: 0,
         outOfStockProducts: 0,
         lowStockProducts: 0,
+        costOfGoodsSold: 0,
+        operatingExpenses: 0,
+        itemsWithoutCost: 0,
       },
     );
+
+    const consolidatedProfit = computeProfitMetrics({
+      revenue: consolidated.revenue,
+      costOfGoodsSold: consolidated.costOfGoodsSold,
+      operatingExpenses: consolidated.operatingExpenses,
+    });
 
     const totalPreviousRevenue = overviews.reduce(
       (sum, item) => sum + (item.overview.comparison?.previousRevenue ?? 0),
@@ -115,6 +133,10 @@ export const AnalyticsService = {
     );
     const totalPreviousSalesCount = overviews.reduce(
       (sum, item) => sum + (item.overview.comparison?.previousSalesCount ?? 0),
+      0,
+    );
+    const totalPreviousGrossProfit = overviews.reduce(
+      (sum, item) => sum + (item.overview.comparison?.previousGrossProfit ?? 0),
       0,
     );
 
@@ -128,6 +150,11 @@ export const AnalyticsService = {
             ),
             previousRevenue: roundMoney(totalPreviousRevenue),
             previousSalesCount: totalPreviousSalesCount,
+            previousGrossProfit: roundMoney(totalPreviousGrossProfit),
+            profitChange: percentageChange(
+              consolidatedProfit.grossProfit,
+              totalPreviousGrossProfit,
+            ),
             previousPeriod:
               overviews[0]?.overview.comparison?.previousPeriod ?? null,
           }
@@ -139,6 +166,11 @@ export const AnalyticsService = {
         collected: roundMoney(consolidated.collected),
         receivables: roundMoney(consolidated.receivables),
         stockValue: roundMoney(consolidated.stockValue),
+        costOfGoodsSold: consolidatedProfit.costOfGoodsSold,
+        grossProfit: consolidatedProfit.grossProfit,
+        marginRate: consolidatedProfit.marginRate,
+        operatingExpenses: consolidatedProfit.operatingExpenses,
+        netProfit: consolidatedProfit.netProfit,
         averageBasket:
           consolidated.salesCount > 0
             ? roundMoney(consolidated.revenue / consolidated.salesCount)
@@ -147,17 +179,44 @@ export const AnalyticsService = {
     };
   },
 
-  getOverview: async (shopId: number, query: AnalyticsPeriodQuery) => {
+  getOverview: async (
+    shopId: number,
+    query: AnalyticsPeriodQuery,
+    options?: { includeProfit?: boolean },
+  ) => {
+    const includeProfit = options?.includeProfit ?? false;
+    const compare = isComparisonRequested(query.compare);
     const period = parseAnalyticsPeriod(query);
-    const [sales, payments, previousSales, products] = await Promise.all([
+    const previousPeriod = {
+      startDate: period.previousStartDate,
+      endDate: period.previousEndDate,
+    };
+
+    const [
+      sales,
+      payments,
+      previousSales,
+      products,
+      profitSummary,
+      previousProfitSummary,
+      cashOutflows,
+    ] = await Promise.all([
       AnalyticsRepository.getSalesAggregate(shopId, period),
       AnalyticsRepository.getPaymentAggregate(shopId, period),
       AnalyticsRepository.getSalesAggregate(shopId, {
         ...period,
-        startDate: period.previousStartDate,
-        endDate: period.previousEndDate,
+        ...previousPeriod,
       }),
       AnalyticsRepository.getStockSnapshot(shopId),
+      includeProfit
+        ? AnalyticsRepository.getProfitSummary(shopId, period)
+        : Promise.resolve(null),
+      includeProfit && compare
+        ? AnalyticsRepository.getProfitSummary(shopId, previousPeriod)
+        : Promise.resolve(null),
+      includeProfit
+        ? AnalyticsRepository.getCashOutflows(shopId, period)
+        : Promise.resolve(null),
     ]);
 
     const revenue = sales._sum.totalAmount || 0;
@@ -170,20 +229,44 @@ export const AnalyticsService = {
       0,
     );
 
+    const operatingExpenses = (cashOutflows ?? [])
+      .filter((tx) => getCashTransactionCategory(tx.label) === "OTHER")
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const profitMetrics =
+      includeProfit && profitSummary
+        ? computeProfitMetrics({
+            revenue,
+            costOfGoodsSold: profitSummary.costOfGoodsSold,
+            operatingExpenses,
+          })
+        : null;
+
+    const previousGrossProfit =
+      includeProfit && previousProfitSummary
+        ? roundMoney(previousRevenue - previousProfitSummary.costOfGoodsSold)
+        : undefined;
+
     return {
       period: {
         startDate: period.startDate,
         endDate: period.endDate,
       },
-      comparison: isComparisonRequested(query.compare)
+      comparison: compare
         ? {
             revenueChange: percentageChange(revenue, previousRevenue),
             previousRevenue: roundMoney(previousRevenue),
             previousSalesCount: previousSales._count._all,
-            previousPeriod: {
-              startDate: period.previousStartDate,
-              endDate: period.previousEndDate,
-            },
+            ...(profitMetrics && previousGrossProfit !== undefined
+              ? {
+                  previousGrossProfit,
+                  profitChange: percentageChange(
+                    profitMetrics.grossProfit,
+                    previousGrossProfit,
+                  ),
+                }
+              : {}),
+            previousPeriod,
           }
         : null,
       kpis: {
@@ -198,6 +281,16 @@ export const AnalyticsService = {
         lowStockProducts: products.filter(
           (p) => p.quantity > 0 && p.quantity <= p.alertThreshold,
         ).length,
+        ...(profitMetrics && profitSummary
+          ? {
+              costOfGoodsSold: profitMetrics.costOfGoodsSold,
+              grossProfit: profitMetrics.grossProfit,
+              marginRate: profitMetrics.marginRate,
+              operatingExpenses: profitMetrics.operatingExpenses,
+              netProfit: profitMetrics.netProfit,
+              itemsWithoutCost: profitSummary.itemsWithoutCost,
+            }
+          : {}),
       },
     };
   },
@@ -250,7 +343,12 @@ export const AnalyticsService = {
     };
   },
 
-  getProducts: async (shopId: number, query: AnalyticsProductsQuery) => {
+  getProducts: async (
+    shopId: number,
+    query: AnalyticsProductsQuery,
+    options?: { includeProfit?: boolean },
+  ) => {
+    const includeProfit = options?.includeProfit ?? true;
     const period = parseAnalyticsPeriod(query);
     const pagination = getPagination(query);
     const status = oneOf(
@@ -325,8 +423,51 @@ export const AnalyticsService = {
       query.sort === "name"
         ? rows.sort((a, b) => a.productName.localeCompare(b.productName))
         : rows;
+
+    const totalRevenue = sortedRows.reduce((sum, r) => sum + r.revenue, 0);
+    const totalSoldQuantity = sortedRows.reduce(
+      (sum, r) => sum + r.soldQuantity,
+      0,
+    );
+    const totalCostOfGoodsSold = sortedRows.reduce(
+      (sum, r) => sum + r.costOfGoodsSold,
+      0,
+    );
+    const totalGrossMargin = totalRevenue - totalCostOfGoodsSold;
+    const averageMarginRate =
+      totalRevenue > 0
+        ? roundMoney((totalGrossMargin / totalRevenue) * 100)
+        : null;
+
+    const pagedProducts = sortedRows
+      .slice(pagination.offset, pagination.offset + pagination.pageSize)
+      .map((row) => {
+        if (includeProfit) return row;
+        const {
+          costOfGoodsSold: _cogs,
+          grossMargin: _gm,
+          marginRate: _mr,
+          costSource: _cs,
+          estimatedQuantity: _eq,
+          ...publicRow
+        } = row;
+        return publicRow;
+      });
+
     return {
       period: { startDate: period.startDate, endDate: period.endDate },
+      summary: {
+        productCount: sortedRows.length,
+        totalSoldQuantity,
+        totalRevenue: roundMoney(totalRevenue),
+        ...(includeProfit
+          ? {
+              totalCostOfGoodsSold: roundMoney(totalCostOfGoodsSold),
+              totalGrossMargin: roundMoney(totalGrossMargin),
+              averageMarginRate,
+            }
+          : {}),
+      },
       pagination: paginationMeta(
         pagination.page,
         pagination.pageSize,
@@ -336,10 +477,7 @@ export const AnalyticsService = {
         method: "LATEST_ENTRY_BEFORE_SALE",
         estimatedWhenUnavailable: true,
       },
-      products: sortedRows.slice(
-        pagination.offset,
-        pagination.offset + pagination.pageSize,
-      ),
+      products: pagedProducts,
     };
   },
 
