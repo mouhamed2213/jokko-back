@@ -10,6 +10,7 @@ import {
   getCash,
   getTrends,
   getInsights,
+  getProfit,
 } from "./analytics.controller.js";
 import {
   requireAnalyticsAccess,
@@ -62,6 +63,13 @@ router.get(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   requireAnalyticsAccess("insights"),
   getInsights,
+);
+router.get(
+  "/profit",
+  protect,
+  authorizeRoles("ADMIN"),
+  requireAnalyticsAccess("profit"),
+  getProfit,
 );
 
 export default router;

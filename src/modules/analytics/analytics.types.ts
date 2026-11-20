@@ -60,6 +60,11 @@ export type AnalyticsInsightsQuery = AnalyticsPeriodQuery & {
   severity?: string;
 };
 
+export type AnalyticsProfitQuery = AnalyticsPeriodQuery & {
+  page?: string;
+  pageSize?: string;
+};
+
 export type AnalyticsCost = {
   amount: number;
   source: "HISTORICAL" | "ESTIMATED";
