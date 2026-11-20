@@ -1,6 +1,5 @@
 import cors from "cors";
 import express, { Request, Response } from "express";
-// import 'express-async-errors';
 import helmet from "helmet";
 import morgan from "morgan";
 import { env } from "./config/env-config.js";

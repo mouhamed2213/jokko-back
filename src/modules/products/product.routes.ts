@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { upload } from "../../config/storage.config.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
+import { validateNumericParams } from "../../middlewares/validate.middleware.js";
 import {
   createProduct,
   deleteProduct,
@@ -31,9 +32,16 @@ router.get(
   "/:id/price",
   protect,
   authorizeRoles("ADMIN", "EMPLOYEE"),
+  validateNumericParams("id"),
   getSuggestedPrice,
 );
-router.get("/:id", protect, authorizeRoles("ADMIN", "EMPLOYEE"), getProductById);
+router.get(
+  "/:id",
+  protect,
+  authorizeRoles("ADMIN", "EMPLOYEE"),
+  validateNumericParams("id"),
+  getProductById,
+);
 router.post(
   "/",
   protect,
@@ -45,9 +53,16 @@ router.put(
   "/:id",
   protect,
   authorizeRoles("ADMIN"),
+  validateNumericParams("id"),
   upload.single("image"),
   updateProduct,
 );
-router.delete("/:id", protect, authorizeRoles("ADMIN"), deleteProduct);
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("ADMIN"),
+  validateNumericParams("id"),
+  deleteProduct,
+);
 
 export default router;

@@ -2,6 +2,10 @@ import { Router } from "express";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
 import {
+  validateBody,
+  validateNumericParams,
+} from "../../middlewares/validate.middleware.js";
+import {
   addSupplierDebt,
   addSupplierPayment,
   createSupplier,
@@ -56,21 +60,53 @@ router.get(
   "/:id",
   protect,
   authorizeRoles("ADMIN", "EMPLOYEE"),
+  validateNumericParams("id"),
   getSupplierById,
 );
-router.post("/", protect, authorizeRoles("ADMIN"), createSupplier);
-router.put("/:id", protect, authorizeRoles("ADMIN"), updateSupplier);
-router.delete("/:id", protect, authorizeRoles("ADMIN"), deleteSupplier);
+router.post(
+  "/",
+  protect,
+  authorizeRoles("ADMIN"),
+  validateBody({ name: { type: "string", required: true, label: "Nom" } }),
+  createSupplier,
+);
+router.put(
+  "/:id",
+  protect,
+  authorizeRoles("ADMIN"),
+  validateNumericParams("id"),
+  updateSupplier,
+);
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("ADMIN"),
+  validateNumericParams("id"),
+  deleteSupplier,
+);
 router.post(
   "/:id/debts",
   protect,
   authorizeRoles("ADMIN", "EMPLOYEE"),
+  validateNumericParams("id"),
+  validateBody({
+    totalAmount: {
+      type: "number",
+      required: true,
+      min: 1,
+      label: "Montant total",
+    },
+  }),
   addSupplierDebt,
 );
 router.post(
   "/:id/debts/:debtId/payments",
   protect,
   authorizeRoles("ADMIN", "EMPLOYEE"),
+  validateNumericParams("id", "debtId"),
+  validateBody({
+    amount: { type: "number", required: true, min: 1, label: "Montant" },
+  }),
   addSupplierPayment,
 );
 
