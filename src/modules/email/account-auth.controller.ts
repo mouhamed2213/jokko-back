@@ -1,7 +1,6 @@
 import type { Response, Request } from "express";
 import { logger } from "../../config/logger.js";
 import { AppError } from "../../utils/errors.js";
-import { prisma } from "../../config/prisma.js";
 import type { AuthRequest } from "../../middlewares/auth.middleware.js";
 import { AccountAuthService } from "./account-auth.service.js";
 
@@ -33,11 +32,33 @@ const isPublicRateLimited = (req: Request, action: string, maxRequests = 10) => 
   return current.count > maxRequests;
 };
 
+const isSafeUserError = (error: unknown): error is Error => {
+  if (error instanceof AppError) return true;
+  if (!(error instanceof Error)) return false;
+  // Ne jamais exposer les erreurs Prisma / réseau / système au client
+  const name = error.name || "";
+  if (
+    name.startsWith("Prisma") ||
+    name === "TypeError" ||
+    name === "ReferenceError" ||
+    "code" in error
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const respondWithBadRequest = (res: Response, error: unknown) => {
+  if (!isSafeUserError(error)) {
+    logger.error("Erreur technique interceptée dans AccountAuthController", {
+      error: error instanceof Error ? error.stack : String(error),
+    });
+    return res.status(500).json({
+      message: "Une erreur interne est survenue. Veuillez réessayer plus tard.",
+    });
+  }
   const statusCode = error instanceof AppError ? error.statusCode : 400;
-  return res.status(statusCode).json({
-    message: error instanceof Error ? error.message : "Demande invalide",
-  });
+  return res.status(statusCode).json({ message: error.message });
 };
 
 export const AccountAuthController = {
@@ -155,10 +176,7 @@ export const AccountAuthController = {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
     try {
-      const account = await prisma.user.findUnique({
-        where: { id: accountId },
-        select: { email: true, emailVerifiedAt: true },
-      });
+      const account = await AccountAuthService.getEmailStatus("USER", accountId);
       if (!account) return res.status(404).json({ message: "Compte introuvable." });
       return res.status(200).json(account);
     } catch (error) {
@@ -171,10 +189,7 @@ export const AccountAuthController = {
     const accountId = getAccountId(req);
     if (!accountId) return res.status(401).json({ message: "Session invalide." });
     try {
-      const account = await prisma.superAdmin.findUnique({
-        where: { id: accountId },
-        select: { email: true, emailVerifiedAt: true },
-      });
+      const account = await AccountAuthService.getEmailStatus("SUPER_ADMIN", accountId);
       if (!account) return res.status(404).json({ message: "Compte introuvable." });
       return res.status(200).json(account);
     } catch (error) {

@@ -1,6 +1,6 @@
 import { NextFunction, Response } from "express";
 import { AuthRequest } from "./auth.middleware.js";
-import { SubscriptionService } from "../services/subscription.service.js";
+import { SubscriptionService } from "../modules/subscriptions/subscription.service.js";
 import { ForbiddenError } from "../utils/errors.js";
 import { FeatureCode } from "../database/prisma/generated/prisma/enums.js";
 

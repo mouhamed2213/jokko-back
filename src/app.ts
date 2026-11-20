@@ -1,0 +1,117 @@
+import cors from "cors";
+import express, { Request, Response } from "express";
+import helmet from "helmet";
+import morgan from "morgan";
+import { env } from "./config/env-config.js";
+import { logger, morganStream } from "./config/logger.js";
+import { ErrorHandler } from "./middlewares/error-handler.middleware.js";
+import { apiRateLimiter } from "./middlewares/rate-limit.middleware.js";
+import analyticsRoutes from "./modules/analytics/analytics.routes.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+import cashRoutes from "./modules/cash/cash.routes.js";
+import categoryRoutes from "./modules/categories/category.routes.js";
+import clientRoutes from "./modules/clients/client.routes.js";
+import contactRoutes from "./modules/contact/contact.routes.js";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
+import invoiceRoutes from "./modules/invoices/invoice.routes.js";
+import { maintenanceMiddleware } from "./modules/maintenance/maintenance.middleware.js";
+import maintenanceRoutes from "./modules/maintenance/maintenance.routes.js";
+import notificationRoutes from "./modules/notifications/notification.routes.js";
+import productRoutes from "./modules/products/product.routes.js";
+import saleRoutes from "./modules/sales/sale.routes.js";
+import shopRoutes from "./modules/shops/shop.routes.js";
+import stockRoutes from "./modules/stock/stock.routes.js";
+import subscriptionRoutes from "./modules/subscriptions/subscription.routes.js";
+import superAdminRoutes from "./modules/super-admin/super-admin.routes.js";
+import supplierRoutes from "./modules/suppliers/supplier.routes.js";
+import userRoutes from "./modules/users/user.routes.js";
+
+export function createApp() {
+  const app = express();
+
+  if (env.trustProxyHops > 0) {
+    app.set("trust proxy", env.trustProxyHops);
+  }
+
+  app.use("/api", apiRateLimiter);
+  app.use(express.json());
+
+  const origins = [
+    "https://jokko-business.com",
+    "https://www.jokko-business.com",
+    "http://localhost:4200",
+    "http://localhost:5173",
+  ];
+  const allowedOrigins = env.mode === "production" ? origins : "*";
+
+  app.use(
+    cors({
+      origin:
+        env.mode === "production"
+          ? (origin, callback) => {
+              if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+              } else {
+                callback(new Error("Bloqué par CORS"));
+              }
+            }
+          : "*",
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      credentials: true,
+      exposedHeaders: [
+        "RateLimit-Limit",
+        "RateLimit-Remaining",
+        "RateLimit-Reset",
+        "Retry-After",
+      ],
+    }),
+  );
+
+  app.use(
+    morgan(env.mode === "production" ? "combined" : "dev", {
+      stream: morganStream,
+    }),
+  );
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
+
+  app.get("/", (_req: Request, res: Response) => {
+    res.json({ message: "Jokko Business API v1.0", status: "running" });
+  });
+
+  app.use("/api/auth", authRoutes);
+  app.use("/api/super-admin", superAdminRoutes);
+  app.use("/api/maintenance", maintenanceRoutes);
+
+  app.use("/api", maintenanceMiddleware);
+  app.use("/api/contact", contactRoutes);
+  app.use("/api/users", userRoutes);
+  app.use("/api/categories", categoryRoutes);
+  app.use("/api/products", productRoutes);
+  app.use("/api/clients", clientRoutes);
+  app.use("/api/suppliers", supplierRoutes);
+  app.use("/api/stock", stockRoutes);
+  app.use("/api/sales", saleRoutes);
+  app.use("/api/invoices", invoiceRoutes);
+  app.use("/api/cash", cashRoutes);
+  app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/shop", shopRoutes);
+  app.use("/api/notifications", notificationRoutes);
+  app.use("/api/subscription", subscriptionRoutes);
+  app.use("/api/analytics", analyticsRoutes);
+
+  app.use((req: Request, res: Response) => {
+    logger.warn(`404 — Route non trouvée : ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ message: `Route non trouvée : ${req.originalUrl}` });
+  });
+
+  app.use(ErrorHandler);
+
+  return app;
+}
+
+export const app = createApp();

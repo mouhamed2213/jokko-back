@@ -1,5 +1,5 @@
 import { prisma } from "../../../config/prisma.js";
-import { SubscriptionLifecycleService } from "../../../services/subscription-lifecycle.service.js";
+import { SubscriptionLifecycleService } from "../../subscriptions/subscription-lifecycle.service.js";
 import { LATEST_SUBSCRIPTION_ORDER } from "../../../helpers/subscription-order.js";
 
 type SubscriptionFilters = {

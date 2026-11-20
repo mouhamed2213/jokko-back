@@ -1,135 +1,37 @@
 import { logger } from "../../../config/logger.js";
-import { prisma } from "../../../config/prisma.js";
 import { AuthRequest } from "../../../middlewares/auth.middleware.js";
 
 import { NextFunction, Request, Response } from "express";
-// import { BillingService } from "../services/billing.service.js";
 import { SuperAdminShopService } from "../services/shop.service.js";
 import { ShopArchiveService } from "../services/shop-archive.service.js";
 import { SuperAdminOwnerService } from "../services/owner.service.js";
+import { SuperAdminDashboardService } from "../services/dashboard-stats.service.js";
 import { getAuditActor } from "../../../helpers/audit-logger.js";
 import { BadRequestError } from "../../../utils/errors.js";
 import { SubscriptionManagementService } from "../services/subscription-management.service.js";
 
 export const SuperAdminShopController = {
-  // Identité du Super Admin connecté (utilisée par le frontend pour valider la session)
   me: async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const admin = await prisma.superAdmin.findUnique({
-        where: { id: req.user!.userId },
-        select: { id: true, name: true, email: true },
-      });
-
-      // Token valide mais compte supprimé : session invalide
+      const admin = await SuperAdminDashboardService.getAdminProfile(
+        req.user!.userId,
+      );
       if (!admin) {
         return res.status(401).json({ message: "Session Super Admin invalide" });
       }
-
       return res.status(200).json({ ...admin, role: "SUPER_ADMIN" });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   },
 
   getStats: async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      // Total shops
-      const totalShops = await prisma.shop.count();
-
-      // Shops by status
-      const shopsByStatusGroup = await prisma.shop.groupBy({
-        by: ["status"],
-        _count: { _all: true },
-      });
-      const shopsByStatus: Record<string, number> = {};
-      shopsByStatusGroup.forEach((g: any) => {
-        shopsByStatus[g.status] = g._count._all;
-      });
-
-      // Recent shops
-      const recentShops = await prisma.shop.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          createdAt: true,
-          status: true,
-        },
-      });
-
-      // Recent subscriptions (with plan & shop)
-      // Les abonnements des boutiques secondaires ne sont pas des abonnements facturables.
-      // On ne comptabilise que ceux des boutiques principales.
-      const primaryShopFilter = {
-        shop: { is: { primaryShopId: null } },
-      };
-
-      const recentSubscriptions = await prisma.subscription.findMany({
-        where: primaryShopFilter,
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: {
-          plan: { select: { code: true, name: true, price: true } },
-          shop: { select: { id: true, name: true, email: true } },
-        },
-      });
-
-      // Abonnements groupés par statut et forfait, uniquement pour les principales.
-      const subsGroup = await prisma.subscription.groupBy({
-        by: ["status", "planId"],
-        where: primaryShopFilter,
-        _count: { _all: true },
-      });
-
-      const planIds = Array.from(new Set(subsGroup.map((s: any) => s.planId)));
-      const plans =
-        planIds.length > 0
-          ? await prisma.plan.findMany({ where: { id: { in: planIds } } })
-          : [];
-      const planById: Record<number, any> = {};
-      plans.forEach((p) => (planById[p.id] = p));
-
-      const subscriptionsByStatus: Record<string, number> = {};
-      const subscriptionsByPlan: Record<string, number> = {};
-
-      subsGroup.forEach((g: any) => {
-        subscriptionsByStatus[g.status] =
-          (subscriptionsByStatus[g.status] || 0) + g._count._all;
-
-        const plan = planById[g.planId];
-        const planCode = plan ? plan.code : String(g.planId);
-        subscriptionsByPlan[planCode] =
-          (subscriptionsByPlan[planCode] || 0) + g._count._all;
-      });
-
-      // MRR estimé : uniquement les abonnements actifs des boutiques principales.
-      const activeSubs = await prisma.subscription.findMany({
-        where: { ...primaryShopFilter, status: "ACTIVE" },
-        include: { plan: { select: { code: true, price: true } } },
-      });
-
-      const mrr = activeSubs.reduce((acc, s) => {
-        if (!s.plan || s.plan.code === "FREE") return acc;
-        return acc + (s.plan.price || 0);
-      }, 0);
-
-      return res.status(200).json({
-        totalShops,
-        shopsByStatus,
-        subscriptionsByStatus,
-        subscriptionsByPlan,
-        mrr,
-        recentShops,
-        recentSubscriptions,
-      });
+      const stats = await SuperAdminDashboardService.getPlatformStats();
+      return res.status(200).json(stats);
     } catch (error) {
       logger.error(error);
-      return res
-        .status(500)
-        .json({ message: "Erreur récupération stats", error });
-      next(error);
+      return next(error);
     }
   },
 

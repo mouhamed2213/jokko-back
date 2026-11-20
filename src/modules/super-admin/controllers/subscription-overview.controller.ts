@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { SubscriptionLifecycleService, DEFAULT_GRACE_PERIOD_DAYS, MAX_GRACE_PERIOD_DAYS } from "../../../services/subscription-lifecycle.service.js";
+import { SubscriptionLifecycleService, DEFAULT_GRACE_PERIOD_DAYS, MAX_GRACE_PERIOD_DAYS } from "../../subscriptions/subscription-lifecycle.service.js";
 import { SubscriptionOverviewService } from "../services/subscription-overview.service.js";
 import { BadRequestError } from "../../../utils/errors.js";
 

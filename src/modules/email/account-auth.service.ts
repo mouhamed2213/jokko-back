@@ -398,4 +398,17 @@ export const AccountAuthService = {
       }
     }
   },
+
+  getEmailStatus: async (accountType: AccountType, accountId: number) => {
+    if (accountType === "USER") {
+      return prisma.user.findUnique({
+        where: { id: accountId },
+        select: { email: true, emailVerifiedAt: true },
+      });
+    }
+    return prisma.superAdmin.findUnique({
+      where: { id: accountId },
+      select: { email: true, emailVerifiedAt: true },
+    });
+  },
 };
