@@ -10,7 +10,7 @@ import {
   ForbiddenError,
 } from "../utils/errors.js";
 import { PlanChecker } from "./plan-checker.service.js";
-import { StockService } from "./stock.service.js";
+import { StockService } from "../modules/stock/stock.service.js";
 
 export type ProductPricingInput = {
   purchasePrice: number;

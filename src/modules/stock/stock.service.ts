@@ -1,8 +1,10 @@
-import type { Prisma } from "../database/prisma/generated/prisma/client.js";
-import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
-import { prisma } from "../config/prisma.js";
-import { getUnitLabel } from "../helpers/packaging.js";
-import { BadRequestError, NotFoundError } from "../utils/errors.js";
+import type { Prisma } from "../../database/prisma/generated/prisma/client.js";
+import { PackagingUnit } from "../../database/prisma/generated/prisma/enums.js";
+import { logger } from "../../config/logger.js";
+import { prisma } from "../../config/prisma.js";
+import { getUnitLabel, parsePackagingUnit } from "../../helpers/packaging.js";
+import { BadRequestError, NotFoundError } from "../../utils/errors.js";
+import { sendNotificationToShop } from "../notifications/notification.service.js";
 
 export type StockEntryTxInput = {
   shopId: number;
@@ -300,5 +302,177 @@ export const StockService = {
 
       return { updatedProduct, movement };
     });
+  },
+
+  async addEntry(
+    shopId: number,
+    userId: number,
+    payload: {
+      productId?: number | string;
+      quantity?: number | string;
+      unit?: string;
+      note?: string;
+      supplierId?: number | string;
+      unitCost?: number | string;
+      paidAmount?: number | string;
+      createDebt?: boolean | string;
+    },
+  ) {
+    const parsedProductId = Number(payload.productId);
+    const qty = Number(payload.quantity);
+    if (!parsedProductId || !Number.isInteger(qty) || qty <= 0) {
+      throw new BadRequestError(
+        "productId et quantity (entier > 0) sont obligatoires",
+      );
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { id: parsedProductId, shopId, isActive: true },
+    });
+    if (!product) {
+      throw new NotFoundError("Produit introuvable");
+    }
+
+    const entryUnit = payload.unit ? parsePackagingUnit(payload.unit) : "PIECE";
+    if (entryUnit !== "PIECE" && entryUnit !== product.unitType) {
+      throw new BadRequestError(
+        "L'unité choisie ne correspond pas au conditionnement de ce produit.",
+      );
+    }
+
+    const result = await prisma.$transaction((tx) =>
+      StockService.recordEntryInTx(tx, {
+        shopId,
+        userId,
+        productId: product.id,
+        productName: product.name,
+        purchasePrice: product.purchasePrice,
+        quantity: qty,
+        entryUnit,
+        unitsPerPack: product.unitsPerPack,
+        note: payload.note || null,
+        supplierId: payload.supplierId ? Number(payload.supplierId) : null,
+        unitCost:
+          payload.unitCost !== undefined && payload.unitCost !== ""
+            ? Number(payload.unitCost)
+            : null,
+        paidAmount: payload.paidAmount ? Number(payload.paidAmount) : 0,
+        createDebt: payload.createDebt === true || payload.createDebt === "true",
+      }),
+    );
+
+    logger.info(
+      `📦 Entrée stock — Produit: ${product.id} — Qté: ${qty} (${entryUnit}) — Shop: ${shopId}${payload.supplierId ? ` — Fournisseur: ${payload.supplierId}` : ""}`,
+    );
+
+    return result;
+  },
+
+  async addOut(
+    shopId: number,
+    userId: number,
+    payload: {
+      productId?: number | string;
+      quantity?: number | string;
+      unit?: string;
+      note?: string;
+    },
+  ) {
+    const parsedProductId = Number(payload.productId);
+    const qty = Number(payload.quantity);
+    if (!parsedProductId || !Number.isInteger(qty) || qty <= 0) {
+      throw new BadRequestError(
+        "productId et quantity (entier > 0) sont obligatoires",
+      );
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { id: parsedProductId, shopId, isActive: true },
+      select: { id: true, unitType: true, unitsPerPack: true },
+    });
+    if (!product) {
+      throw new NotFoundError("Produit introuvable");
+    }
+
+    const outUnit = payload.unit ? parsePackagingUnit(payload.unit) : "PIECE";
+    if (outUnit !== "PIECE" && outUnit !== product.unitType) {
+      throw new BadRequestError(
+        "L'unité choisie ne correspond pas au conditionnement de ce produit.",
+      );
+    }
+
+    const { updatedProduct, movement } = await StockService.recordOut(
+      shopId,
+      userId,
+      parsedProductId,
+      qty,
+      payload.note || null,
+      outUnit,
+      product.unitsPerPack,
+    );
+
+    logger.info(
+      `📤 Sortie stock — Produit: ${parsedProductId} — Qté: ${qty} — Shop: ${shopId}`,
+    );
+
+    if (updatedProduct.quantity === 0) {
+      sendNotificationToShop(shopId, "stock_alert", {
+        type: "out_of_stock",
+        outOfStock: [
+          { id: updatedProduct.id, name: updatedProduct.name, quantity: 0 },
+        ],
+        lowStock: [],
+        total: 1,
+      });
+    } else if (updatedProduct.quantity <= updatedProduct.alertThreshold) {
+      sendNotificationToShop(shopId, "stock_alert", {
+        type: "low_stock",
+        lowStock: [
+          {
+            id: updatedProduct.id,
+            name: updatedProduct.name,
+            quantity: updatedProduct.quantity,
+            alertThreshold: updatedProduct.alertThreshold,
+          },
+        ],
+        outOfStock: [],
+        total: 1,
+      });
+    }
+
+    return { updatedProduct, movement };
+  },
+
+  async listMovements(
+    shopId: number,
+    query: { page?: number; limit?: number; productId?: number; type?: string },
+  ) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = { shopId };
+    if (query.productId) where.productId = query.productId;
+    if (query.type) where.type = query.type;
+
+    const [total, movements] = await Promise.all([
+      prisma.stockMovement.count({ where }),
+      prisma.stockMovement.findMany({
+        where,
+        include: {
+          product: true,
+          user: { select: { name: true } },
+          supplier: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data: movements,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   },
 };

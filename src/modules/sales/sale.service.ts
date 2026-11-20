@@ -1,20 +1,25 @@
-import type { Prisma } from "../database/prisma/generated/prisma/client.js";
-import { PackagingUnit } from "../database/prisma/generated/prisma/enums.js";
-import { logger } from "../config/logger.js";
-import { prisma } from "../config/prisma.js";
-import { sendNotificationToShop } from "../modules/notifications/notification.service.js";
+import type { Prisma } from "../../database/prisma/generated/prisma/client.js";
+import { PackagingUnit } from "../../database/prisma/generated/prisma/enums.js";
+import { logger } from "../../config/logger.js";
+import { prisma } from "../../config/prisma.js";
+import { sendNotificationToShop } from "../notifications/notification.service.js";
 import {
   computePriceForUnit,
   getUnitLabel,
   parsePackagingUnit,
-} from "../helpers/packaging.js";
-import { getSaleStatus } from "../controllers/sale.controller.js";
+} from "../../helpers/packaging.js";
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
-} from "../utils/errors.js";
-import { PlanChecker } from "./plan-checker.service.js";
+} from "../../utils/errors.js";
+import { PlanChecker } from "../../services/plan-checker.service.js";
+
+export function getSaleStatus(paid: number, total: number) {
+  if (paid >= total) return "PAID";
+  if (paid > 0) return "PARTIAL";
+  return "UNPAID";
+}
 
 export type Item = {
   productId: number;
@@ -58,6 +63,91 @@ async function generateInvoiceNumberInTx(
 }
 
 export const SaleService = {
+  list: async (
+    shopId: number,
+    query: {
+      status?: string;
+      clientId?: number;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(50, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.SaleWhereInput = { shopId };
+    if (
+      query.status &&
+      ["PAID", "PARTIAL", "UNPAID", "CANCELLED"].includes(query.status)
+    ) {
+      where.status = query.status;
+    }
+    if (query.clientId) where.clientId = query.clientId;
+    if (query.search) {
+      where.OR = [
+        { invoiceNumber: { contains: query.search, mode: "insensitive" } },
+        { customerName: { contains: query.search, mode: "insensitive" } },
+        { client: { name: { contains: query.search, mode: "insensitive" } } },
+        { client: { phone: { contains: query.search, mode: "insensitive" } } },
+        {
+          items: {
+            some: {
+              productName: { contains: query.search, mode: "insensitive" },
+            },
+          },
+        },
+      ];
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [total, sales, salescount] = await Promise.all([
+      prisma.sale.count({ where }),
+      prisma.sale.findMany({
+        where,
+        include: {
+          client: true,
+          items: { include: { product: true } },
+          payments: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.sale.count({
+        where: {
+          shopId,
+          status: { not: "CANCELLED" },
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+    ]);
+
+    return {
+      data: sales,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: { salescount },
+    };
+  },
+
+  getById: async (shopId: number, id: number) => {
+    const sale = await prisma.sale.findFirst({
+      where: { id, shopId },
+      include: {
+        client: true,
+        items: { include: { product: true } },
+        payments: true,
+      },
+    });
+    if (!sale) {
+      throw new NotFoundError("Vente introuvable");
+    }
+    return sale;
+  },
+
   /**
    * Modifie une vente existante (articles, quantités, client...).
    * Interdit si la vente est annulée ou a déjà reçu un paiement.

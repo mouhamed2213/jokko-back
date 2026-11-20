@@ -1,5 +1,5 @@
 import { prisma } from "../../config/prisma.js";
-import { SaleService } from "../../services/sale.service.js";
+import { SaleService } from "../sales/sale.service.js";
 import { NotFoundError } from "../../utils/errors.js";
 import { getFullStorageUrl } from "../../utils/file-upload.js";
 
