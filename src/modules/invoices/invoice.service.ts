@@ -1,11 +1,19 @@
 import { prisma } from "../../config/prisma.js";
-import { SaleService } from "../sales/sale.service.js";
+import {
+  isValidPaymentMethod,
+  type PaymentSplitInput,
+} from "../../helpers/payment-splits.js";
+import {
+  getMixedPaymentSaleIds,
+  SaleService,
+} from "../sales/sale.service.js";
 import { NotFoundError } from "../../utils/errors.js";
 import { getFullStorageUrl } from "../../utils/file-upload.js";
 
 export type ListInvoicesQuery = {
   search?: string;
   status?: string;
+  paymentMethod?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -20,6 +28,15 @@ export const InvoiceService = {
 
     const where: any = { shopId };
     if (query.status) where.status = query.status;
+    if (query.paymentMethod) {
+      const pm = query.paymentMethod.trim().toUpperCase();
+      if (pm === "MIXED") {
+        const mixedIds = await getMixedPaymentSaleIds(shopId);
+        where.id = { in: mixedIds };
+      } else if (isValidPaymentMethod(pm)) {
+        where.payments = { some: { paymentMethod: pm } };
+      }
+    }
 
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {};
@@ -102,10 +119,18 @@ export const InvoiceService = {
   addPayment: async (
     shopId: number,
     saleId: number,
-    amount: number,
+    amount?: number | string,
     note?: string,
     paymentMethod = "CASH",
+    payments?: PaymentSplitInput[],
   ) => {
-    return SaleService.addPayment(shopId, saleId, amount, note, paymentMethod);
+    return SaleService.addPayment(
+      shopId,
+      saleId,
+      amount,
+      note,
+      paymentMethod,
+      payments,
+    );
   },
 };

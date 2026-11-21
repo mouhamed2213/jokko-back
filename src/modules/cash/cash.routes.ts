@@ -61,7 +61,7 @@ router.post(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   validateBody({
     type: { type: "enum", required: true, values: ["IN", "OUT"], label: "Type" },
-    amount: { type: "number", required: true, min: 1, label: "Montant" },
+    amount: { type: "number", required: false, min: 1, label: "Montant" },
     label: { type: "string", required: true, label: "Libellé" },
   }),
   addTransaction,

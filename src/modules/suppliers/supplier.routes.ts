@@ -105,7 +105,7 @@ router.post(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   validateNumericParams("id", "debtId"),
   validateBody({
-    amount: { type: "number", required: true, min: 1, label: "Montant" },
+    amount: { type: "number", required: false, min: 1, label: "Montant" },
   }),
   addSupplierPayment,
 );

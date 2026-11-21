@@ -13,6 +13,7 @@ export const getSales = async (
       status: req.query.status as string | undefined,
       clientId: req.query.clientId ? Number(req.query.clientId) : undefined,
       search: req.query.search as string | undefined,
+      paymentMethod: req.query.paymentMethod as string | undefined,
       page: Number(req.query.page) || 1,
       limit: Number(req.query.limit) || 20,
     });
@@ -49,8 +50,15 @@ export const createSale = async (
       throw new UnauthorizedError("Token invalide ou expiré");
     }
 
-    const { clientId, customerName, paidAmount, note, items, paymentMethod } =
-      req.body;
+    const {
+      clientId,
+      customerName,
+      paidAmount,
+      note,
+      items,
+      paymentMethod,
+      payments,
+    } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new BadRequestError("Au moins un article est requis");
@@ -70,6 +78,7 @@ export const createSale = async (
       paymentMethod,
       items,
       note,
+      payments,
     );
 
     return res
@@ -115,13 +124,14 @@ export const addSalePayment = async (
   next: NextFunction,
 ) => {
   try {
-    const { amount, note, paymentMethod } = req.body;
+    const { amount, note, paymentMethod, payments } = req.body;
     const sale = await SaleService.addPayment(
       req.user!.shopId,
       Number(req.params.id),
-      Number(amount),
+      amount,
       note,
       paymentMethod || "CASH",
+      payments,
     );
     return res
       .status(200)

@@ -1,4 +1,8 @@
 import { prisma } from "../../config/prisma.js";
+import {
+  normalizePaymentSplits,
+  type PaymentSplitInput,
+} from "../../helpers/payment-splits.js";
 import { SubscriptionService } from "../subscriptions/subscription.service.js";
 import {
   BadRequestError,
@@ -547,12 +551,20 @@ export const SupplierService = {
     shopId: number,
     supplierId: number,
     debtId: number,
-    payload: { amount?: number | string; note?: string },
+    payload: {
+      amount?: number | string;
+      note?: string;
+      paymentMethod?: string;
+      payments?: PaymentSplitInput[];
+    },
   ) => {
-    const paymentAmount = Number(payload.amount);
-    if (!paymentAmount || paymentAmount <= 0) {
-      throw new BadRequestError("Montant invalide");
-    }
+    const { splits: paymentSplits, totalPaid: paymentAmount } =
+      normalizePaymentSplits({
+        payments: payload.payments,
+        amount: payload.amount,
+        paymentMethod: payload.paymentMethod,
+        allowZero: false,
+      });
 
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, shopId },
@@ -570,7 +582,7 @@ export const SupplierService = {
     if (debt.status === "PAID") {
       throw new BadRequestError("Cette dette est déjà soldée");
     }
-    if (paymentAmount > debt.remaining) {
+    if (paymentAmount > debt.remaining + 0.001) {
       throw new BadRequestError(
         `Le montant dépasse le reste dû (${debt.remaining} FCFA)`,
       );
@@ -587,17 +599,22 @@ export const SupplierService = {
     }
 
     const newPaid = debt.paidAmount + paymentAmount;
-    const newRemaining = debt.remaining - paymentAmount;
+    const newRemaining = Math.max(0, debt.remaining - paymentAmount);
     const newStatus = newRemaining <= 0 ? "PAID" : "PARTIAL";
 
-    const payment = await prisma.$transaction(async (tx) => {
-      const newPayment = await tx.supplierPayment.create({
-        data: {
-          debtId,
-          amount: paymentAmount,
-          note: payload.note || null,
-        },
-      });
+    const createdPayments = await prisma.$transaction(async (tx) => {
+      const results: Awaited<ReturnType<typeof tx.supplierPayment.create>>[] = [];
+      for (const split of paymentSplits) {
+        const newPayment = await tx.supplierPayment.create({
+          data: {
+            debtId,
+            amount: split.amount,
+            note: payload.note || null,
+            paymentMethod: split.paymentMethod,
+          },
+        });
+        results.push(newPayment);
+      }
 
       await tx.supplierDebt.update({
         where: { id: debtId },
@@ -612,24 +629,32 @@ export const SupplierService = {
         where: { shopId, status: "OPEN" },
       });
       if (cashRegister) {
-        await tx.cashTransaction.create({
-          data: {
-            cashRegisterId: cashRegister.id,
-            type: "OUT",
-            amount: paymentAmount,
-            label: `Paiement fournisseur — ${supplier.name}`,
-            reference: String(supplierId),
-          },
-        });
+        for (const split of paymentSplits) {
+          await tx.cashTransaction.create({
+            data: {
+              cashRegisterId: cashRegister.id,
+              type: "OUT",
+              amount: split.amount,
+              label: `Paiement fournisseur — ${supplier.name}`,
+              reference: String(supplierId),
+              paymentMethod: split.paymentMethod,
+            },
+          });
+        }
         await tx.cashRegister.update({
           where: { id: cashRegister.id },
           data: { totalOut: { increment: paymentAmount } },
         });
       }
 
-      return newPayment;
+      return results;
     });
 
-    return { payment, debtStatus: newStatus, remaining: newRemaining };
+    return {
+      payment: createdPayments[0],
+      payments: createdPayments,
+      debtStatus: newStatus,
+      remaining: newRemaining,
+    };
   },
 };

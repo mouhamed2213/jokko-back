@@ -1,5 +1,9 @@
 import { logger } from "../../config/logger.js";
 import { prisma } from "../../config/prisma.js";
+import {
+  normalizePaymentSplits,
+  type PaymentSplitInput,
+} from "../../helpers/payment-splits.js";
 import { BadRequestError, NotFoundError } from "../../utils/errors.js";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -213,23 +217,25 @@ export const CashService = {
       label?: string;
       reference?: string;
       paymentMethod?: string;
+      payments?: PaymentSplitInput[];
     },
   ) => {
-    const { type, amount, label, reference, paymentMethod } = payload;
+    const { type, amount, label, reference, paymentMethod, payments } = payload;
 
-    if (!type || !amount || !label) {
-      throw new BadRequestError(
-        "Type, montant et libellé sont obligatoires",
-      );
+    if (!type || !label) {
+      throw new BadRequestError("Type et libellé sont obligatoires");
     }
     if (!["IN", "OUT"].includes(type)) {
       throw new BadRequestError("Type doit être IN ou OUT");
     }
 
-    const method =
-      paymentMethod && VALID_METHODS.includes(paymentMethod)
-        ? paymentMethod
-        : "CASH";
+    const { splits: paymentSplits, totalPaid: amountNum } =
+      normalizePaymentSplits({
+        payments,
+        amount,
+        paymentMethod,
+        allowZero: false,
+      });
 
     const cashRegister = await prisma.cashRegister.findFirst({
       where: { shopId, status: "OPEN" },
@@ -240,31 +246,36 @@ export const CashService = {
       );
     }
 
-    const amountNum = Number(amount);
+    const transactions = await prisma.$transaction(async (tx) => {
+      const created: Awaited<ReturnType<typeof tx.cashTransaction.create>>[] = [];
+      for (const split of paymentSplits) {
+        const entry = await tx.cashTransaction.create({
+          data: {
+            cashRegisterId: cashRegister.id,
+            type,
+            amount: split.amount,
+            label,
+            reference: reference || null,
+            paymentMethod: split.paymentMethod,
+          },
+        });
+        created.push(entry);
+      }
 
-    const [transaction] = await prisma.$transaction([
-      prisma.cashTransaction.create({
-        data: {
-          cashRegisterId: cashRegister.id,
-          type,
-          amount: amountNum,
-          label,
-          reference: reference || null,
-          paymentMethod: method,
-        },
-      }),
-      prisma.cashRegister.update({
+      await tx.cashRegister.update({
         where: { id: cashRegister.id },
         data:
           type === "IN"
             ? { totalIn: { increment: amountNum } }
             : { totalOut: { increment: amountNum } },
-      }),
-    ]);
+      });
+
+      return created;
+    });
 
     logger.info(
       `💳 Transaction manuelle — ${type} — ${amountNum} FCFA — "${label}" — Shop: ${shopId}`,
     );
-    return transaction;
+    return transactions.length === 1 ? transactions[0] : transactions;
   },
 };

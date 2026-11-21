@@ -11,6 +11,7 @@ export const getInvoices = async (
     const result = await InvoiceService.list(req.user!.shopId, {
       search: req.query.search as string | undefined,
       status: req.query.status as string | undefined,
+      paymentMethod: req.query.paymentMethod as string | undefined,
       dateFrom: req.query.dateFrom as string | undefined,
       dateTo: req.query.dateTo as string | undefined,
       page: Number(req.query.page) || 1,
@@ -44,13 +45,14 @@ export const addInvoicePayment = async (
   next: NextFunction,
 ) => {
   try {
-    const { amount, note, paymentMethod } = req.body;
+    const { amount, note, paymentMethod, payments } = req.body;
     const invoice = await InvoiceService.addPayment(
       req.user!.shopId,
       Number(req.params.id),
-      Number(amount),
+      amount,
       note,
       paymentMethod || "CASH",
+      payments,
     );
     return res.status(200).json({
       message: "Paiement enregistré sur la facture",

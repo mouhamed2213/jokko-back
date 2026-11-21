@@ -9,6 +9,11 @@ import {
   parsePackagingUnit,
 } from "../../helpers/packaging.js";
 import {
+  isValidPaymentMethod,
+  normalizePaymentSplits,
+  type PaymentSplitInput,
+} from "../../helpers/payment-splits.js";
+import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
@@ -62,6 +67,27 @@ async function generateInvoiceNumberInTx(
   return `${prefix}${String(nextSeq + offset).padStart(5, "0")}`;
 }
 
+export async function getMixedPaymentSaleIds(shopId: number): Promise<number[]> {
+  const rows = await prisma.salePayment.findMany({
+    where: { sale: { shopId } },
+    select: { saleId: true, paymentMethod: true },
+  });
+  const methodsBySale = new Map<number, Set<string>>();
+  for (const row of rows) {
+    let set = methodsBySale.get(row.saleId);
+    if (!set) {
+      set = new Set();
+      methodsBySale.set(row.saleId, set);
+    }
+    set.add(row.paymentMethod || "CASH");
+  }
+  const mixedIds: number[] = [];
+  for (const [saleId, methods] of methodsBySale.entries()) {
+    if (methods.size > 1) mixedIds.push(saleId);
+  }
+  return mixedIds;
+}
+
 export const SaleService = {
   list: async (
     shopId: number,
@@ -69,6 +95,7 @@ export const SaleService = {
       status?: string;
       clientId?: number;
       search?: string;
+      paymentMethod?: string;
       page?: number;
       limit?: number;
     },
@@ -85,6 +112,15 @@ export const SaleService = {
       where.status = query.status;
     }
     if (query.clientId) where.clientId = query.clientId;
+    if (query.paymentMethod) {
+      const pm = query.paymentMethod.trim().toUpperCase();
+      if (pm === "MIXED") {
+        const mixedIds = await getMixedPaymentSaleIds(shopId);
+        where.id = { in: mixedIds };
+      } else if (isValidPaymentMethod(pm)) {
+        where.payments = { some: { paymentMethod: pm } };
+      }
+    }
     if (query.search) {
       where.OR = [
         { invoiceNumber: { contains: query.search, mode: "insensitive" } },
@@ -378,6 +414,7 @@ export const SaleService = {
     paymentMethod: string | undefined,
     items: Item[],
     note: string | undefined,
+    payments?: PaymentSplitInput[],
   ) => {
     const subscription = await PlanChecker.plan(shopId, shopOwnerId);
     if (!subscription) {
@@ -502,16 +539,21 @@ export const SaleService = {
 
     const totalAmount = resolvedItems.reduce((sum, i) => sum + i.lineTotal, 0);
 
-    const paid =
+    const hasExplicitSplits = Array.isArray(payments) && payments.length > 0;
+    const fallbackPaidAmount =
       paidAmount !== undefined && paidAmount !== null && paidAmount !== ""
-        ? Number(paidAmount)
+        ? paidAmount
         : totalAmount;
 
-    if (!Number.isFinite(paid) || paid < 0 || paid > totalAmount) {
-      throw new BadRequestError("Montant payé invalide");
-    }
+    const { splits: paymentSplits, totalPaid: paid } = normalizePaymentSplits({
+      payments: hasExplicitSplits ? payments : undefined,
+      amount: hasExplicitSplits ? undefined : fallbackPaidAmount,
+      paymentMethod,
+      maxAmount: totalAmount,
+      allowZero: true,
+    });
 
-    const remaining = totalAmount - paid;
+    const remaining = Math.max(0, totalAmount - paid);
 
     // Règle métier : fiche client obligatoire pour toute vente partielle ou à crédit
     if (remaining > 0 && !clientId) {
@@ -531,7 +573,6 @@ export const SaleService = {
     }
 
     const status = getSaleStatus(paid, totalAmount);
-    const method = paymentMethod || "CASH";
 
     // 3. Transaction atomique (vente + paiements + stock + caisse) avec retry en cas de collision de numéro
     let sale: any = null;
@@ -602,14 +643,17 @@ export const SaleService = {
                   totalAmount: item.lineTotal,
                 })),
               },
-              ...(paid > 0
+              ...(paymentSplits.length > 0
                 ? {
                     payments: {
-                      create: {
-                        amount: paid,
-                        note: "Paiement initial",
-                        paymentMethod: method,
-                      },
+                      create: paymentSplits.map((split) => ({
+                        amount: split.amount,
+                        note:
+                          paymentSplits.length > 1
+                            ? "Paiement initial (mixte)"
+                            : "Paiement initial",
+                        paymentMethod: split.paymentMethod,
+                      })),
                     },
                   }
                 : {}),
@@ -638,20 +682,22 @@ export const SaleService = {
             });
           }
 
-          // Encaissement en caisse DANS la transaction
-          if (paid > 0) {
+          // Encaissement en caisse DANS la transaction (1 ligne par mode de paiement)
+          if (paymentSplits.length > 0) {
             const clientLabel =
               newSale.client?.name || newSale.customerName || "Client";
-            await tx.cashTransaction.create({
-              data: {
-                cashRegisterId: cashRegister.id,
-                type: "IN",
-                amount: paid,
-                label: `Vente ${invoiceNumber} — ${clientLabel}`,
-                reference: invoiceNumber,
-                paymentMethod: method,
-              },
-            });
+            for (const split of paymentSplits) {
+              await tx.cashTransaction.create({
+                data: {
+                  cashRegisterId: cashRegister.id,
+                  type: "IN",
+                  amount: split.amount,
+                  label: `Vente ${invoiceNumber} — ${clientLabel}`,
+                  reference: invoiceNumber,
+                  paymentMethod: split.paymentMethod,
+                },
+              });
+            }
             await tx.cashRegister.update({
               where: { id: cashRegister.id },
               data: { totalIn: { increment: paid } },
@@ -710,16 +756,18 @@ export const SaleService = {
   addPayment: async (
     shopId: number,
     saleId: number,
-    amount: number,
+    amount?: number | string,
     note?: string,
     paymentMethod = "CASH",
+    payments?: PaymentSplitInput[],
   ) => {
-    const paymentAmount = Number(amount);
-    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-      throw new BadRequestError("Montant invalide");
-    }
-
-    const method = paymentMethod || "CASH";
+    const { splits: paymentSplits, totalPaid: paymentAmount } =
+      normalizePaymentSplits({
+        payments,
+        amount,
+        paymentMethod,
+        allowZero: false,
+      });
 
     const updatedSale = await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findFirst({
@@ -735,7 +783,7 @@ export const SaleService = {
       if (sale.remaining <= 0) {
         throw new BadRequestError("Cette facture est déjà totalement soldée");
       }
-      if (paymentAmount > sale.remaining) {
+      if (paymentAmount > sale.remaining + 0.001) {
         throw new BadRequestError(
           `Le montant dépasse le reste à payer (${sale.remaining} FCFA)`,
         );
@@ -755,14 +803,16 @@ export const SaleService = {
       const newRemaining = Math.max(0, sale.remaining - paymentAmount);
       const newStatus = getSaleStatus(newPaid, sale.totalAmount);
 
-      await tx.salePayment.create({
-        data: {
-          saleId,
-          amount: paymentAmount,
-          note: note || null,
-          paymentMethod: method,
-        },
-      });
+      for (const split of paymentSplits) {
+        await tx.salePayment.create({
+          data: {
+            saleId,
+            amount: split.amount,
+            note: note || null,
+            paymentMethod: split.paymentMethod,
+          },
+        });
+      }
 
       const updated = await tx.sale.update({
         where: { id: saleId },
@@ -780,16 +830,18 @@ export const SaleService = {
 
       const clientLabel =
         updated.client?.name || updated.customerName || "Client";
-      await tx.cashTransaction.create({
-        data: {
-          cashRegisterId: cashRegister.id,
-          type: "IN",
-          amount: paymentAmount,
-          label: `Règlement facture ${sale.invoiceNumber || `#${saleId}`} — ${clientLabel}`,
-          reference: sale.invoiceNumber || String(saleId),
-          paymentMethod: method,
-        },
-      });
+      for (const split of paymentSplits) {
+        await tx.cashTransaction.create({
+          data: {
+            cashRegisterId: cashRegister.id,
+            type: "IN",
+            amount: split.amount,
+            label: `Règlement facture ${sale.invoiceNumber || `#${saleId}`} — ${clientLabel}`,
+            reference: sale.invoiceNumber || String(saleId),
+            paymentMethod: split.paymentMethod,
+          },
+        });
+      }
       await tx.cashRegister.update({
         where: { id: cashRegister.id },
         data: { totalIn: { increment: paymentAmount } },
@@ -798,8 +850,11 @@ export const SaleService = {
       return updated;
     });
 
+    const methodsSummary = paymentSplits
+      .map((s) => `${s.paymentMethod}:${s.amount}`)
+      .join(", ");
     logger.info(
-      `💰 Paiement ajouté — Vente #${saleId} — Montant: ${paymentAmount} FCFA (${method}) — Shop: ${shopId}`,
+      `💰 Paiement ajouté — Vente #${saleId} — Montant: ${paymentAmount} FCFA (${methodsSummary}) — Shop: ${shopId}`,
     );
 
     return updatedSale;

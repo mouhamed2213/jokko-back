@@ -48,7 +48,7 @@ router.patch(
   authorizeRoles("ADMIN", "EMPLOYEE"),
   validateNumericParams("id"),
   validateBody({
-    amount: { type: "number", required: true, min: 1, label: "Montant" },
+    amount: { type: "number", required: false, min: 1, label: "Montant" },
   }),
   addSalePayment,
 );
